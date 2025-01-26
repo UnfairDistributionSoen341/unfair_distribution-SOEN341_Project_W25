@@ -47,4 +47,5 @@
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1     | Task Rundown Presentation - Aaida Shared the Planning and Burntdown Chart                                                                               |
 | 2     | Overview of Sprint 1 Planning Document with the team and rough analysis                                                                                 |
+| 3     | Nayla removed task that were not doable based on the team members skillset                                                                              |
 
