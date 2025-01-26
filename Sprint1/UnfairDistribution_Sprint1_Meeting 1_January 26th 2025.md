@@ -15,7 +15,7 @@
         </tr>
         <tr>
           <td>Meeting Format</td>
-          <td>In Person</td>
+          <td>Online</td>
         </tr>
       </table>
     </td>
