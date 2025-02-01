@@ -47,7 +47,6 @@
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1     | Discussed if the Team wanted to user a framework for the project, the team agreed that it was not needed until notice due to the learning curve         |
 | 2     | Discussed and created the list of issues for sprint one, and created them on github with the team                                                       |
-| 3     | Seperated the tasks based on our current knowledge, Yu would work ont he database creation (backend), Aaida on the encryption (back-end), Ali and Hanna 
-on the styling and webpages (front end), Nayla on the sign-up, login inputs and validation (back-end)                                                             |
+| 3     | Seperated the tasks based on our current knowledge, Yu would work ont he database creation (backend), Aaida on the encryption (back-end), Ali and Hanna on the styling and webpages (front end), Nayla on the sign-up, login inputs and validation (back-end)                                                             |
 
 
