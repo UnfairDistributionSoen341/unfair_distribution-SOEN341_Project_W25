@@ -11,7 +11,7 @@
         </tr>
         <tr>
           <td>Meeting Time</td>
-          <td>2:45 PM - 4:45 PM (1 hour 45 min)</td>
+          <td>2:45 PM - 4:25 PM (1 hour 40 min)</td>
         </tr>
         <tr>
           <td>Meeting Format</td>
