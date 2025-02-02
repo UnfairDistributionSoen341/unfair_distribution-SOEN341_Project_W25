@@ -8,49 +8,93 @@
 </head>
 
 <body>
-    <div class="container">
-        <h2>Sign Up</h2>
 
-        <!-- change submit.php to whatever the database file name is -->
-        <form action="submit.php" method="POST" id="signupForm">
+    <div class="signup-container">
+        <h2>Sign Up</h2>
+        
+        <form id="registerForm">
             <label for="username">Username</label>
-            <input type="text" id="username" name="username" required>
-        
+            <input type="text" id="username" name="username" placeholder="Enter your username" required>
+
             <label for="email">Email</label>
-            <input type="email" id="email" name="email" required>
-        
+            <input type="email" id="email" name="email" placeholder="Enter your email" required>
+
             <label for="password">Password</label>
-            <input type="password" id="password" name="password" required>
-        
+            <input type="password" id="password" name="password" placeholder="Enter your password" required>
+
             <button type="submit">Sign Up</button>
-        
-            <p id="errorMessage" style="color: red;"></p> <!-- To display error messages -->
         </form>
-        
-        <script>
-        document.getElementById("signupForm").addEventListener("submit", function(event) {
-            event.preventDefault(); // Prevent default form submission
-        
-            let form = this;
-            let formData = new FormData(form);
-        
-            // change the name of the database
-            fetch("submit.php", {
-                method: "POST",
-                body: formData
-            })
-            .then(response => response.text())
-            .then(data => {
-                if (data.includes("Error")) {
-                    document.getElementById("errorMessage").innerText = data; // Show error message
-                } else {
-                    alert("Sign-up successful!");
-                    form.reset();
-                }
-            })
-            .catch(error => console.error("Error:", error));
-        });
-        </script>
+
+        <p class="login-link">Already have an account? <a href="user_login.html">Log in</a></p>
+        <p id="message" class="message"></p>
     </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+        // 1️⃣ Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
+            authDomain: "project-8042491080443698183.firebaseapp.com",
+            databaseURL: "https://project-8042491080443698183-default-rtdb.firebaseio.com",
+            projectId: "project-8042491080443698183",
+            storageBucket: "project-8042491080443698183.firebasestorage.app",
+            messagingSenderId: "583304911847",
+            appId: "1:583304911847:web:8dfe3e5c016062dd457b42",
+            measurementId: "G-KQMXKEVNQ7"
+        };
+
+        // 2️⃣ Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
+
+        // 3️⃣ Event Listener for Registration
+        document.getElementById("registerForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+
+            // Get user input values
+            const username = document.getElementById("username").value.trim();
+            const email = document.getElementById("email").value.trim();
+            const password = document.getElementById("password").value.trim();
+
+            if (!username || !email || !password) {
+                document.getElementById("message").innerText = "❌ Please fill in all required fields!";
+                return;
+            }
+
+            // 4️⃣ Register User in Firebase Authentication
+            createUserWithEmailAndPassword(auth, email, password)
+                .then((userCredential) => {
+                    const user = userCredential.user;
+                    console.log("✅ User registered successfully!", user);
+
+                    // 5️⃣ Store User Info in Firebase Database
+                    return set(ref(db, "users/" + user.uid), {
+                        username: username,
+                        email: email,
+                        uid: user.uid
+                    });
+                })
+                .then(() => {
+                    console.log("✅ Data written successfully!");
+                    document.getElementById("message").innerText = "✅ Registration successful!";
+                    
+                    // Clear fields after success
+                    document.getElementById("username").value = "";
+                    document.getElementById("email").value = "";
+                    document.getElementById("password").value = "";
+                })
+                .catch((error) => {
+                    console.error("❌ Registration failed:", error.message);
+                    document.getElementById("message").innerText = "❌ Registration failed: " + error.message;
+                });
+        });
+    </script>
+
 </body>
 </html>
