@@ -1,29 +1,56 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>users registration</title>
+    <title>Sign Up</title>
     <link rel="stylesheet" href="signup.css">
 </head>
+
 <body>
-<div class="signup-container"> <!-- makesure compare to our CSS -->
-    <h2>register</h2>
-    <form id="registerForm">
-        <label for="username">username：</label>
-        <input type="text" id="username" required>
+    <div class="container">
+        <h2>Sign Up</h2>
 
-        <label for="email">email：</label>
-        <input type="email" id="email" required>
-
-        <label for="password">password：</label>
-        <input type="password" id="password" required>
-
-        <button type="submit">sign up</button>
-    </form>
-    <p id="message"></p>
-</div>
-
-<script type="module" src="register.js"></script> <!-- loading js file -->
+        <!-- change submit.php to whatever the database file name is -->
+        <form action="submit.php" method="POST" id="signupForm">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" required>
+        
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required>
+        
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+        
+            <button type="submit">Sign Up</button>
+        
+            <p id="errorMessage" style="color: red;"></p> <!-- To display error messages -->
+        </form>
+        
+        <script>
+        document.getElementById("signupForm").addEventListener("submit", function(event) {
+            event.preventDefault(); // Prevent default form submission
+        
+            let form = this;
+            let formData = new FormData(form);
+        
+            // change the name of the database
+            fetch("submit.php", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.text())
+            .then(data => {
+                if (data.includes("Error")) {
+                    document.getElementById("errorMessage").innerText = data; // Show error message
+                } else {
+                    alert("Sign-up successful!");
+                    form.reset();
+                }
+            })
+            .catch(error => console.error("Error:", error));
+        });
+        </script>
+    </div>
 </body>
 </html>
