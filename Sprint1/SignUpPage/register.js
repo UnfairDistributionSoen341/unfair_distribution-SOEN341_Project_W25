@@ -2,7 +2,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { hashPassword } from './hashUtils.js'; // Import the hashing function
+import { hashPassword } from './hashUtils.js'; 
 
 // 2️⃣ Firebase set up
 const firebaseConfig = {
