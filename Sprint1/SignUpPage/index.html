@@ -25,7 +25,8 @@
             <button type="submit">Sign Up</button>
         </form>
 
-        <p class="login-link">Already have an account? <a href="user_login.html">Log in</a></p>
+        <p class="login-link">Already have an account? <a href="./login_page/user_login.html">Log in</a></p>
+        
         <p id="message" class="message"></p>
     </div>
 
@@ -82,12 +83,12 @@
                 })
                 .then(() => {
                     console.log("✅ Data written successfully!");
-                    document.getElementById("message").innerText = "✅ Registration successful!";
+                    document.getElementById("message").innerText = "✅ Registration successful! Redirecting...";
                     
-                    // Clear fields after success
-                    document.getElementById("username").value = "";
-                    document.getElementById("email").value = "";
-                    document.getElementById("password").value = "";
+                    // 6️⃣ Redirect to login page after 2 seconds
+                    setTimeout(() => {
+                        window.location.href = "./login_page/user_login.html";
+                    }, 2000);
                 })
                 .catch((error) => {
                     console.error("❌ Registration failed:", error.message);
