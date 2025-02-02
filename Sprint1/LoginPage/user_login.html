@@ -14,17 +14,98 @@
         <!-- Error message if redirected with an error -->
         <p id="error-message" class="error-message"></p>
 
-        <!-- chnage the name of the database -->
-        <form action="login_process.php" method="POST">
-            <input type="text" name="user_input" placeholder="Enter your username or email" required>
-            <input type="password" name="password" placeholder="Enter your password" required>
+        <!-- Login form -->
+        <form id="loginForm">
+            <input type="text" id="user_input" name="user_input" placeholder="Enter your username or email" required>
+            <input type="password" id="password" name="password" placeholder="Enter your password" required>
             <button type="submit">Login</button>
         </form>
 
         <p>Don't have an account? <a href="user_signup.html">Sign up</a></p>
     </div>
 
-    <script>
+    <!-- Firebase and login script -->
+    <script type="module">
+        // Import Firebase SDK
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { comparePassword } from './hashUtils.js'; // Import the password comparison function
+
+        // Firebase set up
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
+            authDomain: "project-8042491080443698183.firebaseapp.com",
+            databaseURL: "https://project-8042491080443698183-default-rtdb.firebaseio.com",
+            projectId: "project-8042491080443698183",
+            storageBucket: "project-8042491080443698183.firebasestorage.app",
+            messagingSenderId: "583304911847",
+            appId: "1:583304911847:web:8dfe3e5c016062dd457b42",
+            measurementId: "G-KQMXKEVNQ7"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
+
+        // Event listener for login form submission
+        document.getElementById("loginForm").addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            // Get user info
+            const userInput = document.getElementById("user_input").value.trim();
+            const password = document.getElementById("password").value.trim();
+
+            if (!userInput || !password) {
+                document.getElementById("error-message").innerText = "❌ Please fill in all required fields!";
+                return;
+            }
+
+            try {
+                // Fetch the user's data from the Realtime Database
+                const usersRef = ref(db, "users");
+                const snapshot = await get(usersRef);
+
+                if (snapshot.exists()) {
+                    const users = snapshot.val();
+                    let userFound = false;
+
+                    // Loop through users to find a match for username or email
+                    for (const uid in users) {
+                        const user = users[uid];
+                        if (user.username === userInput || user.email === userInput) {
+                            userFound = true;
+
+                            // Compare the entered password with the hashed password
+                            const isMatch = await comparePassword(password, user.hashedPassword);
+
+                            if (isMatch) {
+                                // Sign in with Firebase Authentication
+                                const userCredential = await signInWithEmailAndPassword(auth, user.email, password);
+                                console.log("✅ User logged in successfully!：", userCredential.user);
+
+                                // Redirect to the dashboard or another page
+                                window.location.href = "/dashboard.html";
+                            } else {
+                                document.getElementById("error-message").innerText = "❌ Invalid password. Try again.";
+                            }
+                            break;
+                        }
+                    }
+
+                    if (!userFound) {
+                        document.getElementById("error-message").innerText = "❌ User not found. Please sign up.";
+                    }
+                } else {
+                    document.getElementById("error-message").innerText = "❌ No users found in the database.";
+                }
+            } catch (error) {
+                console.error("❌ Login failed：", error.message);
+                document.getElementById("error-message").innerText = "❌ Login failed：" + error.message;
+            }
+        });
+
         // Check if there is an error in the URL and display an error message
         const params = new URLSearchParams(window.location.search);
         if (params.has("error") && params.get("error") === "invalid_credentials") {
