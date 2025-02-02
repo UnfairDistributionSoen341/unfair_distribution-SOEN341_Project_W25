@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="login.css">
+</head>
+<body>
+
+    <div class="login-container">
+        <h2>Login</h2>
+        
+        <!-- Error message if redirected with an error -->
+        <p id="error-message" class="error-message"></p>
+
+        <!-- chnage the name of the database -->
+        <form action="login_process.php" method="POST">
+            <input type="text" name="user_input" placeholder="Enter your username or email" required>
+            <input type="password" name="password" placeholder="Enter your password" required>
+            <button type="submit">Login</button>
+        </form>
+
+        <p>Don't have an account? <a href="user_signup.html">Sign up</a></p>
+    </div>
+
+    <script>
+        // Check if there is an error in the URL and display an error message
+        const params = new URLSearchParams(window.location.search);
+        if (params.has("error") && params.get("error") === "invalid_credentials") {
+            document.getElementById("error-message").innerText = "Invalid username, email, or password. Try again.";
+        }
+    </script>
+
+</body>
+</html>
