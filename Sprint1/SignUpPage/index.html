@@ -15,6 +15,7 @@
         <form id="registerForm">
             <label for="username">Username</label>
             <input type="text" id="username" name="username" placeholder="Enter your username" required>
+            <p id="usernameMessage" class="message"></p> <!-- Message for username check -->
 
             <label for="email">Email</label>
             <input type="email" id="email" name="email" placeholder="Enter your email" required>
@@ -22,7 +23,7 @@
             <label for="password">Password</label>
             <input type="password" id="password" name="password" placeholder="Enter your password" required>
 
-            <button type="submit">Sign Up</button>
+            <button type="submit" id="signupButton" disabled>Sign Up</button>
         </form>
 
         <p class="login-link">Already have an account? <a href="../login_page/user_login.html">Login</a></p>
@@ -34,7 +35,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
-        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+        import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
@@ -53,13 +54,65 @@
         const auth = getAuth(app);
 
         console.log("🔥 Firebase initialized:", app);
-        console.log("🔑 Auth instance:", auth);
-        console.log("📂 Database instance:", db);
 
+        // Get elements
+        const usernameInput = document.getElementById("username");
+        const usernameMessage = document.getElementById("usernameMessage");
+        const signupButton = document.getElementById("signupButton");
+
+        // 1️⃣ Check if username exists in database when typing
+        usernameInput.addEventListener("input", () => {
+            const username = usernameInput.value.trim();
+            if (username === "") {
+                usernameMessage.innerText = "";
+                signupButton.disabled = true;
+                return;
+            }
+
+            console.log("🟢 Checking if username exists...");
+
+            const dbRef = ref(db);
+            get(child(dbRef, "users"))
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        let usernameExists = false;
+
+                        snapshot.forEach((childSnapshot) => {
+                            if (childSnapshot.val().username.toLowerCase() === username.toLowerCase()) {
+                                usernameExists = true;
+                            }
+                        });
+
+                        if (usernameExists) {
+                            console.log("❌ Username already taken.");
+                            usernameMessage.innerText = "❌ Username is already taken. Please choose another.";
+                            usernameMessage.style.color = "red";
+                            signupButton.disabled = true;
+                        } else {
+                            console.log("✅ Username is available.");
+                            usernameMessage.innerText = "✅ Username is available.";
+                            usernameMessage.style.color = "green";
+                            signupButton.disabled = false;
+                        }
+                    } else {
+                        console.log("✅ No users found, username is available.");
+                        usernameMessage.innerText = "✅ Username is available.";
+                        usernameMessage.style.color = "green";
+                        signupButton.disabled = false;
+                    }
+                })
+                .catch((error) => {
+                    console.error("❌ Error checking username:", error.message);
+                    usernameMessage.innerText = "❌ Error checking username. Try again.";
+                    signupButton.disabled = true;
+                });
+        });
+
+        // 2️⃣ Register user if username is valid
         document.getElementById("registerForm").addEventListener("submit", function(event) {
             event.preventDefault();
 
-            const username = document.getElementById("username").value.trim();
+            const username = usernameInput.value.trim();
             const email = document.getElementById("email").value.trim();
             const password = document.getElementById("password").value.trim();
 
@@ -68,12 +121,12 @@
                 return;
             }
 
-            console.log("🟢 Attempting to register user...");
+            console.log("🟢 Proceeding with registration...");
 
             createUserWithEmailAndPassword(auth, email, password)
                 .then((userCredential) => {
                     console.log("✅ User registered successfully!", userCredential.user);
-                    
+
                     return set(ref(db, "users/" + userCredential.user.uid), {
                         username: username,
                         email: email,
@@ -84,11 +137,9 @@
                     console.log("✅ Data written successfully!");
                     document.getElementById("message").innerText = "✅ Registration successful! Redirecting...";
                     
-                    console.log("✅ Redirecting to login page in 2 seconds...");
-                    
                     setTimeout(() => {
                         console.log("➡️ Now redirecting...");
-                        window.location.href = "./login_page/user_login.html";  // ✅ Fixed relative path
+                        window.location.href = "../login_page/user_login.html";
                     }, 2000);
                 })
                 .catch((error) => {
