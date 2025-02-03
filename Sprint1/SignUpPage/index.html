@@ -25,19 +25,17 @@
             <button type="submit">Sign Up</button>
         </form>
 
-        <p class="login-link">Already have an account? <a href="../login/user_login.html">Log in</a></p>
-        
+        <p class="login-link">Already have an account? <a href="../login_page/user_login.html">Login</a></p>
+
         <p id="message" class="message"></p>
     </div>
 
     <!-- Firebase SDK -->
     <script type="module">
-        // Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
         import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
 
-        // 1️⃣ Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
             authDomain: "project-8042491080443698183.firebaseapp.com",
@@ -49,16 +47,18 @@
             measurementId: "G-KQMXKEVNQ7"
         };
 
-        // 2️⃣ Initialize Firebase
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const auth = getAuth(app);
 
-        // 3️⃣ Event Listener for Registration
+        console.log("🔥 Firebase initialized:", app);
+        console.log("🔑 Auth instance:", auth);
+        console.log("📂 Database instance:", db);
+
         document.getElementById("registerForm").addEventListener("submit", function(event) {
             event.preventDefault();
 
-            // Get user input values
             const username = document.getElementById("username").value.trim();
             const email = document.getElementById("email").value.trim();
             const password = document.getElementById("password").value.trim();
@@ -68,26 +68,27 @@
                 return;
             }
 
-            // 4️⃣ Register User in Firebase Authentication
+            console.log("🟢 Attempting to register user...");
+
             createUserWithEmailAndPassword(auth, email, password)
                 .then((userCredential) => {
-                    const user = userCredential.user;
-                    console.log("✅ User registered successfully!", user);
-
-                    // 5️⃣ Store User Info in Firebase Database
-                    return set(ref(db, "users/" + user.uid), {
+                    console.log("✅ User registered successfully!", userCredential.user);
+                    
+                    return set(ref(db, "users/" + userCredential.user.uid), {
                         username: username,
                         email: email,
-                        uid: user.uid
+                        uid: userCredential.user.uid
                     });
                 })
                 .then(() => {
                     console.log("✅ Data written successfully!");
                     document.getElementById("message").innerText = "✅ Registration successful! Redirecting...";
                     
-                    // 6️⃣ Redirect to login page after 2 seconds
+                    console.log("✅ Redirecting to login page in 2 seconds...");
+                    
                     setTimeout(() => {
-                        window.location.href = "./login_page/user_login.html";
+                        console.log("➡️ Now redirecting...");
+                        window.location.href = "./login_page/user_login.html";  // ✅ Fixed relative path
                     }, 2000);
                 })
                 .catch((error) => {
