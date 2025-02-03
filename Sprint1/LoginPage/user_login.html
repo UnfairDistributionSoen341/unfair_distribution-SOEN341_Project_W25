@@ -21,7 +21,7 @@
             <button type="submit">Login</button>
         </form>
 
-        <p class="signup-link">Don't have an account? <a href="../signup/index.html">Sign up</a></p>
+        <p class="signup-link">Don't have an account? <a href="../signup_page/index.html">Sign up</a></p>
         <p id="message" class="message"></p>
     </div>
 
@@ -70,7 +70,8 @@
                     
                     // Redirect to Dashboard after successful login
                     setTimeout(() => {
-                        window.location.href = "dashboard.html";
+                        console.log("➡️ Now redirecting...");
+                        window.location.href = "../signup_page/index.html";
                     }, 2000);
                 })
                 .catch((error) => {
