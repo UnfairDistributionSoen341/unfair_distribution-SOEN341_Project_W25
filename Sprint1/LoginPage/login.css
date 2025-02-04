@@ -90,3 +90,6 @@ button:hover {
 .signup-link a:hover {
     text-decoration: underline;
 }
+.forgot-password {
+     text-align: right;
+     margin-right: -160px; }
