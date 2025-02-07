@@ -10,8 +10,8 @@ With a clean interface and robust privacy options, ChatHaven is the perfect hub 
 
 
 Team members:
-Nayla Nocera-40283927
-Yu HU- 40161963
-Aaida Hossain- 40281796
-Ali Issa-40247851
-Hanna-Anthony Khoury- 40228573
+Nayla Nocera-40283927 (Mixed) Scrum-Master
+Yu HU- 40161963 (Mixed)
+Aaida Hossain- 40281796 (Mixed)
+Ali Issa-40247851 (Front-End)
+Hanna-Anthony Khoury- 40228573 (Mixed)
