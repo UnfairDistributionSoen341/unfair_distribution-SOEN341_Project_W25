@@ -11,7 +11,7 @@
         </tr>
         <tr>
           <td>Meeting Time</td>
-          <td>10:30 AM -  ()</td>
+          <td>10:30 AM - 11 AM (30 minutes)</td>
         </tr>
         <tr>
           <td>Meeting Format</td>
