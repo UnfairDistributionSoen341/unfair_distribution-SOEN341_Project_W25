@@ -48,6 +48,6 @@
 | 1     | Testing and fixing finals bugs for the login/sign-up/forgot password pages                                                                              |
 | 2     | Rough plan of issues with the team                                                                                                                      |
 | 3     | Demoed the sign-up, login and forgot password pages to the TA                                                                                           |
-| 4     | Nayla submitted Sprint 1 on moodle                                                                                                                      |
+| 4     | Nayla submitted Sprint 1 delivery on moodle                                                                                                                      |
 | 5     | Scrum with TA                                                                                                                                           |
 | 6     | Created the issues for Sprint 2 on github, decided that our design would be based on a mix of the functionalities that discord and whatsapp uses for their group chats and DMs  |
