@@ -45,4 +45,8 @@
 
 | Point | Description                                                                                                                                             |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | Division of issues between the members                                                                                                                  |
+| 1     | Division of issues between the members                                                                                                                  | 
+| 2     | Set the deadline to finish most of the issues by the 21st of Febuary and to meet the sunday of the week (23rd) to discusse if we should add other components to work on.| 
+
+
+
