@@ -9,7 +9,7 @@
           <td>Meeting Date</td>
           <td>2/01/2025</td>
         </tr>
-        <tr>4
+        <tr>
           <td>Meeting Time</td>
           <td>2:45 PM - 4:25 PM (1 hour 40 min)</td>
         </tr>
