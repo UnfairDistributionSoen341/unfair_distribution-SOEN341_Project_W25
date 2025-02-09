@@ -30,11 +30,11 @@
         </tr>
         <tr>
           <td>✅ Present</td>
-          <td>Aaida,Ali,Hanna,Nayla,Yu</td>
+          <td>Aaida,Ali,Nayla,Yu</td>
         </tr>
         <tr>
           <td>❌ Absent</td>
-          <td>-</td>
+          <td>Hanna</td>
         </tr>
       </table>
     </td>
@@ -45,9 +45,4 @@
 
 | Point | Description                                                                                                                                             |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     |                                                                              |
-| 2     |                                                                                                                      |
-| 3     |                                                                                          |
-| 4     |                                                                                                                      |
-| 5     |                                                                                                                                          |
-| 6     |  |
+| 1     | Division of issues between the members                                                                                                                  |
