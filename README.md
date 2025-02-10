@@ -15,3 +15,6 @@ Yu HU- 40161963 (Mixed)
 Aaida Hossain- 40281796 (Mixed)
 Ali Issa-40247851 (Front-End)
 Hanna-Anthony Khoury- 40228573 (Mixed)
+
+
+git version is checking here 
