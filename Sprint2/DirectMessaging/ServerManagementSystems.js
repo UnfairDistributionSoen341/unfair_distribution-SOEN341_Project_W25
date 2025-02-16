@@ -5,6 +5,10 @@ class User {
 
 // Member class (inherits from User)
 class Member extends User {
+  constructor(username) {
+        super(username);
+        this.role = "member"; // Override role to "owner"
+    }
   viewMessages(channel) {
     if (!channel) return [];
     return channel.messages; // View all messages in the channel
