@@ -1,0 +1,123 @@
+.chat-container {
+    display: flex;
+    height: 100vh;
+}
+
+.sidebar {
+    width: 300px;
+    background: #2C2F33;
+    color: white;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.sidebar input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.user {
+    padding: 10px;
+    background: #7289DA;
+    margin-bottom: 5px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.user:hover {
+    background: #5865F2;
+}
+
+.chat-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+}
+
+#messages {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin-bottom: 10px;
+    background: #F2F3F5;
+}
+
+.message {
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 5px;
+    background: white;
+}
+
+.message-input {
+    display: flex;
+}
+
+.message-input input {
+    flex: 1;
+    padding: 10px;
+}
+
+.message-input button {
+    padding: 10px;
+    background: #007BFF;
+    color: white;
+    border: none;
+}
+#userList {
+    margin-top: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.user {
+    padding: 10px;
+    background: #7289DA;
+    margin-bottom: 5px;
+    cursor: pointer;
+    border-radius: 5px;
+    color: white;
+    text-align: center;
+}
+
+.user:hover {
+    background: #5865F2;
+}
+
+/* Chat Messages Container */
+#messages {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Base styling for all messages */
+.message {
+    padding: 10px 15px;
+    margin: 5px;
+    border-radius: 8px;
+    max-width: 70%;
+    word-wrap: break-word;
+    font-size: 14px;
+}
+
+/* Sent Messages (Blue, Right-Aligned) */
+.sent {
+    background-color: #007bff;
+    color: white;
+    align-self: flex-end; /* Align to the right */
+    text-align: right;
+}
+
+/* Received Messages (White, Left-Aligned) */
+.received {
+    background-color: #f1f1f1;
+    color: black;
+    align-self: flex-start; /* Align to the left */
+    text-align: left;
+}
