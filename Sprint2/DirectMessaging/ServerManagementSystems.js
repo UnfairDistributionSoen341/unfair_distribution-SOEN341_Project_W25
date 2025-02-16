@@ -27,6 +27,7 @@ class Owner extends Admin {
     constructor(username) {
         super(username);
         this.role = "owner"; // Override role to "owner"
+        this.servers = [];
     }
 
     // Owner can remove an admin
