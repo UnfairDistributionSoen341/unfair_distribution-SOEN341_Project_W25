@@ -5,6 +5,15 @@ class User {
 
 // Member class (inherits from User)
 class Member extends User {
+  viewMessages(channel) {
+    if (!channel) return [];
+    return channel.messages; // View all messages in the channel
+  }
+
+  sendMessage(channel, messageText) {
+    if (!channel || !messageText) return;
+    channel.addMessage(this, messageText); // Send message to the channel
+  }
 
 }
 
