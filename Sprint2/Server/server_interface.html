@@ -27,11 +27,10 @@
 
     <!-- Firebase SDK -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getDatabase, ref, push, set, onChildAdded, get } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+        import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
 
-        // 🔹 Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
             authDomain: "project-8042491080443698183.firebaseapp.com",
@@ -43,205 +42,101 @@
             measurementId: "G-KQMXKEVNQ7"
         };
 
-        // 🔹 Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const auth = getAuth(app);
 
-        let currentUser = null;
-        let selectedChannel = null;
+        const emailInput = document.getElementById("email");
+        const emailMessage = document.getElementById("emailMessage");
+        const passwordMessage = document.getElementById("passwordMessage");
+        const loginButton = document.getElementById("loginButton");
 
-        // 🔹 Track logged-in user
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUser = user;
-                console.log("✅ Logged in as:", currentUser.email);
-                loadChannels();
-            } else {
-                console.error("❌ No user detected. Redirecting...");
-                window.location.href = "../login_page/user_login.html"; // Redirect if not logged in
+        let failedAttempts = 0; // Counter for failed login attempts
+
+        emailInput.addEventListener("input", () => {
+            const email = emailInput.value.trim();
+            if (email === "") {
+                emailMessage.innerText = "";
+                loginButton.disabled = true;
+                return;
             }
+
+            const dbRef = ref(db);
+            get(child(dbRef, "users"))
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        let emailExists = false;
+
+                        snapshot.forEach((childSnapshot) => {
+                            if (childSnapshot.val().email.toLowerCase() === email.toLowerCase()) {
+                                emailExists = true;
+                            }
+                        });
+
+                        if (!emailExists) {
+                            emailMessage.innerHTML = `❌ This email is not registered. Please <a href="../signup_page/index.html">Sign up</a>.`;
+                            emailMessage.style.color = "red";
+                            loginButton.disabled = true;
+                        } else {
+                            emailMessage.innerText = "";
+                            loginButton.disabled = false;
+                        }
+                    } else {
+                        emailMessage.innerHTML = `❌ This email is not registered. Please <a href="../signup_page/index.html">Sign up</a>.`;
+                        emailMessage.style.color = "red";
+                        loginButton.disabled = true;
+                    }
+                })
+                .catch(() => {
+                    emailMessage.innerText = "❌ Error checking email. Try again.";
+                    loginButton.disabled = true;
+                });
         });
 
-        function loadChannels() {
-            console.log("🔄 Loading channels...");
-            const channelList = document.getElementById("channelList");
+        document.getElementById("loginForm").addEventListener("submit", async function (event) {
+            event.preventDefault();
 
-            channelList.innerHTML = "";
+            const email = emailInput.value.trim();
+            const password = document.getElementById("password").value.trim();
 
-            const channelsRef = ref(db, "channels");
-
-            get(channelsRef).then((snapshot) => {
-                if (snapshot.exists()) {
-                    let allChannels = [];
-                    snapshot.forEach((childSnapshot) => {
-                        let channel = childSnapshot.val();
-                        allChannels.push(channel);
-                    });
-
-                    console.log("📢 Loaded channels:", allChannels);
-                    displayChannels(allChannels);
-                } else {
-                    console.log("❌ No channels found in database.");
-                    channelList.innerHTML = "<p>No channels found.</p>";
-                }
-            }).catch(error => {
-                console.error("❌ Error loading channels:", error);
-                channelList.innerHTML = "<p>Error loading channels.</p>";
-            });
-        }
-
-        function displayChannels(channels) {
-            const channelList = document.getElementById("channelList");
-            channelList.innerHTML = "";
-
-            if (channels.length === 0) {
-                channelList.innerHTML = "<p>No channels found.</p>";
-            } else {
-                channels.forEach(channel => {
-                    let channelDiv = document.createElement("div");
-                    channelDiv.classList.add("channel");
-                    channelDiv.innerText = channel.name;
-
-                    channelDiv.addEventListener("click", () => joinChannel(channel));
-
-                    channelList.appendChild(channelDiv);
-                });
-            }
-        }
-
-        async function joinChannel(channel) {
-            console.log(`➡ Attempting to join channel: ${channel.name}`);
-
-            const channelRef = ref(db, `channels/${channel.id}/members/${currentUser.uid}`);
-            const snapshot = await get(channelRef);
-
-            if (snapshot.exists()) {
-                selectedChannel = channel;
-                document.getElementById("chatChannelName").innerText = `Chat in ${selectedChannel.name}`;
-                console.log(`📩 Joined channel: ${selectedChannel.name}`);
-                loadMessages();
-            } else {
-                alert("❌ You are not a member of this channel. Ask the admin to add you.");
-            }
-        }
-
-        function loadMessages() {
-            const messagesDiv = document.getElementById("messages");
-            messagesDiv.innerHTML = "";
-            const channelRef = ref(db, `channels/${selectedChannel.id}/messages`);
-
-            onChildAdded(channelRef, (snapshot) => {
-                let messageData = snapshot.val();
-                let messageElement = document.createElement("div");
-                messageElement.classList.add("message");
-
-                if (messageData.sender === currentUser.email) {
-                    messageElement.classList.add("sent");
-                } else {
-                    messageElement.classList.add("received");
-                }
-
-                messageElement.innerText = `${messageData.sender}: ${messageData.text}`;
-                messagesDiv.appendChild(messageElement);
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            });
-        }
-
-        document.getElementById("sendMessage").addEventListener("click", sendMessage);
-
-        function sendMessage() {
-            if (!selectedChannel) {
-                alert("Select a channel first!");
+            if (!email || !password) {
+                passwordMessage.innerText = "❌ Please fill in all required fields!";
+                passwordMessage.style.color = "red";
                 return;
             }
-            const messageInput = document.getElementById("messageInput");
-            const messageText = messageInput.value.trim();
-            if (messageText === "") return;
-
-            const channelRef = ref(db, `channels/${selectedChannel.id}/messages`);
-            push(channelRef, {
-                sender: currentUser.email,
-                text: messageText,
-                timestamp: Date.now()
-            });
-
-            messageInput.value = "";
-        }
-
-        document.getElementById("createChannel").addEventListener("click", async () => {
-            console.log("✅ 'Create Channel' button clicked!");
-
-            if (!currentUser) {
-                console.error("❌ No user is logged in. Cannot create a channel.");
-                return;
-            }
-
-            const channelName = prompt("Enter channel name:");
-            if (!channelName) {
-                console.warn("⚠️ Channel creation cancelled.");
-                return;
-            }
-
-            console.log(`📢 Creating channel: ${channelName}`);
-
-            const channelsRef = ref(db, "channels");
-            const newChannelRef = push(channelsRef);
-            const channelID = newChannelRef.key;
 
             try {
-                await set(newChannelRef, {
-                    id: channelID,
-                    name: channelName,
-                    admin: currentUser.email,
-                    members: { [currentUser.uid]: currentUser.displayName }
-                });
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
 
-                console.log(`✅ Channel "${channelName}" successfully created!`);
-
-                addUsersToChannel(channelID);
-
-                loadChannels();
-
+                passwordMessage.innerText = "✅ Login successful! Redirecting...";
+                passwordMessage.style.color = "green";
+                
+                failedAttempts = 0; // Reset the failed attempts on successful login
+                
+               setTimeout(() => {
+                    console.log("✅ Redirecting to HomePage...");
+                    window.location.replace("../server/index.html"); 
+                }, 2000);
             } catch (error) {
-                console.error("❌ Failed to create channel:", error);
+                failedAttempts++; // Increment the counter for failed attempts
+
+                passwordMessage.innerText = "❌ Incorrect password. Please try again.";
+                passwordMessage.style.color = "red";
+
+                // If the user fails 3 times, show the reset password popup
+                if (failedAttempts >= 3) {
+                    showPasswordResetPopup();
+                    failedAttempts = 0; // Reset the counter after showing the popup
+                }
             }
         });
 
-        async function addUsersToChannel(channelID) {
-            let addMore = true;
-
-            while (addMore) {
-                let username = prompt("Enter the username of the user to add (or cancel to stop):");
-                if (!username) return;
-
-                const usersRef = ref(db, "users");
-                const snapshot = await get(usersRef);
-
-                if (snapshot.exists()) {
-                    let userFound = false;
-                    snapshot.forEach((childSnapshot) => {
-                        let user = childSnapshot.val();
-                        if (user.username.toLowerCase() === username.toLowerCase()) {
-                            userFound = true;
-                            const channelMembersRef = ref(db, `channels/${channelID}/members/${user.uid}`);
-                            set(channelMembersRef, user.username)
-                                .then(() => console.log(`✅ ${user.username} added to channel.`))
-                                .catch((error) => console.error("❌ Error adding user:", error.message));
-                        }
-                    });
-
-                    if (!userFound) {
-                        alert("❌ User not found. Please enter a valid username.");
-                    }
-                } else {
-                    console.error("❌ No users found in database.");
-                }
-
-                addMore = confirm("Do you want to add another user?");
+        function showPasswordResetPopup() {
+            if (confirm("❌ You have entered the wrong password 3 times. Would you like to reset your password?")) {
+                window.location.href = "../forgotpassword/forgotpassword.html";
             }
         }
-
     </script>
 </body>
 </html>
