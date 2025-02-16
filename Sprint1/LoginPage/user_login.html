@@ -127,8 +127,9 @@
                 failedAttempts = 0; // Reset the failed attempts on successful login
                 
                 setTimeout(() => {
-                    console.log("✅ Redirecting to HomePage...");
-                    window.location.replace("../../Sprint2/HomePage/index.html"); 
+
+                    window.location.href = "../DirectMessaging/user_interface.html";
+                  
                 }, 2000);
             } catch (error) {
                 failedAttempts++; // Increment the counter for failed attempts
