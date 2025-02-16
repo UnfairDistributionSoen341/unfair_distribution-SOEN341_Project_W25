@@ -1,1 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatHaven - Home</title>
+    <link rel="stylesheet" href="home.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 🔹 Navigation Bar -->
+        <nav>
+            <button class="tab active" id="dmTab">💬 Direct Messages</button>
+            <button class="tab" id="serverTab">📢 Channels</button>
+        </nav>
 
+        <!-- 🔹 Content Sections -->
+        <div id="dmSection" class="content">
+            <iframe src="../DirectMessaging/user_interface.html" frameborder="0"></iframe>
+        </div>
+
+        <div id="serverSection" class="content hidden">
+            <iframe src="../Server/server_interface.html" frameborder="0"></iframe>
+        </div>
+    </div>
+
+    <script>
+        // Tab Switching Logic
+        document.getElementById("dmTab").addEventListener("click", () => {
+            document.getElementById("dmSection").classList.remove("hidden");
+            document.getElementById("serverSection").classList.add("hidden");
+            document.getElementById("dmTab").classList.add("active");
+            document.getElementById("serverTab").classList.remove("active");
+        });
+
+        document.getElementById("serverTab").addEventListener("click", () => {
+            document.getElementById("serverSection").classList.remove("hidden");
+            document.getElementById("dmSection").classList.add("hidden");
+            document.getElementById("serverTab").classList.add("active");
+            document.getElementById("dmTab").classList.remove("active");
+        });
+    </script>
+</body>
+</html>
