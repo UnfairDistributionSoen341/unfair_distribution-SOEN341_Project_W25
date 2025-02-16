@@ -5,16 +5,6 @@ class User {
         this.role = role;
         this.assignedChannels = [];
     }
-  
-    // Assign user to a channel
-    assignToChannel(channel) {
-        if (!this.assignedChannels.includes(channel)) {
-            this.assignedChannels.push(channel);
-            console.log(`${this.username} has been assigned to ${channel}.`);
-        } else {
-            console.log(`${this.username} is already assigned to ${channel}.`);
-        }
-    }
 
     // Logout functionality
     logout() {
