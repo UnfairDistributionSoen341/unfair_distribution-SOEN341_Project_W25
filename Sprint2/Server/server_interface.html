@@ -1,1 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatHaven - Channels</title>
+    <link rel="stylesheet" href="server.css">
+</head>
+<body>
+    <div class="chat-container">
+        <div class="sidebar">
+            <h2>Channels</h2>
+            <input type="text" id="searchChannel" placeholder="Search for a channel...">
+            <button id="createChannel">+ Create Channel</button>
+            <div id="channelList"></div>
+        </div>
 
+        <div class="chat-box">
+            <h2 id="chatChannelName">Select a channel to chat</h2>
+            <div id="messages"></div>
+            <div class="message-input">
+                <input type="text" id="messageInput" placeholder="Type a message...">
+                <button id="sendMessage">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getDatabase, ref, push, set, onChildAdded, get } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+        // 🔹 Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
+            authDomain: "project-8042491080443698183.firebaseapp.com",
+            databaseURL: "https://project-8042491080443698183-default-rtdb.firebaseio.com",
+            projectId: "project-8042491080443698183",
+            storageBucket: "project-8042491080443698183.firebasestorage.app",
+            messagingSenderId: "583304911847",
+            appId: "1:583304911847:web:8dfe3e5c016062dd457b42",
+            measurementId: "G-KQMXKEVNQ7"
+        };
+
+        // 🔹 Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
+
+        let currentUser = null;
+        let selectedChannel = null;
+
+        // 🔹 Track logged-in user
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                console.log("✅ Logged in as:", currentUser.email);
+                loadChannels();
+            } else {
+                console.error("❌ No user detected. Redirecting...");
+                window.location.href = "../login_page/user_login.html"; // Redirect if not logged in
+            }
+        });
+
+        function loadChannels() {
+            console.log("🔄 Loading channels...");
+            const channelList = document.getElementById("channelList");
+
+            channelList.innerHTML = "";
+
+            const channelsRef = ref(db, "channels");
+
+            get(channelsRef).then((snapshot) => {
+                if (snapshot.exists()) {
+                    let allChannels = [];
+                    snapshot.forEach((childSnapshot) => {
+                        let channel = childSnapshot.val();
+                        allChannels.push(channel);
+                    });
+
+                    console.log("📢 Loaded channels:", allChannels);
+                    displayChannels(allChannels);
+                } else {
+                    console.log("❌ No channels found in database.");
+                    channelList.innerHTML = "<p>No channels found.</p>";
+                }
+            }).catch(error => {
+                console.error("❌ Error loading channels:", error);
+                channelList.innerHTML = "<p>Error loading channels.</p>";
+            });
+        }
+
+        function displayChannels(channels) {
+            const channelList = document.getElementById("channelList");
+            channelList.innerHTML = "";
+
+            if (channels.length === 0) {
+                channelList.innerHTML = "<p>No channels found.</p>";
+            } else {
+                channels.forEach(channel => {
+                    let channelDiv = document.createElement("div");
+                    channelDiv.classList.add("channel");
+                    channelDiv.innerText = channel.name;
+
+                    channelDiv.addEventListener("click", () => joinChannel(channel));
+
+                    channelList.appendChild(channelDiv);
+                });
+            }
+        }
+
+        async function joinChannel(channel) {
+            console.log(`➡ Attempting to join channel: ${channel.name}`);
+
+            const channelRef = ref(db, `channels/${channel.id}/members/${currentUser.uid}`);
+            const snapshot = await get(channelRef);
+
+            if (snapshot.exists()) {
+                selectedChannel = channel;
+                document.getElementById("chatChannelName").innerText = `Chat in ${selectedChannel.name}`;
+                console.log(`📩 Joined channel: ${selectedChannel.name}`);
+                loadMessages();
+            } else {
+                alert("❌ You are not a member of this channel. Ask the admin to add you.");
+            }
+        }
+
+        function loadMessages() {
+            const messagesDiv = document.getElementById("messages");
+            messagesDiv.innerHTML = "";
+            const channelRef = ref(db, `channels/${selectedChannel.id}/messages`);
+
+            onChildAdded(channelRef, (snapshot) => {
+                let messageData = snapshot.val();
+                let messageElement = document.createElement("div");
+                messageElement.classList.add("message");
+
+                if (messageData.sender === currentUser.email) {
+                    messageElement.classList.add("sent");
+                } else {
+                    messageElement.classList.add("received");
+                }
+
+                messageElement.innerText = `${messageData.sender}: ${messageData.text}`;
+                messagesDiv.appendChild(messageElement);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            });
+        }
+
+        document.getElementById("sendMessage").addEventListener("click", sendMessage);
+
+        function sendMessage() {
+            if (!selectedChannel) {
+                alert("Select a channel first!");
+                return;
+            }
+            const messageInput = document.getElementById("messageInput");
+            const messageText = messageInput.value.trim();
+            if (messageText === "") return;
+
+            const channelRef = ref(db, `channels/${selectedChannel.id}/messages`);
+            push(channelRef, {
+                sender: currentUser.email,
+                text: messageText,
+                timestamp: Date.now()
+            });
+
+            messageInput.value = "";
+        }
+
+        document.getElementById("createChannel").addEventListener("click", async () => {
+            console.log("✅ 'Create Channel' button clicked!");
+
+            if (!currentUser) {
+                console.error("❌ No user is logged in. Cannot create a channel.");
+                return;
+            }
+
+            const channelName = prompt("Enter channel name:");
+            if (!channelName) {
+                console.warn("⚠️ Channel creation cancelled.");
+                return;
+            }
+
+            console.log(`📢 Creating channel: ${channelName}`);
+
+            const channelsRef = ref(db, "channels");
+            const newChannelRef = push(channelsRef);
+            const channelID = newChannelRef.key;
+
+            try {
+                await set(newChannelRef, {
+                    id: channelID,
+                    name: channelName,
+                    admin: currentUser.email,
+                    members: { [currentUser.uid]: currentUser.displayName }
+                });
+
+                console.log(`✅ Channel "${channelName}" successfully created!`);
+
+                addUsersToChannel(channelID);
+
+                loadChannels();
+
+            } catch (error) {
+                console.error("❌ Failed to create channel:", error);
+            }
+        });
+
+        async function addUsersToChannel(channelID) {
+            let addMore = true;
+
+            while (addMore) {
+                let username = prompt("Enter the username of the user to add (or cancel to stop):");
+                if (!username) return;
+
+                const usersRef = ref(db, "users");
+                const snapshot = await get(usersRef);
+
+                if (snapshot.exists()) {
+                    let userFound = false;
+                    snapshot.forEach((childSnapshot) => {
+                        let user = childSnapshot.val();
+                        if (user.username.toLowerCase() === username.toLowerCase()) {
+                            userFound = true;
+                            const channelMembersRef = ref(db, `channels/${channelID}/members/${user.uid}`);
+                            set(channelMembersRef, user.username)
+                                .then(() => console.log(`✅ ${user.username} added to channel.`))
+                                .catch((error) => console.error("❌ Error adding user:", error.message));
+                        }
+                    });
+
+                    if (!userFound) {
+                        alert("❌ User not found. Please enter a valid username.");
+                    }
+                } else {
+                    console.error("❌ No users found in database.");
+                }
+
+                addMore = confirm("Do you want to add another user?");
+            }
+        }
+
+    </script>
+</body>
+</html>
