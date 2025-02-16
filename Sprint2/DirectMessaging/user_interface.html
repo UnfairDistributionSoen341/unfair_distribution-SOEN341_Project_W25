@@ -24,7 +24,161 @@
         </div>
     </div>
 
-    <!-- Firebase SDK -->
-    <script type="module" src="dm.js"></script>
+    <!-- Embedded JavaScript -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getDatabase, ref, push, onChildAdded, get } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
+            authDomain: "project-8042491080443698183.firebaseapp.com",
+            databaseURL: "https://project-8042491080443698183-default-rtdb.firebaseio.com",
+            projectId: "project-8042491080443698183",
+            storageBucket: "project-8042491080443698183.firebasestorage.app",
+            messagingSenderId: "583304911847",
+            appId: "1:583304911847:web:8dfe3e5c016062dd457b42",
+            measurementId: "G-KQMXKEVNQ7"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
+
+        let currentUser = null;
+        let selectedUser = null;
+        let chatID = null;
+
+        // Track logged-in user
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                console.log("✅ Logged in as:", currentUser.email);
+                loadUsers();
+            } else {
+                window.location.href = "../login_page/user_login.html"; // Redirect if not logged in
+            }
+        });
+
+        // Load users from Firebase
+        function loadUsers() {
+            const userList = document.getElementById("userList");
+            const searchInput = document.getElementById("searchUser");
+
+            userList.innerHTML = "";
+
+            const usersRef = ref(db, "users");
+
+            get(usersRef).then((snapshot) => {
+                if (snapshot.exists()) {
+                    let allUsers = [];
+
+                    snapshot.forEach((childSnapshot) => {
+                        let user = childSnapshot.val();
+                        if (user.email !== currentUser.email) {
+                            allUsers.push(user);
+                        }
+                    });
+
+                    displayUsers(allUsers);
+
+                    // Enable search filter
+                    searchInput.addEventListener("input", () => {
+                        const searchValue = searchInput.value.trim().toLowerCase();
+                        let filteredUsers = allUsers.filter(user => 
+                            user.username.toLowerCase().includes(searchValue)
+                        );
+                        displayUsers(filteredUsers);
+                    });
+
+                } else {
+                    console.log("❌ No users found in database.");
+                    userList.innerHTML = "<p>No users found.</p>";
+                }
+            }).catch(error => {
+                console.error("❌ Error loading users:", error);
+                userList.innerHTML = "<p>Error loading users.</p>";
+            });
+        }
+
+        // Display users in the sidebar
+        function displayUsers(users) {
+            const userList = document.getElementById("userList");
+            userList.innerHTML = "";
+
+            if (users.length === 0) {
+                userList.innerHTML = "<p>No users found.</p>";
+            } else {
+                users.forEach(user => {
+                    let userDiv = document.createElement("div");
+                    userDiv.classList.add("user");
+                    userDiv.innerText = user.username;
+                    userDiv.addEventListener("click", () => startChat(user));
+                    userList.appendChild(userDiv);
+                });
+            }
+        }
+
+        // Start a chat with the selected user
+        function startChat(user) {
+            selectedUser = user;
+            document.getElementById("chatUserName").innerText = `Chat with ${selectedUser.username}`;
+            chatID = generateChatID(currentUser.uid, selectedUser.uid);
+            console.log(`📩 Chat started with ${selectedUser.username} (Chat ID: ${chatID})`);
+            loadMessages();
+        }
+
+        // Generate a unique chat ID
+        function generateChatID(userA, userB) {
+            return userA < userB ? `${userA}_${userB}` : `${userB}_${userA}`;
+        }
+
+        // Load messages from Firebase
+        function loadMessages() {
+            const messagesDiv = document.getElementById("messages");
+            messagesDiv.innerHTML = "";
+            const chatRef = ref(db, `chats/${chatID}/messages`);
+
+            onChildAdded(chatRef, (snapshot) => {
+                let messageData = snapshot.val();
+                let messageElement = document.createElement("div");
+                messageElement.classList.add("message");
+
+                if (messageData.sender === currentUser.email) {
+                    messageElement.classList.add("sent");
+                } else {
+                    messageElement.classList.add("received");
+                }
+
+                messageElement.innerText = `${messageData.sender}: ${messageData.text}`;
+                messagesDiv.appendChild(messageElement);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            });
+        }
+
+        // Send a message
+        document.getElementById("sendMessage").addEventListener("click", sendMessage);
+
+        function sendMessage() {
+            if (!selectedUser) {
+                alert("Select a user first!");
+                return;
+            }
+            const messageInput = document.getElementById("messageInput");
+            const messageText = messageInput.value.trim();
+            if (messageText === "") return;
+
+            const chatRef = ref(db, `chats/${chatID}/messages`);
+            push(chatRef, {
+                sender: currentUser.email,
+                text: messageText,
+                timestamp: Date.now()
+            });
+
+            messageInput.value = "";
+        }
+    </script>
 </body>
 </html>
