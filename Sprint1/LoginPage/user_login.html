@@ -127,7 +127,9 @@
                 failedAttempts = 0; // Reset the failed attempts on successful login
                 
                 setTimeout(() => {
+
                     window.location.href = "../DirectMessaging/user_interface.html";
+                  
                 }, 2000);
             } catch (error) {
                 failedAttempts++; // Increment the counter for failed attempts
