@@ -84,3 +84,53 @@ class Server {
     }
 }
 
+class Channel {
+    constructor(name) {
+        this.name = name;
+        this.messages = []; 
+        this.users = []; 
+    }
+
+    addMessage(user, messageText) {
+        if (!user || !messageText) {
+            console.log("Invalid user or message.");
+            return;
+        }
+        this.messages.push({ user: user.username, text: messageText });
+        console.log(`${user.username} sent a message in ${this.name}: ${messageText}`);
+    }
+
+    addUser(user) {
+        if (!user) {
+            return;
+        }
+        if (!this.users.includes(user)) {
+            this.users.push(user);
+            console.log(`${user.username} added to channel '${this.name}'.`);
+        } else {
+            console.log(`${user.username} is already in channel '${this.name}'.`);
+        }
+    }
+
+    removeUser(user) {
+        if (!user) {
+            return;
+        }
+        const index = this.users.findIndex(u => u.username === user.username);
+        if (index !== -1) {
+            this.users.splice(index, 1);
+            console.log(`${user.username} removed from channel '${this.name}'.`);
+        } else {
+            console.log(`${user.username} is not in channel '${this.name}'.`);
+        }
+    }
+
+    // View all messages in the channel
+    viewMessages() {
+        if (this.messages.length === 0) {
+            console.log(`No messages in channel '${this.name}'.`);
+            return [];
+        }
+        return this.messages;
+    }
+}
