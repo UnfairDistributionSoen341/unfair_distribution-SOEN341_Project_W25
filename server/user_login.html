@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatHaven-login</title>
+    <link rel="stylesheet" href="login.css">
+</head>
+<body>
+    <div class="image">
+        <div class="main-header">
+            <h1>ChatHaven</h1>
+        </div>
+
+        <div class="container">
+            <div class="login-container">
+                <h2>ChatHaven</h2>
+
+                <form id="loginForm">
+                    <input type="email" id="email" name="email" placeholder="Email" required>
+                    <p id="emailMessage" class="message"></p>
+                    
+                    <input type="password" id="password" name="password" placeholder="Password" required>
+                    <p id="passwordMessage" class="message"></p> <!-- Message for incorrect password -->
+                    
+
+                    <button type="submit" id="loginButton">Login</button>
+
+
+                    <p class="forgot-password">
+                        <a href="../forgotpassword/forgotpassword.html">Forgot Password?</a>
+                    </p>
+                </form>
+
+                <p class="signup-link">Don't have an account? <a href="../server/signup.html">Sign up</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+        import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
+            authDomain: "project-8042491080443698183.firebaseapp.com",
+            databaseURL: "https://project-8042491080443698183-default-rtdb.firebaseio.com",
+            projectId: "project-8042491080443698183",
+            storageBucket: "project-8042491080443698183.firebasestorage.app",
+            messagingSenderId: "583304911847",
+            appId: "1:583304911847:web:8dfe3e5c016062dd457b42",
+            measurementId: "G-KQMXKEVNQ7"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
+
+        const emailInput = document.getElementById("email");
+        const emailMessage = document.getElementById("emailMessage");
+        const passwordMessage = document.getElementById("passwordMessage");
+        const loginButton = document.getElementById("loginButton");
+
+        let failedAttempts = 0; // Counter for failed login attempts
+
+        emailInput.addEventListener("input", () => {
+            const email = emailInput.value.trim();
+            if (email === "") {
+                emailMessage.innerText = "";
+                loginButton.disabled = true;
+                return;
+            }
+
+            const dbRef = ref(db);
+            get(child(dbRef, "users"))
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        let emailExists = false;
+
+                        snapshot.forEach((childSnapshot) => {
+                            if (childSnapshot.val().email.toLowerCase() === email.toLowerCase()) {
+                                emailExists = true;
+                            }
+                        });
+
+                        if (!emailExists) {
+                            emailMessage.innerHTML = `❌ This email is not registered. Please <a href="../signup_page/index.html">Sign up</a>.`;
+                            emailMessage.style.color = "red";
+                            loginButton.disabled = true;
+                        } else {
+                            emailMessage.innerText = "";
+                            loginButton.disabled = false;
+                        }
+                    } else {
+                        emailMessage.innerHTML = `❌ This email is not registered. Please <a href="../signup_page/index.html">Sign up</a>.`;
+                        emailMessage.style.color = "red";
+                        loginButton.disabled = true;
+                    }
+                })
+                .catch(() => {
+                    emailMessage.innerText = "❌ Error checking email. Try again.";
+                    loginButton.disabled = true;
+                });
+        });
+
+        document.getElementById("loginForm").addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            const email = emailInput.value.trim();
+            const password = document.getElementById("password").value.trim();
+
+            if (!email || !password) {
+                passwordMessage.innerText = "❌ Please fill in all required fields!";
+                passwordMessage.style.color = "red";
+                return;
+            }
+
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                passwordMessage.innerText = "✅ Login successful! Redirecting...";
+                passwordMessage.style.color = "green";
+                
+                failedAttempts = 0; // Reset the failed attempts on successful login
+                
+               setTimeout(() => {
+                    console.log("✅ Redirecting to HomePage...");
+                    window.location.replace("../server/index.html"); 
+                }, 2000);
+            } catch (error) {
+                failedAttempts++; // Increment the counter for failed attempts
+
+                passwordMessage.innerText = "❌ Incorrect password. Please try again.";
+                passwordMessage.style.color = "red";
+
+                // If the user fails 3 times, show the reset password popup
+                if (failedAttempts >= 3) {
+                    showPasswordResetPopup();
+                    failedAttempts = 0; // Reset the counter after showing the popup
+                }
+            }
+        });
+
+        function showPasswordResetPopup() {
+            if (confirm("❌ You have entered the wrong password 3 times. Would you like to reset your password?")) {
+                window.location.href = "../forgotpassword/forgotpassword.html";
+            }
+        }
+    </script>
+
+</body>
+</html>
