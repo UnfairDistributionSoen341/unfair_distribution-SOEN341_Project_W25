@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="testblock.css">
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-box" id="chat-box">
+            <div class="message" id="message1">
+                <p><span class="username" oncontextmenu="showContextMenu(event, 1)">User 1</span>: Hello</p>
+            </div>
+            <div class="message" id="message2">
+                <p><span class="username" oncontextmenu="showContextMenu(event, 2)">User 2</span>: ****</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="context-menu" class="context-menu">
+        <ul>
+            <li onclick="reportUser()">Report</li>
+            <li onclick="blockUser()">Block</li>
+        </ul>
+    </div>
+
+    <script src="testblock.js"></script>
+</body>
+</html>
