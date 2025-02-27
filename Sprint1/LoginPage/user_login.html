@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChatHaven-login</title>
-    <link rel="stylesheet" href="login.css">
+    <link rel="stylesheet" href="./login.css">
 </head>
 <body>
     <div class="image">
@@ -28,11 +28,11 @@
 
 
                     <p class="forgot-password">
-                        <a href="../unfair_distribution-SOEN341_Project_W25-main/Sprint1/ForgotPassword/forgotpassword.html">Forgot Password?</a>
+                        <a href="../ForgotPassword/forgotpassword.html">Forgot Password?</a>
                     </p>
                 </form>
 
-                <p class="signup-link">Don't have an account? <a href="../unfair_distribution-SOEN341_Project_W25-main/Sprint1/SignUpPage/index.html">Sign up</a></p>
+                <p class="signup-link">Don't have an account? <a href="../SignUpPage/index.html">Sign up</a></p>
             </div>
         </div>
     </div>
@@ -86,7 +86,7 @@
                         });
 
                         if (!emailExists) {
-                            emailMessage.innerHTML = `❌ This email is not registered. Please <a href="../unfair_distribution-SOEN341_Project_W25-main/Sprint1/SignUpPage/index.html">Sign up</a>.`;
+                            emailMessage.innerHTML = `❌ This email is not registered. Please <a href="../SignUpPage/index.html">Sign up</a>.`;
                             emailMessage.style.color = "red";
                             loginButton.disabled = true;
                         } else {
@@ -94,7 +94,7 @@
                             loginButton.disabled = false;
                         }
                     } else {
-                        emailMessage.innerHTML = `❌ This email is not registered. Please <a href="../unfair_distribution-SOEN341_Project_W25-main/Sprint1/SignUpPage/signup_page/index.html">Sign up</a>.`;
+                        emailMessage.innerHTML = `❌ This email is not registered. Please <a href="../SignUpPage/signup_page/index.html">Sign up</a>.`;
                         emailMessage.style.color = "red";
                         loginButton.disabled = true;
                     }
@@ -146,7 +146,7 @@
 
         function showPasswordResetPopup() {
             if (confirm("❌ You have entered the wrong password 3 times. Would you like to reset your password?")) {
-                window.location.href = "../unfair_distribution-SOEN341_Project_W25-main/Sprint1/ForgotPassword/forgotpassword.html";
+                window.location.href = "../ForgotPassword/forgotpassword.html";
             }
         }
     </script>
