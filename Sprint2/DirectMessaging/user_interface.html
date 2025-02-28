@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChatHaven - Direct Messages</title>
     <link rel="stylesheet" href="./dm.css">
+     <style>
+        .message .delete-button {
+            cursor: pointer;
+            color: red;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+    </style>
 </head>
 <body>
     <div class="chat-container">
@@ -24,6 +32,21 @@
         </div>
     </div>
     <button id="logoutButton">Logout</button>
+    
+     <div id="contextMenu">
+        <ul>
+            <li id="reportOption">Report</li>
+            <li id="blockOption">Block</li>
+        </ul>
+    </div>
+    <div id="reasonModal" class="modal">
+        <div class="modal-content">
+            <h3>Provide a reason</h3>
+            <textarea id="reasonText" placeholder="Enter your reason here..."></textarea>
+            <button id="submitReason">Submit</button>
+        </div>
+    </div>
+
     <style>
         #logoutButton {
             position: fixed;
@@ -41,11 +64,12 @@
             background-color: darkred;
         }
     </style>
+    
     <!-- Firebase SDK -->
     <script type="module">
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getDatabase, ref, push, onChildAdded, get } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+        import { getDatabase, ref, push, onChildAdded, get, update } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
         import { getAuth, onAuthStateChanged,signOut  } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
         // 🔹 Firebase Configuration
@@ -125,7 +149,7 @@
             const userList = document.getElementById("userList");
             userList.innerHTML = "";
 
-            if (users.length === 0) {
+             if (users.length === 0) {
                 userList.innerHTML = "<p>No users found.</p>";
             } else {
                 users.forEach(user => {
@@ -133,6 +157,11 @@
                     userDiv.classList.add("user");
                     userDiv.innerText = user.username;
                     userDiv.addEventListener("click", () => startChat(user));
+                    userDiv.addEventListener("contextmenu", (event) => {
+                        event.preventDefault();
+                        showContextMenu(event, user);
+                    });
+
                     userList.appendChild(userDiv);
                 });
             }
@@ -159,6 +188,8 @@
                 let messageData = snapshot.val();
                 let messageElement = document.createElement("div");
                 messageElement.classList.add("message");
+                messageElement.id = snapshot.key; // Set ID to the message's unique ID
+
 
                 if (messageData.sender === currentUser.email) {
                     messageElement.classList.add("sent");
@@ -167,10 +198,69 @@
                 }
 
                 messageElement.innerText = `${messageData.sender}: ${messageData.text}`;
+
+                // Add delete button for the message
+                let deleteButton = document.createElement("span");
+                deleteButton.classList.add("delete-button");
+                deleteButton.innerText = "Delete";
+                deleteButton.addEventListener("click", () => deleteMessage(snapshot.key));
+                messageElement.appendChild(deleteButton);
                 messagesDiv.appendChild(messageElement);
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;                
             });
         }
+
+          function deleteMessage(messageId) {
+            const messageRef = ref(db, `chats/${chatID}/messages/${messageId}`);
+            update(messageRef, { deleted: true }).then(() => {
+                document.getElementById(messageId).style.display = "none"; // Hide message on UI
+                console.log(`🗑️ Message ${messageId} marked as deleted.`);
+            }).catch(error => {
+                console.error("❌ Error deleting message:", error);
+            });
+        }
+
+        // Context menu functions
+        function showContextMenu(event, user) {
+            const contextMenu = document.getElementById("contextMenu");
+            contextMenu.style.display = "block";
+            contextMenu.style.left = `${event.pageX}px`;
+            contextMenu.style.top = `${event.pageY}px`;
+
+            document.getElementById("reportOption").addEventListener("click", () => reportUser(user));
+            document.getElementById("blockOption").addEventListener("click", () => blockUser(user));
+        }
+
+        function reportUser(user) {
+            showReasonModal("report", user);
+        }
+
+        function blockUser(user) {
+            showReasonModal("block", user);
+        }
+
+        function showReasonModal(action, user) {
+            const reasonModal = document.getElementById("reasonModal");
+            const reasonText = document.getElementById("reasonText");
+            const submitButton = document.getElementById("submitReason");
+
+            reasonModal.style.display = "flex";
+            submitButton.onclick = () => {
+                const reason = reasonText.value.trim();
+                if (reason) {
+                    alert(`${action.charAt(0).toUpperCase() + action.slice(1)} action taken against ${user.username}. Reason: ${reason}`);
+                    reasonModal.style.display = "none";
+                }
+            };
+        }
+
+        // Close context menu if clicked outside
+        document.addEventListener("click", (event) => {
+            const contextMenu = document.getElementById("contextMenu");
+            if (!contextMenu.contains(event.target)) {
+                contextMenu.style.display = "none";
+            }
+        });
 
         document.getElementById("messageInput").addEventListener("keypress", function (event) {
             if (event.key === "Enter") {
