@@ -6,6 +6,7 @@
     <title>ChatHaven - Channels</title>
     <link rel="stylesheet" href="./server.css">
 </head>
+<script src="./settings.js"></script>
 <body>
     <div class="chat-container">
         <div class="sidebar">
@@ -16,12 +17,26 @@
         </div>
 
         <div class="chat-box">
-            <h2 id="chatChannelName">Select a channel to chat</h2>
-            <div id="messages"></div>
-            <div class="message-input">
-                <input type="text" id="messageInput" placeholder="Type a message...">
-                <button id="sendMessage">Send</button>
+    <div class="chat-header">
+        <h2 id="chatChannelName">Select a channel to chat</h2>
+        
+        <!-- Settings Button -->
+        <div class="settings-container">
+            <button id="settingsButton">⚙ Settings</button>
+            <div class="dropdown-menu" id="settingsDropdown">
+                <button id="addMember">➕ Add Member</button>
+                <button id="removeMember">➖ Remove Member</button>
+                <button id="viewMembers">👥 Current Members</button>
             </div>
+        </div>
+    </div>
+
+    <div id="messages"></div>
+    <div class="message-input">
+        <input type="text" id="messageInput" placeholder="Type a message...">
+        <button id="sendMessage">Send</button>
+    </div>
+</div>
         </div>
     </div>
 
