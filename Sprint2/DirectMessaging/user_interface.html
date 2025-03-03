@@ -41,7 +41,6 @@
             background-color: darkred;
         }
     </style>
-    <!-- Firebase SDK -->
     <script type="module">
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
@@ -68,6 +67,7 @@
         let selectedUser = null;
         let selectedUsername = null;
         let chatID = null;
+        let chatUsers = [];
         
         onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -79,6 +79,7 @@
                     if (snapshot.exists()) {
                         currentUsername = snapshot.val().username;
                         loadUsers();
+                        setupSearch();
                     } else {
                         console.error("❌ Current user data not found.");
                     }
@@ -91,8 +92,6 @@
         
         function loadUsers() {
             const userList = document.getElementById("userList");
-            const searchInput = document.getElementById("searchUser");
-        
             userList.innerHTML = "";
         
             const chatsRef = ref(db, "chats");
@@ -121,7 +120,7 @@
         
                     get(usersRef).then((userSnapshot) => {
                         if (userSnapshot.exists()) {
-                            let chatUsers = [];
+                            chatUsers = [];
         
                             userSnapshot.forEach((childSnapshot) => {
                                 let user = childSnapshot.val();
@@ -131,14 +130,6 @@
                             });
         
                             displayUsers(chatUsers);
-        
-                            searchInput.addEventListener("input", () => {
-                                const searchValue = searchInput.value.trim().toLowerCase();
-                                let filteredUsers = chatUsers.filter(user => 
-                                    user.username.toLowerCase().includes(searchValue)
-                                );
-                                displayUsers(filteredUsers);
-                            });
         
                         } else {
                             userList.innerHTML = "<p>No users found.</p>";
@@ -151,6 +142,48 @@
             }).catch(error => {
                 console.error("❌ Error loading conversations:", error);
                 userList.innerHTML = "<p>Error loading conversations.</p>";
+            });
+        }
+        
+        function setupSearch() {
+            const searchInput = document.getElementById("searchUser");
+            searchInput.addEventListener("input", () => {
+                const searchValue = searchInput.value.trim().toLowerCase();
+        
+                if (searchValue === "") {
+                    displayUsers(chatUsers); // Show previous chats again
+                } else {
+                    searchAllUsers(searchValue); // Search all users
+                }
+            });
+        }
+        
+        function searchAllUsers(searchValue) {
+            const userList = document.getElementById("userList");
+            const usersRef = ref(db, "users");
+        
+            get(usersRef).then((snapshot) => {
+                if (snapshot.exists()) {
+                    let filteredUsers = [];
+        
+                    snapshot.forEach((childSnapshot) => {
+                        let user = childSnapshot.val();
+                        if (
+                            user.uid !== currentUser.uid &&
+                            user.username.toLowerCase().includes(searchValue)
+                        ) {
+                            filteredUsers.push(user);
+                        }
+                    });
+        
+                    displayUsers(filteredUsers);
+        
+                } else {
+                    userList.innerHTML = "<p>No users found.</p>";
+                }
+            }).catch(error => {
+                console.error("❌ Error searching users:", error);
+                userList.innerHTML = "<p>Error searching users.</p>";
             });
         }
         
