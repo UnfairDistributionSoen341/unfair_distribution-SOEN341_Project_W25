@@ -48,185 +48,233 @@
             <button id="confirmAddMember">Add Member</button>
         </div>
     </div>
+<!-- JS Files -->
+<script src="./settings.js"></script>
+<!-- <script type="module" src="./addMember.js"></script> -->
+<script type="module" src="./currentMembers.js"></script>
 
-    <!-- JS Files -->
-    <script src="./settings.js"></script>
-    <script type="module" src="./addMember.js"></script>
-    <script type="module" src="./currentMembers.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getDatabase, ref, push, set, onChildAdded, get } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
-    <script type="module">
-    window.selectedChannelId = null;
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-    import { getDatabase, ref, push, set, onChildAdded, get } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+const firebaseConfig = {
+    apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
+    authDomain: "project-8042491080443698183.firebaseapp.com",
+    databaseURL: "https://project-8042491080443698183-default-rtdb.firebaseio.com",
+    projectId: "project-8042491080443698183",
+    storageBucket: "project-8042491080443698183.appspot.com",
+    messagingSenderId: "583304911847",
+    appId: "1:583304911847:web:8dfe3e5c016062dd457b42"
+};
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
-        authDomain: "project-8042491080443698183.firebaseapp.com",
-        databaseURL: "https://project-8042491080443698183-default-rtdb.firebaseio.com",
-        projectId: "project-8042491080443698183",
-        storageBucket: "project-8042491080443698183.firebasestorage.app",
-        messagingSenderId: "583304911847",
-        appId: "1:583304911847:web:8dfe3e5c016062dd457b42",
-        measurementId: "G-KQMXKEVNQ7"
-    };
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    const auth = getAuth(app);
+window.selectedChannelId = null;
+let currentUser = null;
+let selectedChannel = null;
 
-    let currentUser = null;
-    let selectedChannel = null;
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        currentUser = user;
+        const userRef = ref(db, `users/${user.uid}`);
+        const snapshot = await get(userRef);
+        if (snapshot.exists()) {
+            currentUser.username = snapshot.val().username;
+        }
+        console.log("✅ Logged in as:", currentUser.username);
+        loadChannels();
+    } else {
+        console.error("❌ No user detected. Redirecting...");
+        window.location.href = "../LoginPage/user_login.html";
+    }
+});
 
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            currentUser = user;
-            const userRef = ref(db, `users/${user.uid}`);
-            const snapshot = await get(userRef);
-            if (snapshot.exists()) {
-                currentUser.username = snapshot.val().username;
-            }
-            console.log("✅ Logged in as:", currentUser.username);
-            loadChannels();
+async function loadChannels() {
+    const channelList = document.getElementById("channelList");
+    channelList.innerHTML = "";
+    try {
+        const channelsRef = ref(db, "channels");
+        const snapshot = await get(channelsRef);
+        if (snapshot.exists()) {
+            const channels = [];
+            snapshot.forEach((childSnapshot) => {
+                const channel = {
+                    id: childSnapshot.key,
+                    ...childSnapshot.val()
+                };
+                if (channel.members && channel.members[currentUser.uid]) {
+                    channels.push(channel);
+                }
+            });
+            displayChannels(channels);
         } else {
-            console.error("❌ No user detected. Redirecting...");
-            window.location.href = "../LoginPage/user_login.html";
+            channelList.innerHTML = "<p>No channels found.</p>";
         }
+    } catch (error) {
+        console.error("❌ Error loading channels:", error);
+    }
+}
+
+function displayChannels(channels) {
+    const channelList = document.getElementById("channelList");
+    channelList.innerHTML = channels.length === 0 
+        ? "<p>No channels available. Create one!</p>"
+        : "";
+
+    channels.forEach(channel => {
+        const channelDiv = document.createElement("div");
+        channelDiv.className = "channel";
+        channelDiv.textContent = channel.name;
+        channelDiv.addEventListener("click", () => joinChannel(channel));
+        channelList.appendChild(channelDiv);
     });
+}
 
-    async function loadChannels() {
-        const channelList = document.getElementById("channelList");
-        channelList.innerHTML = "";
-        try {
-            const channelsRef = ref(db, "channels");
-            const snapshot = await get(channelsRef);
-            if (snapshot.exists()) {
-                const channels = [];
-                snapshot.forEach((childSnapshot) => {
-                    const channel = {
-                        id: childSnapshot.key,
-                        ...childSnapshot.val()
-                    };
-                    if (channel.members && channel.members[currentUser.uid]) {
-                        channels.push(channel);
-                    }
-                });
-                displayChannels(channels);
-            } else {
-                channelList.innerHTML = "<p>No channels found.</p>";
-            }
-        } catch (error) {
-            console.error("❌ Error loading channels:", error);
-        }
-    }
+function joinChannel(channel) {
+    selectedChannel = channel;
+    window.selectedChannelId = channel.id; 
+    document.body.dataset.selectedChannel = channel.id;
+    document.getElementById("chatChannelName").textContent = `Chat in ${channel.name}`;
+    loadMessages();
+}
 
-    function displayChannels(channels) {
-        const channelList = document.getElementById("channelList");
-        channelList.innerHTML = channels.length === 0 
-            ? "<p>No channels available. Create one!</p>"
-            : "";
+function loadMessages() {
+    const messagesDiv = document.getElementById("messages");
+    messagesDiv.innerHTML = "";
+    const messagesRef = ref(db, `channels/${selectedChannel.id}/messages`);
 
-        channels.forEach(channel => {
-            const channelDiv = document.createElement("div");
-            channelDiv.className = "channel";
-            channelDiv.textContent = channel.name;
-            channelDiv.addEventListener("click", () => joinChannel(channel));
-            channelList.appendChild(channelDiv);
-        });
-    }
+    onChildAdded(messagesRef, (snapshot) => {
+        const message = snapshot.val();
+        const messageElement = document.createElement("div");
+        messageElement.className = `message ${message.senderId === currentUser.uid ? 'sent' : 'received'}`;
+        messageElement.innerHTML = `
+            <strong>${message.senderName}:</strong>
+            <p>${message.text}</p>
+        `;
+        messagesDiv.appendChild(messageElement);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
+}
 
-    function joinChannel(channel) {
-        selectedChannel = channel;
-        selectedChannelId = channel.id; 
-        document.body.dataset.selectedChannel = channel.id; // ⭐️ Store it globally
-        document.getElementById("chatChannelName").textContent = `Chat in ${channel.name}`;
-        loadMessages();
-    }       
-    // function joinChannel(channel) {
-    //     selectedChannel = channel;
-    //     document.getElementById("chatChannelName").textContent = `Chat in ${channel.name}`;
-    //     loadMessages();
-    // }
-
-    function loadMessages() {
-        const messagesDiv = document.getElementById("messages");
-        messagesDiv.innerHTML = "";
+document.getElementById("sendMessage").addEventListener("click", () => {
+    const messageInput = document.getElementById("messageInput");
+    const messageText = messageInput.value.trim();
+    if (messageText && selectedChannel) {
         const messagesRef = ref(db, `channels/${selectedChannel.id}/messages`);
-
-        onChildAdded(messagesRef, (snapshot) => {
-            const message = snapshot.val();
-            const messageElement = document.createElement("div");
-            messageElement.className = `message ${message.senderId === currentUser.uid ? 'sent' : 'received'}`;
-            messageElement.innerHTML = `
-                <strong>${message.senderName}:</strong>
-                <p>${message.text}</p>
-            `;
-            messagesDiv.appendChild(messageElement);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        push(messagesRef, {
+            text: messageText,
+            senderId: currentUser.uid,
+            senderName: currentUser.username,
+            timestamp: Date.now()
         });
+        messageInput.value = "";
+    }
+});
+
+document.getElementById("createChannel").addEventListener("click", async () => {
+    const channelName = prompt("Enter channel name:");
+    if (!channelName) return;
+
+    try {
+        const channelsRef = ref(db, "channels");
+        const newChannelRef = push(channelsRef);
+        const channelId = newChannelRef.key;
+
+        await set(newChannelRef, {
+            id: channelId,
+            name: channelName,
+            admin: currentUser.uid,
+            members: {
+                [currentUser.uid]: currentUser.username
+            }
+        });
+
+        await addUsersToChannel(channelId);
+        loadChannels();
+    } catch (error) {
+        console.error("Error creating channel:", error);
+    }
+});
+
+async function addUsersToChannel(channelId) {
+    let addMore = true;
+    while (addMore) {
+        const username = prompt("Enter username to add (cancel to stop):");
+        if (!username) break;
+
+        const usersSnapshot = await get(ref(db, "users"));
+        let userFound = false;
+
+        usersSnapshot.forEach((userSnapshot) => {
+            const user = userSnapshot.val();
+            if (user.username === username) {
+                userFound = true;
+                set(ref(db, `channels/${channelId}/members/${userSnapshot.key}`), username);
+            }
+        });
+
+        if (!userFound) alert("User not found!");
+        addMore = confirm("Add another user?");
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const addMemberBtn = document.getElementById("addMember");
+  const modal = document.getElementById("addMemberPopUp");
+  const closeModalBtn = document.getElementById("closeAddMemberPopUp");
+  const confirmAddBtn = document.getElementById("confirmAddMember");
+
+  addMemberBtn.addEventListener("click", () => {
+    modal.style.display = "block";
+  });
+
+  closeModalBtn.addEventListener("click", () => {
+    modal.style.display = "none";
+  });
+
+  window.addEventListener("click", (event) => {
+    if (event.target === modal) {
+      modal.style.display = "none";
+    }
+  });
+
+  confirmAddBtn.addEventListener("click", async () => {
+    const username = document.getElementById("memberUsernameInput").value.trim();
+    if (!username) {
+      alert("Please enter a username.");
+      return;
     }
 
-    document.getElementById("sendMessage").addEventListener("click", () => {
-        const messageInput = document.getElementById("messageInput");
-        const messageText = messageInput.value.trim();
-        if (messageText && selectedChannel) {
-            const messagesRef = ref(db, `channels/${selectedChannel.id}/messages`);
-            push(messagesRef, {
-                text: messageText,
-                senderId: currentUser.uid,
-                senderName: currentUser.username,
-                timestamp: Date.now()
-            });
-            messageInput.value = "";
-        }
-    });
-
-    document.getElementById("createChannel").addEventListener("click", async () => {
-        const channelName = prompt("Enter channel name:");
-        if (!channelName) return;
-
-        try {
-            const channelsRef = ref(db, "channels");
-            const newChannelRef = push(channelsRef);
-            const channelId = newChannelRef.key;
-
-            await set(newChannelRef, {
-                id: channelId,
-                name: channelName,
-                admin: currentUser.uid,
-                members: {
-                    [currentUser.uid]: currentUser.username
-                }
-            });
-
-            await addUsersToChannel(channelId);
-            loadChannels();
-        } catch (error) {
-            console.error("Error creating channel:", error);
-        }
-    });
-
-    async function addUsersToChannel(channelId) {
-        let addMore = true;
-        while (addMore) {
-            const username = prompt("Enter username to add (cancel to stop):");
-            if (!username) break;
-
-            const usersSnapshot = await get(ref(db, "users"));
-            let userFound = false;
-
-            usersSnapshot.forEach((userSnapshot) => {
-                const user = userSnapshot.val();
-                if (user.username === username) {
-                    userFound = true;
-                    set(ref(db, `channels/${channelId}/members/${userSnapshot.key}`), username);
-                }
-            });
-
-            if (!userFound) alert("User not found!");
-            addMore = confirm("Add another user?");
-        }
+    if (!window.selectedChannelId) {
+      alert("No channel selected.");
+      return;
     }
-    </script>
-</body>
-</html>
+
+    try {
+      const usersSnapshot = await get(ref(db, "users"));
+      let userFound = false;
+
+      usersSnapshot.forEach((userSnap) => {
+        const user = userSnap.val();
+        if (user.username === username) {
+          userFound = true;
+          set(ref(db, `channels/${window.selectedChannelId}/members/${userSnap.key}`), username);
+        }
+      });
+
+      if (userFound) {
+        alert(`✅ ${username} was added successfully!`);
+        modal.style.display = "none";
+      } else {
+        alert("❌ User not found.");
+      }
+    } catch (error) {
+      console.error("❌ Error adding member:", error);
+      alert("Failed to add member.");
+    }
+  });
+});
+</script>

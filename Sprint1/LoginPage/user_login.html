@@ -41,7 +41,28 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
-        import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+        import { getDatabase, ref, push, set, onChildAdded, get, off } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+
+    function loadMessages() {
+        const messagesDiv = document.getElementById("messages");
+        messagesDiv.innerHTML = "";
+        const messagesRef = ref(db, `channels/${selectedChannel.id}/messages`);
+
+        // ✅ Remove previous listeners to avoid duplicates
+        off(messagesRef);
+
+        onChildAdded(messagesRef, (snapshot) => {
+            const message = snapshot.val();
+            const messageElement = document.createElement("div");
+            messageElement.className = `message ${message.senderId === currentUser.uid ? 'sent' : 'received'}`;
+            messageElement.innerHTML = `
+                <strong>${message.senderName}:</strong>
+                <p>${message.text}</p>
+            `;
+            messagesDiv.appendChild(messageElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        });
+    }
 
         const firebaseConfig = {
             apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
