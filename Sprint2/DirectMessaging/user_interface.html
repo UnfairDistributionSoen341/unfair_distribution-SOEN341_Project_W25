@@ -274,7 +274,7 @@
         
             signOut(auth).then(() => {
                 console.log("✅ User logged out. Redirecting...");
-                window.location.href = "../LoginPage/user_login.html";
+                window.top.location.href = "../../Sprint1/LoginPage/user_login.html";
             }).catch((error) => {
                 console.error("❌ Logout failed:", error);
             });
