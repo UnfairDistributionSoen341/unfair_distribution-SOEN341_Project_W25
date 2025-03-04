@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChatHaven - Direct Messages</title>
     <link rel="stylesheet" href="./dm.css">
-    <style>
-        .message .delete-button {
+     <style>
+         .message .delete-button {
             cursor: pointer;
             color: red;
             font-size: 12px;
@@ -90,7 +90,7 @@
     </div>
     <button id="logoutButton">Logout</button>
 
-    <div id="contextMenu">
+     <div id="contextMenu">
         <ul>
             <li id="reportOption">Report</li>
             <li id="blockOption">Block</li>
@@ -104,11 +104,32 @@
         </div>
     </div>
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <!-- Firebase SDK -->
     <script type="module">
+
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getDatabase, ref, push, onChildAdded, get, update } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged,signOut  } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
+        // 🔹 Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
             authDomain: "project-8042491080443698183.firebaseapp.com",
@@ -120,132 +141,64 @@
             measurementId: "G-KQMXKEVNQ7"
         };
 
+        // 🔹 Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const auth = getAuth(app);
 
         let currentUser = null;
-        let currentUsername = null;
         let selectedUser = null;
-        let selectedUsername = null;
         let chatID = null;
-        let chatUsers = [];
 
+        // 🔹 Track logged-in user
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
                 console.log("✅ Logged in as:", currentUser.email);
-
-                const usersRef = ref(db, `users/${currentUser.uid}`);
-                get(usersRef).then((snapshot) => {
-                    if (snapshot.exists()) {
-                        currentUsername = snapshot.val().username;
-                        loadUsers();
-                        setupSearch();
-                    } else {
-                        console.error("❌ Current user data not found.");
-                    }
-                });
-
+                loadUsers();
             } else {
-                window.location.href = "../LoginPage/user_login.html";
+                window.location.href = "../LoginPage/user_login.html"; // Redirect if not logged in
             }
         });
 
         function loadUsers() {
             const userList = document.getElementById("userList");
+            const searchInput = document.getElementById("searchUser");
+
             userList.innerHTML = "";
 
-            const chatsRef = ref(db, "chats");
-
-            get(chatsRef).then((snapshot) => {
-                if (snapshot.exists()) {
-                    let chatUserIDs = new Set();
-
-                    snapshot.forEach((chatSnapshot) => {
-                        const chatKey = chatSnapshot.key;
-                        const [userA, userB] = chatKey.split("_");
-
-                        if (userA === currentUser.uid) {
-                            chatUserIDs.add(userB);
-                        } else if (userB === currentUser.uid) {
-                            chatUserIDs.add(userA);
-                        }
-                    });
-
-                    if (chatUserIDs.size === 0) {
-                        userList.innerHTML = "<p>No conversations yet.</p>";
-                        return;
-                    }
-
-                    const usersRef = ref(db, "users");
-
-                    get(usersRef).then((userSnapshot) => {
-                        if (userSnapshot.exists()) {
-                            chatUsers = [];
-
-                            userSnapshot.forEach((childSnapshot) => {
-                                let user = childSnapshot.val();
-                                if (chatUserIDs.has(user.uid)) {
-                                    chatUsers.push(user);
-                                }
-                            });
-
-                            displayUsers(chatUsers);
-
-                        } else {
-                            userList.innerHTML = "<p>No users found.</p>";
-                        }
-                    });
-
-                } else {
-                    userList.innerHTML = "<p>No conversations found.</p>";
-                }
-            }).catch(error => {
-                console.error("❌ Error loading conversations:", error);
-                userList.innerHTML = "<p>Error loading conversations.</p>";
-            });
-        }
-
-        function setupSearch() {
-            const searchInput = document.getElementById("searchUser");
-            searchInput.addEventListener("input", () => {
-                const searchValue = searchInput.value.trim().toLowerCase();
-
-                if (searchValue === "") {
-                    displayUsers(chatUsers); // Show previous chats again
-                } else {
-                    searchAllUsers(searchValue); // Search all users
-                }
-            });
-        }
-
-        function searchAllUsers(searchValue) {
-            const userList = document.getElementById("userList");
             const usersRef = ref(db, "users");
 
             get(usersRef).then((snapshot) => {
                 if (snapshot.exists()) {
-                    let filteredUsers = [];
+                    let allUsers = [];
 
                     snapshot.forEach((childSnapshot) => {
                         let user = childSnapshot.val();
-                        if (
-                            user.uid !== currentUser.uid &&
-                            user.username.toLowerCase().includes(searchValue)
-                        ) {
-                            filteredUsers.push(user);
+                        if (user.email !== currentUser.email) {
+                            allUsers.push(user);
                         }
                     });
 
-                    displayUsers(filteredUsers);
+                    displayUsers(allUsers);
+
+                    // Enable search filter
+                    searchInput.addEventListener("input", () => {
+                        const searchValue = searchInput.value.trim().toLowerCase();
+                        let filteredUsers = allUsers.filter(user => 
+                            user.username.toLowerCase().includes(searchValue)
+                        );
+
+                        displayUsers(filteredUsers);
+                    });
 
                 } else {
+                    console.log("❌ No users found in database.");
                     userList.innerHTML = "<p>No users found.</p>";
                 }
             }).catch(error => {
-                console.error("❌ Error searching users:", error);
-                userList.innerHTML = "<p>Error searching users.</p>";
+                console.error("❌ Error loading users:", error);
+                userList.innerHTML = "<p>Error loading users.</p>";
             });
         }
 
@@ -253,5 +206,176 @@
             const userList = document.getElementById("userList");
             userList.innerHTML = "";
 
-            if (users.length === 0) {
-                user
+             if (users.length === 0) {
+                userList.innerHTML = "<p>No users found.</p>";
+            } else {
+                users.forEach(user => {
+                    let userDiv = document.createElement("div");
+                    userDiv.classList.add("user");
+                    userDiv.innerText = user.username;
+                    userDiv.addEventListener("click", () => startChat(user));
+                    userDiv.addEventListener("contextmenu", (event) => {
+                        event.preventDefault();
+                        showContextMenu(event, user);
+                    });
+
+                    userList.appendChild(userDiv);
+                });
+            }
+        }
+
+        function startChat(user) {
+            selectedUser = user;
+            document.getElementById("chatUserName").innerText = `Chat with ${selectedUser.username}`;
+            chatID = generateChatID(currentUser.uid, selectedUser.uid);
+            console.log(`📩 Chat started with ${selectedUser.username} (Chat ID: ${chatID})`);
+            loadMessages();
+        }
+
+        function generateChatID(userA, userB) {
+            return userA < userB ? `${userA}_${userB}` : `${userB}_${userA}`;
+        }
+
+        function loadMessages() {
+            const messagesDiv = document.getElementById("messages");
+            messagesDiv.innerHTML = "";
+            const chatRef = ref(db, `chats/${chatID}/messages`);
+
+            onChildAdded(chatRef, (snapshot) => {
+                let messageData = snapshot.val();
+                 // Skip rendering if the message is marked as deleted
+                 if (messageData.deleted) {
+                    return;               
+                }
+                let messageElement = document.createElement("div");
+                messageElement.classList.add("message");
+                messageElement.id = snapshot.key; // Set ID to the message's unique ID
+
+
+                if (messageData.sender === currentUser.email) {
+                    messageElement.classList.add("sent");
+                } else {
+                    messageElement.classList.add("received");
+                }
+
+                messageElement.innerText = `${messageData.sender}: ${messageData.text}`;
+
+                // Add delete button for the message
+                /*let deleteButton = document.createElement("span");
+                deleteButton.classList.add("delete-button");
+                deleteButton.innerText = "Delete";
+                deleteButton.addEventListener("click", () => deleteMessage(snapshot.key));
+                messageElement.appendChild(deleteButton);
+                messagesDiv.appendChild(messageElement);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;                
+            });
+        }*/
+                if (messageData.sender === currentUser.email) {
+                    let deleteButton = document.createElement("span");
+                    deleteButton.classList.add("delete-button");
+                    deleteButton.innerText = "Delete";
+                    deleteButton.addEventListener("click", () => deleteMessage(snapshot.key));
+                    messageElement.appendChild(deleteButton);
+                }
+
+                messagesDiv.appendChild(messageElement);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            });
+        }
+
+       function deleteMessage(messageId) {
+            const messageRef = ref(db, `chats/${chatID}/messages/${messageId}`);
+            update(messageRef, { deleted: true }).then(() => {
+                const messageElement = document.getElementById(messageId);
+                if (messageElement) {
+                    messageElement.style.display = "none";
+                }
+                console.log(`🗑️ Message ${messageId} marked as deleted.`);
+            }).catch(error => {
+                console.error("❌ Error deleting message:", error);
+            });
+        }
+
+        // Context menu functions
+        function showContextMenu(event, user) {
+            const contextMenu = document.getElementById("contextMenu");
+            contextMenu.style.display = "block";
+            contextMenu.style.left = `${event.pageX}px`;
+            contextMenu.style.top = `${event.pageY}px`;
+
+           document.getElementById("reportOption").onclick = () => reportUser(user);
+            document.getElementById("blockOption").onclick = () => blockUser(user);
+        }
+
+        function reportUser(user) {
+            showReasonModal("report", user);
+        }
+
+        function blockUser(user) {
+            showReasonModal("block", user);
+        }
+
+        function showReasonModal(action, user) {
+            const reasonModal = document.getElementById("reasonModal");
+            const reasonText = document.getElementById("reasonText");
+            const submitButton = document.getElementById("submitReason");
+
+            reasonModal.style.display = "flex";
+            submitButton.onclick = () => {
+                const reason = reasonText.value.trim();
+                if (reason) {
+                    alert(`${action.charAt(0).toUpperCase() + action.slice(1)} action taken against ${user.username}. Reason: ${reason}`);
+                    reasonModal.style.display = "none";
+                }
+            };
+        }
+
+        // Close context menu if clicked outside
+        document.addEventListener("click", (event) => {
+            const contextMenu = document.getElementById("contextMenu");
+            if (!contextMenu.contains(event.target)) {
+                contextMenu.style.display = "none";
+            }
+        });
+
+        document.getElementById("messageInput").addEventListener("keypress", function (event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                sendMessage();
+            }
+        });
+
+        document.getElementById("sendMessage").addEventListener("click", sendMessage);
+
+        function sendMessage() {
+            if (!selectedUser) {
+                alert("Select a user first!");
+                return;
+            }
+            const messageInput = document.getElementById("messageInput");
+            const messageText = messageInput.value.trim();
+            if (messageText === "") return;
+
+            const chatRef = ref(db, `chats/${chatID}/messages`);
+            push(chatRef, {
+                sender: currentUser.email,
+                text: messageText,
+                timestamp: Date.now()
+            });
+
+            messageInput.value = "";
+        }
+        document.getElementById("logoutButton").addEventListener("click", function () {
+            console.log("🚀 Logout button clicked!");
+
+            const auth = getAuth();
+            signOut(auth).then(() => {
+                console.log("✅ User logged out. Redirecting...");
+                window.location.href = "../LoginPage/user_login.html   ";
+            }).catch((error) => {
+                console.error("❌ Logout failed:", error);
+            });
+        });
+    </script>
+</body>
+</html>
