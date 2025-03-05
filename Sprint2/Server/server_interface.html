@@ -13,6 +13,7 @@
             <h2>Channels</h2>
             <input type="text" id="searchChannel" placeholder="Search for a channel...">
             <button id="createChannel">+ Create Channel</button>
+            <button id="inviteFriendsButton">➕</button>
             <div id="channelList"></div>
         </div>
 
@@ -49,7 +50,17 @@
         </div>
     </div>
      <button id="logoutButton">Logout</button>
-<!-- JS Files -->
+
+    <div id="invitePopup" class="popup">
+        <div class="popup-content">
+            <span class="close-button" id="closeInvitePopup">&times;</span>
+            <h2>Invite Friends</h2>
+            <button id="generateInviteLink">Generate Invite Link</button>
+            <p id="inviteLinkDisplay"></p>
+        </div>
+    </div>
+
+    <!-- JS Files -->
 <script src="./settings.js"></script>
 
 <!-- creating different js files messed things up too much so needed to include them in the js at the bottom -->
@@ -172,8 +183,69 @@
         const modal = document.getElementById("addMemberPopUp");
         const closeModalBtn = document.getElementById("closeAddMemberPopUp");
         const confirmAddBtn = document.getElementById("confirmAddMember");
-    
-        sendMessageBtn.addEventListener("click", () => {
+        const inviteFriendsButton = document.getElementById("inviteFriendsButton");
+        const invitePopup = document.getElementById("invitePopup");
+        const closeInvitePopup = document.getElementById("closeInvitePopup");
+        const generateInviteLinkBtn = document.getElementById("generateInviteLink");
+        const inviteLinkDisplay = document.getElementById("inviteLinkDisplay");
+
+
+        inviteFriendsButton.addEventListener("click", () => {
+            console.log("➕ Button Clicked! Showing invite popup...");
+            invitePopup.style.display = "block";
+        });
+        closeInvitePopup.addEventListener("click", () => {
+            console.log("Closing invite popup...");
+            invitePopup.style.display = "none";
+        });
+                generateInviteLinkBtn.addEventListener("click", async () => {
+                    const expirationTime = Date.now() + 24 * 60 * 60 * 1000; // expired after 24hours
+                    const inviteCode = Math.random().toString(36).substring(2, 10); // random link code
+                    const inviteLink = `${window.location.origin}${window.location.pathname.replace("Server/server_interface.html", "HomePage/index.html")}?invite=${inviteCode}`;
+
+
+
+
+
+                    try {
+                        const invitesRef = ref(db, `serverInvites/${inviteCode}`);
+                        await set(invitesRef, {
+                            link: inviteLink,
+                            expiresAt: expirationTime
+                        });
+                        inviteLinkDisplay.innerHTML = `✅ Invite Link: <a href="${inviteLink}" target="_blank">${inviteLink}</a>`;
+                    } catch (error) {
+                        console.error("❌ Error creating invite link:", error);
+                    }
+                });
+
+                const urlParams = new URLSearchParams(window.location.search);
+                const inviteCode = urlParams.get("invite");
+
+                 if (inviteCode) {
+                  window.location.href = `/index.html?invite=${inviteCode}`;
+                 }
+                if (inviteCode) {
+                    console.log(`🔗 User joined via invite code: ${inviteCode}`);
+
+                    get(ref(db, `serverInvites/${inviteCode}`)).then(snapshot => {
+                        if (snapshot.exists()) {
+                            const inviteData = snapshot.val();
+                            if (Date.now() < inviteData.expiresAt) {
+                                alert("✅ You have successfully joined the server!");
+                            } else {
+                                alert("❌ This invite link has expired.");
+                            }
+                        } else {
+                            alert("❌ Invalid invite link.");
+                        }
+                    }).catch(error => {
+                        console.error("❌ Error checking invite link:", error);
+                    });
+                }
+
+
+                sendMessageBtn.addEventListener("click", () => {
             const messageText = messageInput.value.trim();
             if (messageText && selectedChannel) {
                 const messagesRef = ref(db, `channels/${selectedChannel.id}/messages`);
@@ -313,5 +385,6 @@
                 console.error("❌ Logout failed:", error);
             });
     });
-          });
+
+    });
     </script>
