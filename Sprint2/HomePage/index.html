@@ -39,6 +39,14 @@
             document.getElementById("serverTab").classList.add("active");
             document.getElementById("dmTab").classList.remove("active");
         });
+        document.addEventListener("DOMContentLoaded", () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const inviteCode = urlParams.get("invite");
+
+            if (inviteCode) {
+                console.log(`🔗 User joined via invite code: ${inviteCode}`);
+            }
+        });
     </script>
 </body>
 </html>
