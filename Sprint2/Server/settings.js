@@ -137,4 +137,41 @@ document.addEventListener("DOMContentLoaded", function () {
                 alert("❌ No members found in this server.");
             }
         } catch (error) {
-            console.error("❌
+            console.error("❌ Error demoting admin:", error);
+            alert("Failed to demote admin.");
+        }
+    });
+
+    // Delete Server functionality
+    const deleteServerBtn = document.getElementById("deleteServer");
+    deleteServerBtn.addEventListener("click", async () => {
+        if (!selectedServer) {
+            alert("❌ Please select a server first.");
+            return;
+        }
+
+        // Check if the current user is the owner
+        const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+        if (userRole !== "owner") {
+            alert("❌ Only the owner can delete the server.");
+            return;
+        }
+
+        // Confirm deletion
+        const confirmDelete = confirm(`Are you sure you want to delete the server "${selectedServer.name}"? This action cannot be undone.`);
+        if (!confirmDelete) {
+            return; // User canceled
+        }
+
+        try {
+            // Delete the server from Firebase
+            await set(ref(db, `servers/${selectedServer.id}`), null);
+            alert(`✅ Server "${selectedServer.name}" has been deleted.`);
+            loadServers(); // Refresh the server list
+            initializeUIState(); // Reset the UI
+        } catch (error) {
+            console.error("❌ Error deleting server:", error);
+            alert("Failed to delete server.");
+        }
+    });
+});
