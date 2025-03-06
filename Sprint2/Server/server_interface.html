@@ -87,6 +87,8 @@
     
     <!-- JS Files -->
     <script src="./settings.js"></script>
+    <script src="./currentMembers.js"></script>
+    <script src="./servermanagementsystemREAL.js"></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
@@ -359,7 +361,10 @@
                         createdBy: currentUser.uid,
                         createdAt: Date.now(),
                         members: {
-                            [currentUser.uid]: currentUser.username
+                            [currentUser.uid]: {
+                                username: currentUser.username,
+                                role: "owner" // Default role for the creator
+                            }
                         }
                     });
                     
@@ -459,7 +464,10 @@
                         const user = userSnap.val();
                         if (user.username === username) {
                             userFound = true;
-                            set(ref(db, `servers/${selectedServer.id}/members/${userSnap.key}`), username);
+                            set(ref(db, `servers/${selectedServer.id}/members/${userSnap.key}`), {
+                                username: username,
+                                role: "member"
+                            });
                         }
                     });
                     
@@ -490,7 +498,8 @@
                     if (snapshot.exists()) {
                         let membersList = `👥 Members of "${selectedServer.name}":\n`;
                         snapshot.forEach((memberSnap) => {
-                            membersList += `- ${memberSnap.val()}\n`;
+                            const memberData = memberSnap.val();
+                            membersList += `- ${memberData.username} (${memberData.role})\n`;
                         });
                         alert(membersList);
                     } else {
@@ -516,7 +525,7 @@
                     if (snapshot.exists()) {
                         let membersArray = [];
                         snapshot.forEach((memberSnap) => {
-                            membersArray.push({ uid: memberSnap.key, username: memberSnap.val() });
+                            membersArray.push({ uid: memberSnap.key, username: memberSnap.val().username });
                         });
 
                         let membersList = `👥 Current Members of "${selectedServer.name}":\n`;
