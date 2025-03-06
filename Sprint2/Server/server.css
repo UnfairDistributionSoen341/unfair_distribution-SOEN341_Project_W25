@@ -290,6 +290,15 @@ button:hover {
     border-radius: 5px;
 }
 
+#promoteToAdmin {
+    background-color: #ffcc00; /* Yellow background */
+    color: #000; /* Black text */
+}
+
+#promoteToAdmin:hover {
+    background-color: #e6b800; /* Darker yellow on hover */
+}
+
 #demoteToMember {
     background-color: #ff6666; /* Light red background */
     color: #fff; /* White text */
