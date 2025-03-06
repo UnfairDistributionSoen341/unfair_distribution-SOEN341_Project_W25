@@ -41,6 +41,9 @@
                         <button id="addMember">➕ Add Member</button>
                         <button id="removeMember">➖ Remove Member</button>
                         <button id="viewMembers">👥 Current Members</button>
+                        <button id="promoteToAdmin">⭐ Promote to Admin</button>
+                        <button id="demoteToMember">⬇ Demote to Member</button>
+                        <button id="deleteServer">❌ Delete Server</button>
                     </div>
                 </div>
             </div>
@@ -191,11 +194,10 @@
         function selectServer(server) {
             selectedServer = server;
             currentServerNameEl.textContent = server.name;
-            
+            updateUIForRole(server.id, currentUser.uid); // Update UI based on role
             // Switch to channel view
             serverSectionView.style.display = "none";
             channelSectionView.style.display = "flex";
-            
             // Load channels for this server
             loadChannels(server.id);
         }
