@@ -412,35 +412,49 @@
         
         document.getElementById("sendMessage").addEventListener("click", sendMessage);
         
+       
+
         function sendMessage() {
     if (!selectedUser) {
         alert("Select a user first!");
         return;
     }
 
-    const blockedRef = ref(db, `blocked/${currentUser.uid}/${selectedUser.uid}`);
-    get(blockedRef).then(snapshot => {
+    // Check if the selected user has blocked the current user
+    const blockedBySelectedUserRef = ref(db, `blocked/${selectedUser.uid}/${currentUser.uid}`);
+    get(blockedBySelectedUserRef).then(snapshot => {
         if (snapshot.exists()) {
-            alert("🚫 You have blocked this user. Unblock them to send messages.");
-            return;
+            alert(`🚫 You have been blocked by ${selectedUser.username}. You cannot send messages.`);
+            return; // Stop message sending
         }
 
-        const messageInput = document.getElementById("messageInput");
-        const messageText = messageInput.value.trim();
-        if (messageText === "") return;
+        // Check if the current user has blocked the selected user
+        const blockedByCurrentUserRef = ref(db, `blocked/${currentUser.uid}/${selectedUser.uid}`);
+        get(blockedByCurrentUserRef).then(snapshot => {
+            if (snapshot.exists()) {
+                alert("🚫 You have blocked this user. Unblock them to send messages.");
+                return; // Stop message sending
+            }
 
-        const chatRef = ref(db, `chats/${chatID}/messages`);
-        push(chatRef, {
-            sender: currentUser.email,
-            text: messageText,
-            timestamp: Date.now()
+            // If neither has blocked the other, proceed with sending the message
+            const messageInput = document.getElementById("messageInput");
+            const messageText = messageInput.value.trim();
+            if (messageText === "") return;
+
+            const chatRef = ref(db, `chats/${chatID}/messages`);
+            push(chatRef, {
+                sender: currentUser.email,
+                text: messageText,
+                timestamp: Date.now()
+            });
+
+            messageInput.value = "";
         });
 
-        messageInput.value = "";
+    }).catch(error => {
+        console.error("❌ Error checking block status:", error);
     });
 }
-
-
 
         
         document.getElementById("logoutButton").addEventListener("click", function () {
