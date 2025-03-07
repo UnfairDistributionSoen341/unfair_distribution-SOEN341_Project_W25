@@ -24,8 +24,8 @@
    }
    
    .sidebar {
-    width: 30%;
-    background: #333;
+    width: 300px;
+    background: #2C2F33;
     color: white;
     padding: 20px;
     display: flex;
@@ -129,10 +129,12 @@
    }
    
    .message {
+    padding: 10px 15px;
+    margin: 5px;
     position: relative;
     padding: 12px;
     border-radius: 8px;
-    max-width: 80%;
+    max-width: 70%;
     word-break: break-word;
    }
    
@@ -140,12 +142,14 @@
     background: #007bff;
     color: white;
     align-self: flex-end;
+    text-align: right;
    }
    
    .received {
     background: #f1f1f1;
     color: black;
     align-self: flex-start;
+    text-align: left;
    }
    
    .message-header {

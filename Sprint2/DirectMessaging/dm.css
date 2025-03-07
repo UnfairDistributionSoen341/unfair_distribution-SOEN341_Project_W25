@@ -1,6 +1,27 @@
+
+* {
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
 .chat-container {
     display: flex;
-    height: 100vh;
+    width: 80%;
+    height: 600px;
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.2);
 }
 
 .sidebar {
@@ -9,12 +30,22 @@
     color: white;
     padding: 20px;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .sidebar input {
     width: 100%;
     padding: 10px;
     margin-bottom: 10px;
+    border-radius: 5px;
+    border: none;
+}
+
+#userList {
+    margin-top: 10px;
+    max-height: 300px;
+    overflow-y: auto;
 }
 
 .user {
@@ -23,6 +54,9 @@
     margin-bottom: 5px;
     cursor: pointer;
     border-radius: 5px;
+    color: white;
+    text-align: center;
+    transition: background 0.3s;
 }
 
 .user:hover {
@@ -38,88 +72,66 @@
 
 #messages {
     flex: 1;
-    overflow-y: auto;
-    border: 1px solid #ccc;
-    padding: 10px;
-    margin-bottom: 10px;
-    background: #F2F3F5;
-}
-
-.message {
-    padding: 10px;
-    border-radius: 5px;
-    margin-bottom: 5px;
-    background: white;
-}
-
-.message-input {
-    display: flex;
-}
-
-.message-input input {
-    flex: 1;
-    padding: 10px;
-}
-
-.message-input button {
-    padding: 10px;
-    background: #007BFF;
-    color: white;
-    border: none;
-}
-#userList {
-    margin-top: 10px;
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.user {
-    padding: 10px;
-    background: #7289DA;
-    margin-bottom: 5px;
-    cursor: pointer;
-    border-radius: 5px;
-    color: white;
-    text-align: center;
-}
-
-.user:hover {
-    background: #5865F2;
-}
-
-/* Chat Messages Container */
-#messages {
     max-height: 400px;
     overflow-y: auto;
     padding: 10px;
+    background: #F2F3F5;
     display: flex;
     flex-direction: column;
+    gap: 10px;
 }
 
-/* Base styling for all messages */
 .message {
     padding: 10px 15px;
     margin: 5px;
     border-radius: 8px;
     max-width: 70%;
-    word-wrap: break-word;
+    word-break: break-word;
     font-size: 14px;
+    position: relative;
 }
 
-/* Sent Messages (Blue, Right-Aligned) */
 .sent {
     background-color: #007bff;
     color: white;
-    align-self: flex-end; /* Align to the right */
+    align-self: flex-end;
     text-align: right;
 }
 
-/* Received Messages (White, Left-Aligned) */
 .received {
     background-color: #f1f1f1;
     color: black;
-    align-self: flex-start; /* Align to the left */
+    align-self: flex-start;
     text-align: left;
+}
+
+.message-input {
+    display: flex;
+    padding: 15px;
+    background: #fff;
+    border-top: 1px solid #ddd;
+}
+
+.message-input input {
+    flex-grow: 1;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-right: 10px;
+}
+
+.message-input button {
+    padding: 12px 20px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.message-input button:hover {
+    background: #0056b3;
 }
 
 #contextMenu {
@@ -147,7 +159,6 @@
     background-color: #f0f0f0;
 }
 
-/* Modal (for reason of report/block input) */
 .modal {
     display: none;
     position: fixed;
