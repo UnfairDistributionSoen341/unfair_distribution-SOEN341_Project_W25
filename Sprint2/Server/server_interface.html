@@ -87,9 +87,6 @@
     </div>
 
     <button id="logoutButton">Logout</button>
-    
-    <!-- JS Files -->
-    <script type="module" src="./settings.js"></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
@@ -530,6 +527,58 @@
                     alert("Failed to add member.");
                 }
             });
+            
+            // Settings dropdown functionality
+            const settingsButton = document.getElementById("settingsButton");
+            const settingsDropdown = document.getElementById("settingsDropdown");
+
+            if (settingsButton && settingsDropdown) {
+                // Setup settings dropdown toggle
+                settingsButton.addEventListener("click", function(event) {
+                    event.stopPropagation();
+                    console.log("Settings button clicked!");
+                    settingsDropdown.style.display = settingsDropdown.style.display === "block" ? "none" : "block";
+                });
+                
+                // Close dropdown when clicking elsewhere
+                document.addEventListener("click", function() {
+                    settingsDropdown.style.display = "none";
+                });
+                
+                // Prevent clicks inside dropdown from closing it
+                settingsDropdown.addEventListener("click", function(event) {
+                    event.stopPropagation();
+                });
+            }
+
+            // Handle delete server action
+            const deleteServerBtn = document.getElementById("deleteServer");
+            if (deleteServerBtn) {
+                deleteServerBtn.addEventListener("click", function() {
+                    if (!selectedServer) {
+                        alert("❌ Please select a server first.");
+                        return;
+                    }
+                    
+                    // Check if user is owner
+                    if (selectedServer.createdBy !== auth.currentUser.uid) {
+                        alert("❌ Only the server owner can delete the server.");
+                        return;
+                    }
+                    
+                    if (confirm(`Are you sure you want to delete the server "${selectedServer.name}"?`)) {
+                        set(ref(db, `servers/${selectedServer.id}`), null)
+                            .then(() => {
+                                alert(`✅ Server "${selectedServer.name}" has been deleted.`);
+                                window.location.reload();
+                            })
+                            .catch((error) => {
+                                console.error("❌ Error deleting server:", error);
+                                alert("Failed to delete server.");
+                            });
+                    }
+                });
+            }
         });
 
         //Logout
@@ -546,17 +595,7 @@
 
         // Make getCurrentUserRole available globally
         window.getCurrentUserRole = getCurrentUserRole;
-        // Initialize settings
-        window.addEventListener("load", function() {
-            // Initialize settings if available
-            if (typeof window.initSettings === 'function') {
-                window.initSettings();
-            } else {
-                console.error("Settings initialization function not found");
-            }
-        });
     </script>
-    <script type="module" src="./settings.js"></script>
     <script type="module" src="./currentMembers.js"></script>
     <script type="module" src="./memberHandler.js"></script>
 </body>
