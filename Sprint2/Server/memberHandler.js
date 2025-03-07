@@ -1,242 +1,332 @@
-// Base User class
-class User {
-    constructor(username, role) {
-        this.username = username;
-        this.role = role;
-        this.assignedChannels = [];
-    }
+import { getDatabase, ref, get, set, remove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
-    // Logout functionality
-    logout() {
-        console.log(`${this.username} has logged out.`);
+// Get database and auth instances
+const db = getDatabase();
+const auth = getAuth();
+
+// Get the current user's role
+async function getCurrentUserRole(serverId, userId) {
+  if (!serverId || !userId) return "member";
+  
+  try {
+    console.log(`Checking role for user ${userId} in server ${serverId}`);
+    
+    // Check if user is server creator (owner)
+    const serverRef = ref(db, `servers/${serverId}`);
+    const serverSnapshot = await get(serverRef);
+    
+    if (serverSnapshot.exists()) {
+      const server = serverSnapshot.val();
+      // If user is the server creator, they are the owner
+      if (server.createdBy === userId) {
+        console.log("User is server creator -> OWNER");
+        return "owner";
+      }
     }
+    
+    // Otherwise check their role in members
+    const memberRef = ref(db, `servers/${serverId}/members/${userId}`);
+    const snapshot = await get(memberRef);
+    
+    if (!snapshot.exists()) {
+      console.log("User not found in members");
+      return "member";
+    }
+    
+    // Handle both string username and object with role
+    const memberData = snapshot.val();
+    console.log("Member data:", memberData);
+    
+    if (typeof memberData === "object" && memberData.role) {
+      console.log(`Found role: ${memberData.role}`);
+      return memberData.role;
+    }
+    
+    // If it's just a username string or no role specified
+    console.log("No role specified, defaulting to member");
+    return "member";
+  } catch (error) {
+    console.error("Error getting user role:", error);
+    return "member";
+  }
 }
 
-// Member class (inherits from User)
-class Member extends User {
-    constructor(username) {
-        super(username, "member");
+// Create and display member management modal
+async function showMemberManagementModal(serverId) {
+  if (!serverId) {
+    alert("❌ Please select a server first.");
+    return;
+  }
+  
+  try {
+    // Get current user role (to check permissions)
+    const currentUserId = auth.currentUser.uid;
+    const userRole = await getCurrentUserRole(serverId, currentUserId);
+    
+    // Get members
+    const membersRef = ref(db, `servers/${serverId}/members`);
+    const membersSnapshot = await get(membersRef);
+    
+    if (!membersSnapshot.exists()) {
+      alert("❌ No members found in this server.");
+      return;
     }
-
-    // View messages in a channel
-    viewMessages(channel) {
-        if (!channel) return [];
-        return channel.messages; // View all messages in the channel
-    }
-
-    // Send a message to a channel
-    sendMessage(channel, messageText) {
-        if (!channel || !messageText) return;
-        channel.addMessage(this, messageText); // Send message to the channel
-    }
-}
-
-// Admin class (inherits from User)
-class Admin extends User {
-    constructor(username) {
-        super(username, "admin");
-        this.servers = [];
-    }
-
-    // Create a new channel in a server
-    createChannel(server, channelName) {
-        server.addChannel(channelName);
-    }
-
-    // Delete a channel from a server
-    deleteChannel(server, channelName) {
-        server.removeChannel(channelName);
-    }
-
-    // Create a new team in a server
-    createTeam(server, teamName) {
-        server.addTeam(teamName);
-    }
-
-    // Assign a user to a channel
-    assignUserToChannel(user, channel) {
-        channel.addUser(user);
-    }
-
-    // Restrict a user's access to a channel
-    restrictUserAccess(user, channel) {
-        channel.removeUser(user);
-    }
-
-    // Delete a message from a channel
-    deleteMessage(channel, messageId) {
-        channel.deleteMessage(messageId);
-    }
-}
-
-// Owner class (inherits from Admin)
-class Owner extends Admin {
-    constructor(username) {
-        super(username);
-        this.role = "owner"; // Override role to "owner"
-    }
-
-    // Create a new server
-    createServer(serverName) {
-        const server = new Server(serverName, this);
-        this.servers.push(server);
-        return server;
-    }
-
-    // Delete a server
-    deleteServer(server) {
-        const index = this.servers.findIndex(s => s.name === server.name);
-        if (index !== -1) this.servers.splice(index, 1);
-    }
-
-    // Promote a member to admin
-    promoteToAdmin(member, server) {
-        if (member.role === "member") {
-            const newAdmin = new Admin(member.username);
-            server.members = server.members.filter(m => m.username !== member.username);
-            server.admins.push(newAdmin);
-            console.log(`${member.username} has been promoted to admin by ${this.username}.`);
-        } else {
-            console.log(`${member.username} is not a member and cannot be promoted.`);
+    
+    // Create modal
+    const modal = document.createElement("div");
+    modal.className = "popUp";
+    modal.id = "memberManagementModal";
+    modal.style.display = "flex";
+    
+    // Create modal content
+    const modalContent = document.createElement("div");
+    modalContent.className = "popUp-content";
+    modalContent.style.width = "400px";
+    modalContent.style.maxHeight = "80vh";
+    modalContent.style.overflowY = "auto";
+    
+    // Add close button
+    const closeButton = document.createElement("span");
+    closeButton.className = "close-button";
+    closeButton.innerHTML = "&times;";
+    closeButton.onclick = () => document.body.removeChild(modal);
+    
+    // Add title
+    const title = document.createElement("h2");
+    title.textContent = "Manage Server Members";
+    title.style.marginBottom = "20px";
+    
+    // Add members list
+    const membersList = document.createElement("div");
+    membersList.style.textAlign = "left";
+    
+    // Get server data to identify owner
+    const serverRef = ref(db, `servers/${serverId}`);
+    const serverSnapshot = await get(serverRef);
+    const server = serverSnapshot.val();
+    
+    // Populate members list
+    membersSnapshot.forEach((memberSnap) => {
+      const memberId = memberSnap.key;
+      const memberData = memberSnap.val();
+      
+      // Extract username and role
+      let username = memberData;
+      let role = "member";
+      
+      if (typeof memberData === "object") {
+        username = memberData.username || "Unknown";
+        role = memberData.role || "member";
+      }
+      
+      // For owner role, check if this member is the creator
+      if (memberId === server.createdBy) {
+        role = "owner";
+      }
+      
+      // Create member item
+      const memberItem = document.createElement("div");
+      memberItem.style.padding = "10px";
+      memberItem.style.margin = "10px 0";
+      memberItem.style.backgroundColor = "#f1f1f1";
+      memberItem.style.borderRadius = "5px";
+      memberItem.style.display = "flex";
+      memberItem.style.justifyContent = "space-between";
+      memberItem.style.alignItems = "center";
+      
+      // Member info
+      const memberInfo = document.createElement("div");
+      memberInfo.innerHTML = `
+        <strong>${username}</strong>
+        <span style="margin-left: 10px; padding: 2px 6px; background: ${
+          role === "owner" ? "#ff9800" : 
+          role === "admin" ? "#4CAF50" : "#2196F3"
+        }; color: white; border-radius: 3px; font-size: 12px;">
+          ${role}
+        </span>
+      `;
+      
+      // Action buttons
+      const actionButtons = document.createElement("div");
+      actionButtons.style.display = "flex";
+      actionButtons.style.gap = "5px";
+      
+      // Only show actions if current user has proper permissions
+      // Owner can do everything
+      if (userRole === "owner" && memberId !== currentUserId) {
+        // Promote button (for members)
+        if (role === "member") {
+          const promoteBtn = document.createElement("button");
+          promoteBtn.textContent = "Promote";
+          promoteBtn.style.backgroundColor = "#4CAF50";
+          promoteBtn.style.color = "white";
+          promoteBtn.style.border = "none";
+          promoteBtn.style.padding = "5px 10px";
+          promoteBtn.style.borderRadius = "3px";
+          promoteBtn.style.cursor = "pointer";
+          promoteBtn.style.fontSize = "12px";
+          
+          promoteBtn.onclick = async () => {
+            // Store both username and role
+            await set(ref(db, `servers/${serverId}/members/${memberId}`), {
+              username: username,
+              role: "admin"
+            });
+            
+            alert(`✅ ${username} has been promoted to admin!`);
+            document.body.removeChild(modal);
+            showMemberManagementModal(serverId); // Refresh with updated roles
+          };
+          
+          actionButtons.appendChild(promoteBtn);
         }
-    }
-
-    // Demote an admin to member
-    demoteAdminToMember(admin, server) {
-        if (admin.role === "admin") {
-            const newMember = new Member(admin.username);
-            server.admins = server.admins.filter(a => a.username !== admin.username);
-            server.members.push(newMember);
-            console.log(`${admin.username} has been demoted to member by ${this.username}.`);
-        } else {
-            console.log(`${admin.username} is not an admin and cannot be demoted.`);
+        
+        // Demote button (for admins)
+        if (role === "admin") {
+          const demoteBtn = document.createElement("button");
+          demoteBtn.textContent = "Demote";
+          demoteBtn.style.backgroundColor = "#f44336";
+          demoteBtn.style.color = "white";
+          demoteBtn.style.border = "none";
+          demoteBtn.style.padding = "5px 10px";
+          demoteBtn.style.borderRadius = "3px";
+          demoteBtn.style.cursor = "pointer";
+          demoteBtn.style.fontSize = "12px";
+          
+          demoteBtn.onclick = async () => {
+            // Store both username and role
+            await set(ref(db, `servers/${serverId}/members/${memberId}`), {
+              username: username,
+              role: "member"
+            });
+            
+            alert(`✅ ${username} has been demoted to member!`);
+            document.body.removeChild(modal);
+            showMemberManagementModal(serverId); // Refresh with updated roles
+          };
+          
+          actionButtons.appendChild(demoteBtn);
         }
-    }
-}
-
-// Server class
-class Server {
-    constructor(name, owner) {
-        this.name = name;
-        this.owner = owner;
-        this.admins = [];
-        this.members = [];
-        this.channels = [];
-        this.teams = [];
-    }
-
-    // Add an admin to the server
-    addAdmin(admin) {
-        if (admin.role === "admin") {
-            this.admins.push(admin);
-            console.log(`${admin.username} has been added as an admin.`);
-        } else {
-            console.log(`${admin.username} is not an admin and cannot be added.`);
+        
+        // Remove button (for all except owner)
+        if (role !== "owner") {
+          const removeBtn = document.createElement("button");
+          removeBtn.textContent = "Remove";
+          removeBtn.style.backgroundColor = "#9e9e9e";
+          removeBtn.style.color = "white";
+          removeBtn.style.border = "none";
+          removeBtn.style.padding = "5px 10px";
+          removeBtn.style.borderRadius = "3px";
+          removeBtn.style.cursor = "pointer";
+          removeBtn.style.fontSize = "12px";
+          
+          removeBtn.onclick = async () => {
+            if (confirm(`Are you sure you want to remove ${username} from the server?`)) {
+              await remove(ref(db, `servers/${serverId}/members/${memberId}`));
+              alert(`✅ ${username} has been removed from the server!`);
+              document.body.removeChild(modal);
+              showMemberManagementModal(serverId); // Refresh with updated members
+            }
+          };
+          
+          actionButtons.appendChild(removeBtn);
         }
-    }
-
-    // Add a member to the server
-    addMember(member) {
-        if (member.role === "member") {
-            this.members.push(member);
-            console.log(`${member.username} has been added as a member.`);
-        } else {
-            console.log(`${member.username} is not a member and cannot be added.`);
-        }
-    }
-
-    // Add a channel to the server
-    addChannel(channelName) {
-        const channel = new Channel(channelName);
-        this.channels.push(channel);
-        console.log(`Channel '${channelName}' has been added to the server.`);
-    }
-
-    // Remove a channel from the server
-    removeChannel(channelName) {
-        const index = this.channels.findIndex(c => c.name === channelName);
-        if (index !== -1) {
-            this.channels.splice(index, 1);
-            console.log(`Channel '${channelName}' has been removed from the server.`);
-        } else {
-            console.log(`Channel '${channelName}' not found.`);
-        }
-    }
-
-    // Add a team to the server
-    addTeam(teamName) {
-        this.teams.push(teamName);
-        console.log(`Team '${teamName}' has been added to the server.`);
-    }
-}
-
-// Channel class
-class Channel {
-    constructor(name) {
-        this.name = name;
-        this.messages = [];
-        this.users = [];
-    }
-
-    // Add a message to the channel
-    addMessage(user, messageText) {
-        if (!user || !messageText) {
-            console.log("Invalid user or message.");
-            return;
-        }
-        const message = {
-            id: Date.now().toString(),
-            user: user.username,
-            text: messageText,
-            timestamp: new Date().toISOString()
+      } 
+      // Admin can remove regular members, but not other admins or owner
+      else if (userRole === "admin" && role === "member" && memberId !== currentUserId) {
+        const removeBtn = document.createElement("button");
+        removeBtn.textContent = "Remove";
+        removeBtn.style.backgroundColor = "#9e9e9e";
+        removeBtn.style.color = "white";
+        removeBtn.style.border = "none";
+        removeBtn.style.padding = "5px 10px";
+        removeBtn.style.borderRadius = "3px";
+        removeBtn.style.cursor = "pointer";
+        removeBtn.style.fontSize = "12px";
+        
+        removeBtn.onclick = async () => {
+          if (confirm(`Are you sure you want to remove ${username} from the server?`)) {
+            await remove(ref(db, `servers/${serverId}/members/${memberId}`));
+            alert(`✅ ${username} has been removed from the server!`);
+            document.body.removeChild(modal);
+            showMemberManagementModal(serverId); // Refresh with updated members
+          }
         };
-        this.messages.push(message);
-        console.log(`${user.username} sent a message in ${this.name}: ${messageText}`);
-    }
-
-    // Add a user to the channel
-    addUser(user) {
-        if (!user) return;
-        if (!this.users.includes(user)) {
-            this.users.push(user);
-            console.log(`${user.username} added to channel '${this.name}'.`);
-        } else {
-            console.log(`${user.username} is already in channel '${this.name}'.`);
-        }
-    }
-
-    // Remove a user from the channel
-    removeUser(user) {
-        if (!user) return;
-        const index = this.users.findIndex(u => u.username === user.username);
-        if (index !== -1) {
-            this.users.splice(index, 1);
-            console.log(`${user.username} removed from channel '${this.name}'.`);
-        } else {
-            console.log(`${user.username} is not in channel '${this.name}'.`);
-        }
-    }
-
-    // Delete a message from the channel
-    deleteMessage(messageId) {
-        const index = this.messages.findIndex(m => m.id === messageId);
-        if (index !== -1) {
-            this.messages.splice(index, 1);
-            console.log(`Message with ID ${messageId} deleted from channel '${this.name}'.`);
-        } else {
-            console.log(`Message with ID ${messageId} not found.`);
-        }
-    }
+        
+        actionButtons.appendChild(removeBtn);
+      }
+      
+      memberItem.appendChild(memberInfo);
+      memberItem.appendChild(actionButtons);
+      membersList.appendChild(memberItem);
+    });
+    
+    // Assemble modal
+    modalContent.appendChild(closeButton);
+    modalContent.appendChild(title);
+    modalContent.appendChild(membersList);
+    modal.appendChild(modalContent);
+    
+    // Add to page
+    document.body.appendChild(modal);
+    
+  } catch (error) {
+    console.error("Error showing member management:", error);
+    alert("❌ Failed to load member management. See console for details.");
+  }
 }
 
-// Example Usage
-const owner = new Owner("ownerUser");
-const admin = new Admin("adminUser");
-const member = new Member("memberUser");
+// Initialize event listeners
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("🔄 Initializing member management...");
+  
+  // Override view members button
+  const viewMembersBtn = document.getElementById("viewMembers");
+  if (viewMembersBtn) {
+    viewMembersBtn.addEventListener("click", () => {
+      const selectedServer = window.selectedServer;
+      
+      if (selectedServer) {
+        showMemberManagementModal(selectedServer.id);
+      } else {
+        alert("❌ Please select a server first.");
+      }
+    }, true); // Use capture to override existing listener
+  }
+  
+  // Add listeners for delete server button
+  const deleteServerBtn = document.getElementById("deleteServer");
+  if (deleteServerBtn) {
+    deleteServerBtn.addEventListener("click", async () => {
+      const selectedServer = window.selectedServer;
+      if (!selectedServer) {
+        alert("❌ Please select a server first.");
+        return;
+      }
+      
+      // Check if user is owner
+      const userRole = await getCurrentUserRole(selectedServer.id, auth.currentUser.uid);
+      if (userRole !== "owner") {
+        alert("❌ Only the server owner can delete the server.");
+        return;
+      }
+      
+      if (confirm(`Are you sure you want to delete the server "${selectedServer.name}"? This action cannot be undone.`)) {
+        try {
+          await remove(ref(db, `servers/${selectedServer.id}`));
+          alert(`✅ Server "${selectedServer.name}" has been deleted.`);
+          window.location.reload(); // Reload to update server list
+        } catch (error) {
+          console.error("Error deleting server:", error);
+          alert("❌ Failed to delete server. See console for details.");
+        }
+      }
+    });
+  }
+  
+  console.log("✅ Member management initialized!");
+});
 
-const server = owner.createServer("Main Server");
-owner.promoteToAdmin(member, server); // Promote member to admin
-admin.createChannel(server, "General");
-admin.assignUserToChannel(member, server.channels[0]);
-member.sendMessage(server.channels[0], "Hello, everyone!");
-admin.deleteMessage(server.channels[0], server.channels[0].messages[0].id);
+// Export functions for use in main script
+export { getCurrentUserRole, showMemberManagementModal };
