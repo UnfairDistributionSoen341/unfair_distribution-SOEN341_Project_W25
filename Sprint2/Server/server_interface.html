@@ -41,6 +41,10 @@
                         <button id="addMember">➕ Add Member</button>
                         <button id="removeMember">➖ Remove Member</button>
                         <button id="viewMembers">👥 Current Members</button>
+                        <button id="promoteToAdmin">⭐ Promote to Admin</button>
+                        <button id="demoteToMember">⬇ Demote to Member</button>
+                        <button id="deleteServer">❌ Delete Server</button>
+                        <button id="deleteChannel">🗑️ Delete Channel</button>
                     </div>
                 </div>
             </div>
@@ -90,7 +94,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getDatabase, ref, push, set, get, onChildAdded, off } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+        import { getDatabase, ref, push, set, get, onChildAdded, off, remove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         
         const firebaseConfig = {
@@ -142,6 +146,85 @@
             }
         });
         
+        // Get the current user's role in a server
+        async function getCurrentUserRole(serverId, userId) {
+            if (!serverId || !userId) return "member";
+            
+            try {
+                console.log(`Checking role for user ${userId} in server ${serverId}`);
+                
+                // Check if user is server creator (owner)
+                const serverRef = ref(db, `servers/${serverId}`);
+                const serverSnapshot = await get(serverRef);
+                
+                if (serverSnapshot.exists()) {
+                    const server = serverSnapshot.val();
+                    // If user is the server creator, they are the owner
+                    if (server.createdBy === userId) {
+                        console.log("User is server creator -> OWNER");
+                        return "owner";
+                    }
+                }
+                
+                // Otherwise check their role in members
+                const memberRef = ref(db, `servers/${serverId}/members/${userId}`);
+                const snapshot = await get(memberRef);
+                
+                if (!snapshot.exists()) {
+                    console.log("User not found in members");
+                    return "member";
+                }
+                
+                // Handle both string username and object with role
+                const memberData = snapshot.val();
+                console.log("Member data:", memberData);
+                
+                if (typeof memberData === "object" && memberData.role) {
+                    console.log(`Found role: ${memberData.role}`);
+                    return memberData.role;
+                }
+                
+                // If it's just a username string or no role specified
+                console.log("No role specified, defaulting to member");
+                return "member";
+            } catch (error) {
+                console.error("Error getting user role:", error);
+                return "member";
+            }
+        }
+        
+        // Update UI based on user role
+        function updateUIBasedOnRole(role) {
+            console.log("Current user role:", role);
+            
+            const createChannelBtn = document.getElementById("createChannel");
+            const deleteChannelBtn = document.getElementById("deleteChannel");
+            const deleteServerBtn = document.getElementById("deleteServer");
+            const promoteBtn = document.getElementById("promoteToAdmin");
+            const demoteBtn = document.getElementById("demoteToMember");
+            
+            // Only admin and owner can create channels
+            createChannelBtn.style.display = (role === "admin" || role === "owner") ? "block" : "none";
+            
+            // Only admin and owner can delete channels
+            if (deleteChannelBtn) {
+                deleteChannelBtn.style.display = (role === "admin" || role === "owner") ? "block" : "none";
+            }
+            
+            // Only owner can delete server, promote/demote
+            if (deleteServerBtn) {
+                deleteServerBtn.style.display = role === "owner" ? "block" : "none";
+            }
+            
+            if (promoteBtn) {
+                promoteBtn.style.display = role === "owner" ? "block" : "none";
+            }
+            
+            if (demoteBtn) {
+                demoteBtn.style.display = role === "owner" ? "block" : "none";
+            }
+        }
+        
         // Load servers from database
         async function loadServers() {
             const serverList = document.getElementById("serverList");
@@ -156,7 +239,9 @@
                             id: childSnapshot.key,
                             ...childSnapshot.val()
                         };
-                        if (server.members && server.members[currentUser.uid]) {
+                        if (server.members && (server.members[currentUser.uid] || 
+                           (typeof server.members[currentUser.uid] === 'object' && 
+                            server.members[currentUser.uid].username))) {
                             servers.push(server);
                         }
                     });
@@ -186,13 +271,20 @@
         }
         
         // Select a server
-        function selectServer(server) {
+        async function selectServer(server) {
             selectedServer = server;
             currentServerNameEl.textContent = server.name;
             
             // Switch to channel view
             serverSectionView.style.display = "none";
             channelSectionView.style.display = "flex";
+            
+            // Make selectedServer available globally
+            window.selectedServer = server;
+            
+            // Check user role and update UI accordingly
+            const userRole = await getCurrentUserRole(server.id, currentUser.uid);
+            updateUIBasedOnRole(userRole);
             
             // Load channels for this server
             loadChannels(server.id);
@@ -247,6 +339,7 @@
         // Join a channel
         function joinChannel(channel) {
             selectedChannel = channel;
+            window.selectedChannel = channel; // Make it globally available
             document.getElementById("chatChannelName").textContent = `#${channel.name} (${selectedServer.name})`;
             document.getElementById("messageInput").disabled = false;
             loadMessages();
@@ -281,6 +374,7 @@
             const messageInput = document.getElementById("messageInput");
             const createServerBtn = document.getElementById("createServer");
             const createChannelBtn = document.getElementById("createChannel");
+            const deleteChannelBtn = document.getElementById("deleteChannel");
             
             // Allow sending message with Enter key
             messageInput.addEventListener("keydown", (event) => {
@@ -316,6 +410,8 @@
                 document.getElementById("messageInput").disabled = true;
                 selectedServer = null;
                 selectedChannel = null;
+                window.selectedServer = null;
+                window.selectedChannel = null;
             });
             
             // Send message
@@ -359,7 +455,10 @@
                         createdBy: currentUser.uid,
                         createdAt: Date.now(),
                         members: {
-                            [currentUser.uid]: currentUser.username
+                            [currentUser.uid]: {
+                                username: currentUser.username,
+                                role: "owner"
+                            }
                         }
                     });
                     
@@ -382,11 +481,19 @@
             });
             
             // Create channel
-            createChannelBtn.addEventListener("click", () => {
+            createChannelBtn.addEventListener("click", async () => {
                 if (!selectedServer) {
                     alert("❌ Please select a server first.");
                     return;
                 }
+                
+                // Check user role
+                const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+                if (userRole !== "admin" && userRole !== "owner") {
+                    alert("❌ Only admins and owners can create channels.");
+                    return;
+                }
+                
                 createChannelPopUp.style.display = "flex";
             });
             
@@ -403,6 +510,13 @@
                 
                 if (!selectedServer) {
                     alert("❌ No server selected.");
+                    return;
+                }
+                
+                // Double-check user role
+                const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+                if (userRole !== "admin" && userRole !== "owner") {
+                    alert("❌ Only admins and owners can create channels.");
                     return;
                 }
                 
@@ -426,12 +540,58 @@
                 }
             });
             
+            // Delete channel
+            deleteChannelBtn.addEventListener("click", async () => {
+                if (!selectedServer || !selectedChannel) {
+                    alert("❌ Please select a server and channel first.");
+                    return;
+                }
+                
+                // Check user role
+                const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+                if (userRole !== "admin" && userRole !== "owner") {
+                    alert("❌ Only admins and owners can delete channels.");
+                    return;
+                }
+                
+                const confirmDelete = confirm(`Are you sure you want to delete the channel "${selectedChannel.name}"?`);
+                if (confirmDelete) {
+                    try {
+                        const channelRef = ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}`);
+                        await remove(channelRef);
+                        
+                        alert(`✅ Channel "${selectedChannel.name}" deleted successfully!`);
+                        
+                        // Reset view
+                        document.getElementById("messages").innerHTML = "";
+                        document.getElementById("chatChannelName").textContent = "Select a channel to chat";
+                        document.getElementById("messageInput").disabled = true;
+                        selectedChannel = null;
+                        window.selectedChannel = null;
+                        
+                        // Reload channels
+                        loadChannels(selectedServer.id);
+                    } catch (error) {
+                        console.error("❌ Error deleting channel:", error);
+                        alert("Failed to delete channel.");
+                    }
+                }
+            });
+            
             // Add member
-            addMemberBtn.addEventListener("click", () => {
+            addMemberBtn.addEventListener("click", async () => {
                 if (!selectedServer) {
                     alert("❌ Please select a server first.");
                     return;
                 }
+                
+                // Check if user has permission (admin or owner)
+                const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+                if (userRole !== "admin" && userRole !== "owner") {
+                    alert("❌ Only admins and owners can add members.");
+                    return;
+                }
+                
                 addMemberPopUp.style.display = "flex";
             });
             
@@ -459,7 +619,10 @@
                         const user = userSnap.val();
                         if (user.username === username) {
                             userFound = true;
-                            set(ref(db, `servers/${selectedServer.id}/members/${userSnap.key}`), username);
+                            set(ref(db, `servers/${selectedServer.id}/members/${userSnap.key}`), {
+                                username: username,
+                                role: "member"
+                            });
                         }
                     });
                     
@@ -490,7 +653,21 @@
                     if (snapshot.exists()) {
                         let membersList = `👥 Members of "${selectedServer.name}":\n`;
                         snapshot.forEach((memberSnap) => {
-                            membersList += `- ${memberSnap.val()}\n`;
+                            const memberData = memberSnap.val();
+                            let username = memberData;
+                            let role = "member";
+                            
+                            if (typeof memberData === 'object') {
+                                username = memberData.username;
+                                role = memberData.role || "member";
+                            }
+                            
+                            // Check if member is server creator (owner)
+                            if (memberSnap.key === selectedServer.createdBy) {
+                                role = "owner";
+                            }
+                            
+                            membersList += `- ${username} (${role})\n`;
                         });
                         alert(membersList);
                     } else {
@@ -508,6 +685,13 @@
                     alert("❌ Please select a server first.");
                     return;
                 }
+                
+                // Check user role
+                const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+                if (userRole !== "admin" && userRole !== "owner") {
+                    alert("❌ Only admins and owners can remove members.");
+                    return;
+                }
 
                 try {
                     const membersRef = ref(db, `servers/${selectedServer.id}/members`);
@@ -516,12 +700,30 @@
                     if (snapshot.exists()) {
                         let membersArray = [];
                         snapshot.forEach((memberSnap) => {
-                            membersArray.push({ uid: memberSnap.key, username: memberSnap.val() });
+                            const memberData = memberSnap.val();
+                            let username = memberData;
+                            let role = "member";
+                            
+                            if (typeof memberData === 'object') {
+                                username = memberData.username;
+                                role = memberData.role || "member";
+                            }
+                            
+                            // Check if member is server creator (owner)
+                            if (memberSnap.key === selectedServer.createdBy) {
+                                role = "owner";
+                            }
+                            
+                            membersArray.push({ 
+                                uid: memberSnap.key, 
+                                username, 
+                                role 
+                            });
                         });
 
                         let membersList = `👥 Current Members of "${selectedServer.name}":\n`;
                         membersArray.forEach((member, index) => {
-                            membersList += `${index + 1}. ${member.username}\n`;
+                            membersList += `${index + 1}. ${member.username} (${member.role})\n`;
                         });
 
                         const usernameToRemove = prompt(`${membersList}\nEnter the username you want to remove:`);
@@ -535,13 +737,19 @@
                         );
 
                         if (memberToRemove) {
-                            // Check if member is the server creator
-                            if (memberToRemove.uid === selectedServer.createdBy) {
-                                alert("❌ Cannot remove the server creator.");
+                            // Check if member is the server creator/owner
+                            if (memberToRemove.role === "owner") {
+                                alert("❌ Cannot remove the server owner.");
+                                return;
+                            }
+                            
+                            // Check if current user is trying to remove an admin while not being owner
+                            if (memberToRemove.role === "admin" && userRole !== "owner") {
+                                alert("❌ Only the owner can remove admins.");
                                 return;
                             }
 
-                            await set(ref(db, `servers/${selectedServer.id}/members/${memberToRemove.uid}`), null);
+                            await remove(ref(db, `servers/${selectedServer.id}/members/${memberToRemove.uid}`));
                             alert(`✅ ${memberToRemove.username} was removed from ${selectedServer.name} successfully!`);
                         } else {
                             alert(`❌ User "${usernameToRemove}" not found.`);
@@ -554,9 +762,210 @@
                     alert("Failed to remove member.");
                 }
             });
+            
+            // Promote to admin
+            const promoteToAdminBtn = document.getElementById("promoteToAdmin");
+            if (promoteToAdminBtn) {
+                promoteToAdminBtn.addEventListener("click", async () => {
+                    if (!selectedServer) {
+                        alert("❌ Please select a server first.");
+                        return;
+                    }
+                    
+                    // Check if user is owner
+                    const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+                    if (userRole !== "owner") {
+                        alert("❌ Only the server owner can promote members to admin.");
+                        return;
+                    }
+                    
+                    try {
+                        const membersRef = ref(db, `servers/${selectedServer.id}/members`);
+                        const snapshot = await get(membersRef);
+                        
+                        if (snapshot.exists()) {
+                            let membersList = "Select a member to promote to admin:\n";
+                            let members = [];
+                            
+                            snapshot.forEach((memberSnap) => {
+                                const memberId = memberSnap.key;
+                                const memberData = memberSnap.val();
+                                
+                                let username = memberData;
+                                let role = "member";
+                                
+                                if (typeof memberData === 'object') {
+                                    username = memberData.username;
+                                    role = memberData.role || "member";
+                                }
+                                
+                                // Only include regular members, not admins or owners
+                                if (role === "member" && memberId !== selectedServer.createdBy) {
+                                    members.push({
+                                        id: memberId,
+                                        username,
+                                        role
+                                    });
+                                    membersList += `${members.length}. ${username}\n`;
+                                }
+                            });
+                            
+                            if (members.length === 0) {
+                                alert("❌ No regular members to promote.");
+                                return;
+                            }
+                            
+                            const memberIndexStr = prompt(membersList + "\nEnter the number of the member you want to promote:");
+                            if (!memberIndexStr) return;
+                            
+                            const memberIndex = parseInt(memberIndexStr) - 1;
+                            if (isNaN(memberIndex) || memberIndex < 0 || memberIndex >= members.length) {
+                                alert("❌ Invalid selection.");
+                                return;
+                            }
+                            
+                            const selectedMember = members[memberIndex];
+                            await set(ref(db, `servers/${selectedServer.id}/members/${selectedMember.id}`), {
+                                username: selectedMember.username,
+                                role: "admin"
+                            });
+                            
+                            alert(`✅ ${selectedMember.username} has been promoted to admin!`);
+                        } else {
+                            alert("❌ No members found in this server.");
+                        }
+                    } catch (error) {
+                        console.error("❌ Error promoting member:", error);
+                        alert("Failed to promote member.");
+                    }
+                });
+            }
+            
+            // Demote to member
+            const demoteToMemberBtn = document.getElementById("demoteToMember");
+            if (demoteToMemberBtn) {
+                demoteToMemberBtn.addEventListener("click", async () => {
+                    if (!selectedServer) {
+                        alert("❌ Please select a server first.");
+                        return;
+                    }
+                    
+                    // Check if user is owner
+                    const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+                    if (userRole !== "owner") {
+                        alert("❌ Only the server owner can demote admins to members.");
+                        return;
+                    }
+                    
+                    try {
+                        const membersRef = ref(db, `servers/${selectedServer.id}/members`);
+                        const snapshot = await get(membersRef);
+                        
+                        if (snapshot.exists()) {
+                            let membersList = "Select an admin to demote to regular member:\n";
+                            let admins = [];
+                            
+                            snapshot.forEach((memberSnap) => {
+                                const memberId = memberSnap.key;
+                                const memberData = memberSnap.val();
+                                
+                                let username = memberData;
+                                let role = "member";
+                                
+                                if (typeof memberData === 'object') {
+                                    username = memberData.username;
+                                    role = memberData.role || "member";
+                                }
+                                
+                                // Only include admins, not regular members or owners
+                                if (role === "admin" && memberId !== selectedServer.createdBy) {
+                                    admins.push({
+                                        id: memberId,
+                                        username,
+                                        role
+                                    });
+                                    membersList += `${admins.length}. ${username}\n`;
+                                }
+                            });
+                            
+                            if (admins.length === 0) {
+                                alert("❌ No admins to demote.");
+                                return;
+                            }
+                            
+                            const adminIndexStr = prompt(membersList + "\nEnter the number of the admin you want to demote:");
+                            if (!adminIndexStr) return;
+                            
+                            const adminIndex = parseInt(adminIndexStr) - 1;
+                            if (isNaN(adminIndex) || adminIndex < 0 || adminIndex >= admins.length) {
+                                alert("❌ Invalid selection.");
+                                return;
+                            }
+                            
+                            const selectedAdmin = admins[adminIndex];
+                            await set(ref(db, `servers/${selectedServer.id}/members/${selectedAdmin.id}`), {
+                                username: selectedAdmin.username,
+                                role: "member"
+                            });
+                            
+                            alert(`✅ ${selectedAdmin.username} has been demoted to member!`);
+                        } else {
+                            alert("❌ No members found in this server.");
+                        }
+                    } catch (error) {
+                        console.error("❌ Error demoting admin:", error);
+                        alert("Failed to demote admin.");
+                    }
+                });
+            }
+            
+            // Delete server
+            const deleteServerBtn = document.getElementById("deleteServer");
+            if (deleteServerBtn) {
+                deleteServerBtn.addEventListener("click", async () => {
+                    if (!selectedServer) {
+                        alert("❌ Please select a server first.");
+                        return;
+                    }
+                    
+                    // Check if user is owner
+                    const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+                    if (userRole !== "owner") {
+                        alert("❌ Only the server owner can delete the server.");
+                        return;
+                    }
+                    
+                    const confirmDelete = confirm(`Are you sure you want to delete the server "${selectedServer.name}"? This action cannot be undone.`);
+                    if (confirmDelete) {
+                        try {
+                            const serverRef = ref(db, `servers/${selectedServer.id}`);
+                            await remove(serverRef);
+                            
+                            alert(`✅ Server "${selectedServer.name}" deleted successfully!`);
+                            
+                            // Reset view and go back to server list
+                            serverSectionView.style.display = "block";
+                            channelSectionView.style.display = "none";
+                            document.getElementById("messages").innerHTML = "";
+                            document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
+                            document.getElementById("messageInput").disabled = true;
+                            selectedServer = null;
+                            selectedChannel = null;
+                            window.selectedServer = null;
+                            window.selectedChannel = null;
+                            
+                            // Reload servers
+                            loadServers();
+                        } catch (error) {
+                            console.error("❌ Error deleting server:", error);
+                            alert("Failed to delete server.");
+                        }
+                    }
+                });
+            }
         });
 
-        //Logout
+        // Logout
         document.getElementById("logoutButton").addEventListener("click", function () {
             console.log("🚀 Logout button clicked!");
 
@@ -568,6 +977,10 @@
             });
         });
 
+        // Make variables available globally
+        window.selectedServer = selectedServer;
+        window.selectedChannel = selectedChannel;
+        window.getCurrentUserRole = getCurrentUserRole;
     </script>
     <script type="module" src="./memberHandler.js"></script>
 </body>
