@@ -23,9 +23,19 @@ async function getCurrentUserRole(serverId, userId) {
   if (!serverId || !userId) return "member";
   
   try {
-    const roleRef = ref(db, `servers/${serverId}/members/${userId}/role`);
-    const snapshot = await get(roleRef);
-    return snapshot.exists() ? snapshot.val() : "member"; // Default to member if role is not set
+    const memberRef = ref(db, `servers/${serverId}/members/${userId}`);
+    const snapshot = await get(memberRef);
+    
+    if (!snapshot.exists()) return "member";
+    
+    // Handle both string username and object with role
+    const memberData = snapshot.val();
+    if (typeof memberData === "object" && memberData.role) {
+      return memberData.role;
+    }
+    
+    // If it's just a username string or no role specified
+    return userId === serverId.createdBy ? "owner" : "member";
   } catch (error) {
     console.error("Error getting user role:", error);
     return "member";
@@ -48,7 +58,9 @@ async function updateUIForRole(serverId, userId) {
   const demoteBtn = document.getElementById("demoteToMember");
   
   // Show/hide settings button based on role
-  settingsButton.style.display = canPerformAction(userRole, "member") ? "block" : "none";
+  if (settingsButton) {
+    settingsButton.style.display = canPerformAction(userRole, "member") ? "block" : "none";
+  }
   
   // Show/hide specific actions based on role
   if (deleteServerBtn) deleteServerBtn.style.display = canPerformAction(userRole, "owner") ? "block" : "none";
@@ -175,6 +187,120 @@ async function displayMembers(serverId) {
                 username: username,
                 role: "admin"
               });
+}
+
+// Initialize event listeners
+document.addEventListener("DOMContentLoaded", () => {
+  // Override the viewMembers button click event
+  const viewMembersBtn = document.getElementById("viewMembers");
+  if (viewMembersBtn) {
+    viewMembersBtn.addEventListener("click", () => {
+      // Get selectedServer from window
+      const selectedServer = window.selectedServer;
+      
+      if (selectedServer) {
+        displayMembers(selectedServer.id);
+      } else {
+        alert("❌ Please select a server first.");
+      }
+    });
+  }
+  
+  // Add listeners for promote/demote buttons in settings dropdown
+  const promoteToAdminBtn = document.getElementById("promoteToAdmin");
+  if (promoteToAdminBtn) {
+    promoteToAdminBtn.addEventListener("click", async () => {
+      const selectedServer = window.selectedServer;
+      if (!selectedServer) {
+        alert("❌ Please select a server first.");
+        return;
+      }
+      
+      // Check if current user is owner
+      const userRole = await getCurrentUserRole(selectedServer.id, auth.currentUser.uid);
+      if (userRole !== "owner") {
+        alert("❌ Only the owner can promote members to admin.");
+        return;
+      }
+      
+      displayMembers(selectedServer.id);
+    });
+  }
+  
+  const demoteToMemberBtn = document.getElementById("demoteToMember");
+  if (demoteToMemberBtn) {
+    demoteToMemberBtn.addEventListener("click", async () => {
+      const selectedServer = window.selectedServer;
+      if (!selectedServer) {
+        alert("❌ Please select a server first.");
+        return;
+      }
+      
+      // Check if current user is owner
+      const userRole = await getCurrentUserRole(selectedServer.id, auth.currentUser.uid);
+      if (userRole !== "owner") {
+        alert("❌ Only the owner can demote admins to members.");
+        return;
+      }
+      
+      displayMembers(selectedServer.id);
+    });
+  }
+  
+  // Override add member functionality to use proper member structure
+  const confirmAddMemberBtn = document.getElementById("confirmAddMember");
+  if (confirmAddMemberBtn) {
+    confirmAddMemberBtn.addEventListener("click", async () => {
+      const username = document.getElementById("memberUsernameInput").value.trim();
+      const selectedServer = window.selectedServer;
+      
+      if (!username) {
+        alert("Please enter a username.");
+        return;
+      }
+      
+      if (!selectedServer) {
+        alert("❌ No server selected.");
+        return;
+      }
+      
+      try {
+        const usersSnapshot = await get(ref(db, "users"));
+        let userFound = false;
+        
+        usersSnapshot.forEach((userSnap) => {
+          const user = userSnap.val();
+          if (user.username === username) {
+            userFound = true;
+            // Set proper member structure with role
+            set(ref(db, `servers/${selectedServer.id}/members/${userSnap.key}`), {
+              username: username,
+              role: "member"
+            });
+          }
+        });
+        
+        if (userFound) {
+          alert(`✅ ${username} was added to ${selectedServer.name} successfully!`);
+          document.getElementById("addMemberPopUp").style.display = "none";
+          document.getElementById("memberUsernameInput").value = "";
+        } else {
+          alert("❌ User not found.");
+        }
+      } catch (error) {
+        console.error("❌ Error adding member:", error);
+        alert("Failed to add member.");
+      }
+    });
+  }
+});
+
+// Export functions for use in main script
+window.getCurrentUserRole = getCurrentUserRole;
+window.canPerformAction = canPerformAction;
+window.updateUIForRole = updateUIForRole;
+window.setupMessageListeners = setupMessageListeners;
+window.displayMembers = displayMembers;
               memberModal.style.display = "none";
               alert(`✅ ${username} has been promoted to admin!`);
               displayMembers(serverId); // Refresh the member list
@@ -295,117 +421,3 @@ function setupMessageListeners(serverId, channelId) {
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
   });
-}
-
-// Initialize event listeners
-document.addEventListener("DOMContentLoaded", () => {
-  // Override the viewMembers button click event
-  const viewMembersBtn = document.getElementById("viewMembers");
-  if (viewMembersBtn) {
-    viewMembersBtn.addEventListener("click", () => {
-      // Get selectedServer from window
-      const selectedServer = window.selectedServer;
-      
-      if (selectedServer) {
-        displayMembers(selectedServer.id);
-      } else {
-        alert("❌ Please select a server first.");
-      }
-    });
-  }
-  
-  // Add listeners for promote/demote buttons in settings dropdown
-  const promoteToAdminBtn = document.getElementById("promoteToAdmin");
-  if (promoteToAdminBtn) {
-    promoteToAdminBtn.addEventListener("click", async () => {
-      const selectedServer = window.selectedServer;
-      if (!selectedServer) {
-        alert("❌ Please select a server first.");
-        return;
-      }
-      
-      // Check if current user is owner
-      const userRole = await getCurrentUserRole(selectedServer.id, auth.currentUser.uid);
-      if (userRole !== "owner") {
-        alert("❌ Only the owner can promote members to admin.");
-        return;
-      }
-      
-      displayMembers(selectedServer.id);
-    });
-  }
-  
-  const demoteToMemberBtn = document.getElementById("demoteToMember");
-  if (demoteToMemberBtn) {
-    demoteToMemberBtn.addEventListener("click", async () => {
-      const selectedServer = window.selectedServer;
-      if (!selectedServer) {
-        alert("❌ Please select a server first.");
-        return;
-      }
-      
-      // Check if current user is owner
-      const userRole = await getCurrentUserRole(selectedServer.id, auth.currentUser.uid);
-      if (userRole !== "owner") {
-        alert("❌ Only the owner can demote admins to members.");
-        return;
-      }
-      
-      displayMembers(selectedServer.id);
-    });
-  }
-  
-  // Override add member functionality to use proper member structure
-  const confirmAddMemberBtn = document.getElementById("confirmAddMember");
-  if (confirmAddMemberBtn) {
-    confirmAddMemberBtn.addEventListener("click", async () => {
-      const username = document.getElementById("memberUsernameInput").value.trim();
-      const selectedServer = window.selectedServer;
-      
-      if (!username) {
-        alert("Please enter a username.");
-        return;
-      }
-      
-      if (!selectedServer) {
-        alert("❌ No server selected.");
-        return;
-      }
-      
-      try {
-        const usersSnapshot = await get(ref(db, "users"));
-        let userFound = false;
-        
-        usersSnapshot.forEach((userSnap) => {
-          const user = userSnap.val();
-          if (user.username === username) {
-            userFound = true;
-            // Set proper member structure with role
-            set(ref(db, `servers/${selectedServer.id}/members/${userSnap.key}`), {
-              username: username,
-              role: "member"
-            });
-          }
-        });
-        
-        if (userFound) {
-          alert(`✅ ${username} was added to ${selectedServer.name} successfully!`);
-          document.getElementById("addMemberPopUp").style.display = "none";
-          document.getElementById("memberUsernameInput").value = "";
-        } else {
-          alert("❌ User not found.");
-        }
-      } catch (error) {
-        console.error("❌ Error adding member:", error);
-        alert("Failed to add member.");
-      }
-    });
-  }
-});
-
-// Export functions for use in main script
-window.getCurrentUserRole = getCurrentUserRole;
-window.canPerformAction = canPerformAction;
-window.updateUIForRole = updateUIForRole;
-window.setupMessageListeners = setupMessageListeners;
-window.displayMembers = displayMembers;
