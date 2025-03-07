@@ -546,7 +546,17 @@
 
         // Make getCurrentUserRole available globally
         window.getCurrentUserRole = getCurrentUserRole;
+        // Initialize settings
+        window.addEventListener("load", function() {
+            // Initialize settings if available
+            if (typeof window.initSettings === 'function') {
+                window.initSettings();
+            } else {
+                console.error("Settings initialization function not found");
+            }
+        });
     </script>
+    <script type="module" src="./settings.js"></script>
     <script type="module" src="./currentMembers.js"></script>
     <script type="module" src="./memberHandler.js"></script>
 </body>
