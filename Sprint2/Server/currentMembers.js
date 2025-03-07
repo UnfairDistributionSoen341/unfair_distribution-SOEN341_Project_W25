@@ -295,12 +295,21 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// Export functions for use in main script
-window.getCurrentUserRole = getCurrentUserRole;
-window.canPerformAction = canPerformAction;
-window.updateUIForRole = updateUIForRole;
-window.setupMessageListeners = setupMessageListeners;
-window.displayMembers = displayMembers;
+// Make functions available in the global scope
+function exportFunctions() {
+    console.log("Exporting member management functions to window object...");
+    window.getCurrentUserRole = getCurrentUserRole;
+    window.canPerformAction = canPerformAction;
+    window.updateUIForRole = updateUIForRole;
+    window.setupMessageListeners = setupMessageListeners;
+    window.displayMembers = displayMembers;
+    console.log("Member functions exported successfully");
+}
+
+// Export functions right away and also when the document is loaded
+exportFunctions();
+window.addEventListener('DOMContentLoaded', exportFunctions);
+window.addEventListener('load', exportFunctions);
               memberModal.style.display = "none";
               alert(`✅ ${username} has been promoted to admin!`);
               displayMembers(serverId); // Refresh the member list
