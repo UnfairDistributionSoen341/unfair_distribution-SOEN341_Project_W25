@@ -261,28 +261,28 @@ function addRoleManagementButtons() {
   settingsDropdown.appendChild(deleteServerBtn);
   
   // Setup event listeners for buttons
-  promoteBtn.onclick = async () => {
-    await set(ref(db, `servers/${serverId}/members/${memberId}`), {
-        username: username,
-        role: "admin"
-    });
-    alert(`✅ ${username} has been promoted to admin!`);
-    document.body.removeChild(modal);
-    showMemberManagementModal(serverId); // Refresh the modal to show updated roles
-};
+  promoteBtn.addEventListener("click", () => {
+    const selectedServer = window.selectedServer;
+    if (!selectedServer) {
+      alert("❌ Please select a server first.");
+      return;
+    }
+    
+    showMemberManagementModal(selectedServer.id);
+  });
   
-demoteBtn.onclick = async () => {
-    await set(ref(db, `servers/${serverId}/members/${memberId}`), {
-        username: username,
-        role: "member"
-    });
-    alert(`✅ ${username} has been demoted to member!`);
-    document.body.removeChild(modal);
-    showMemberManagementModal(serverId); // Refresh the modal to show updated roles
-};
+  demoteBtn.addEventListener("click", () => {
+    const selectedServer = window.selectedServer;
+    if (!selectedServer) {
+      alert("❌ Please select a server first.");
+      return;
+    }
+    
+    showMemberManagementModal(selectedServer.id);
+  });
   
   deleteServerBtn.addEventListener("click", async () => {
-    const selectedServer = window.selectedServer || selectedServer;
+    const selectedServer = window.selectedServer;
     if (!selectedServer) {
       alert("❌ Please select a server first.");
       return;
@@ -313,7 +313,7 @@ function overrideViewMembersButton() {
   if (!viewMembersBtn) return;
   
   viewMembersBtn.addEventListener("click", () => {
-    const selectedServer = window.selectedServer || selectedServer;
+    const selectedServer = window.selectedServer;
     if (!selectedServer) {
       alert("❌ Please select a server first.");
       return;
@@ -336,4 +336,8 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // Export functions for direct use
+window.getCurrentUserRole = getCurrentUserRole;
+window.showMemberManagementModal = showMemberManagementModal;
+
+// Also export as ES modules for import
 export { showMemberManagementModal, getCurrentUserRole };
