@@ -346,52 +346,63 @@
             });
             
             confirmCreateServerBtn.addEventListener("click", async () => {
-                const serverName = document.getElementById("serverNameInput").value.trim();
-                if (!serverName) {
-                    alert("Please enter a server name.");
-                    return;
+    const serverName = document.getElementById("serverNameInput").value.trim();
+    if (!serverName) {
+        alert("Please enter a server name.");
+        return;
+    }
+    
+    try {
+        const serversRef = ref(db, "servers");
+        const newServerRef = push(serversRef);
+        const newServerId = newServerRef.key;
+        
+        await set(newServerRef, {
+            name: serverName,
+            createdBy: currentUser.uid,
+            createdAt: Date.now(),
+            members: {
+                [currentUser.uid]: {
+                    username: currentUser.username,
+                    role: "owner" // Explicitly set the creator as owner
                 }
-                
-                try {
-                    const serversRef = ref(db, "servers");
-                    const newServerRef = push(serversRef);
-                    const newServerId = newServerRef.key;
-                    
-                    await set(newServerRef, {
-                        name: serverName,
-                        createdBy: currentUser.uid,
-                        createdAt: Date.now(),
-                        members: {
-                            [currentUser.uid]: currentUser.username
-                        }
-                    });
-                    
-                    // Create a default "general" channel
-                    const channelsRef = ref(db, `servers/${newServerId}/channels`);
-                    await push(channelsRef, {
-                        name: "general",
-                        createdBy: currentUser.uid,
-                        createdAt: Date.now()
-                    });
-                    
-                    alert(`✅ Server "${serverName}" created successfully!`);
-                    createServerPopUp.style.display = "none";
-                    document.getElementById("serverNameInput").value = "";
-                    loadServers();
-                } catch (error) {
-                    console.error("❌ Error creating server:", error);
-                    alert("Failed to create server.");
-                }
-            });
+            }
+        });
+        
+        // Create a default "general" channel
+        const channelsRef = ref(db, `servers/${newServerId}/channels`);
+        await push(channelsRef, {
+            name: "general",
+            createdBy: currentUser.uid,
+            createdAt: Date.now()
+        });
+        
+        alert(`✅ Server "${serverName}" created successfully!`);
+        createServerPopUp.style.display = "none";
+        document.getElementById("serverNameInput").value = "";
+        loadServers();
+    } catch (error) {
+        console.error("❌ Error creating server:", error);
+        alert("Failed to create server.");
+    }
+});
             
             // Create channel
             createChannelBtn.addEventListener("click", () => {
-                if (!selectedServer) {
-                    alert("❌ Please select a server first.");
-                    return;
-                }
-                createChannelPopUp.style.display = "flex";
-            });
+    if (!selectedServer) {
+        alert("❌ Please select a server first.");
+        return;
+    }
+
+    // Check if the current user is an admin or owner
+    const userRole = getCurrentUserRole(selectedServer.id, currentUser.uid);
+    if (userRole !== "admin" && userRole !== "owner") {
+        alert("❌ Only admins and owners can create channels.");
+        return;
+    }
+
+    createChannelPopUp.style.display = "flex";
+});
             
             closeCreateChannelBtn.addEventListener("click", () => {
                 createChannelPopUp.style.display = "none";
