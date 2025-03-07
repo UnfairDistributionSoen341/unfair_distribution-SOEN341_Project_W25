@@ -1,411 +1,366 @@
-import { getDatabase, ref, get, set, onValue, off } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-
-// Firebase Config
-const firebaseConfig = {
-  apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
-  authDomain: "project-8042491080443698183.firebaseapp.com",
-  databaseURL: "https://project-8042491080443698183-default-rtdb.firebaseio.com",
-  projectId: "project-8042491080443698183",
-  storageBucket: "project-8042491080443698183.appspot.com",
-  messagingSenderId: "583304911847",
-  appId: "1:583304911847:web:8dfe3e5c016062dd457b42"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const auth = getAuth(app);
-
-// Get the current user's role
-async function getCurrentUserRole(serverId, userId) {
-  if (!serverId || !userId) return "member";
-  
-  try {
-    const roleRef = ref(db, `servers/${serverId}/members/${userId}/role`);
-    const snapshot = await get(roleRef);
-    return snapshot.exists() ? snapshot.val() : "member"; // Default to member if role is not set
-  } catch (error) {
-    console.error("Error getting user role:", error);
-    return "member";
-  }
+* {
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
 }
 
-// Check if the user can perform an action based on their role
-function canPerformAction(userRole, requiredRole) {
-  const roleHierarchy = { owner: 3, admin: 2, member: 1 };
-  return roleHierarchy[userRole] >= roleHierarchy[requiredRole];
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
 }
 
-// Update UI based on user's role
-async function updateUIForRole(serverId, userId) {
-  const userRole = await getCurrentUserRole(serverId, userId);
-  const settingsButton = document.getElementById("settingsButton");
-  const settingsDropdown = document.getElementById("settingsDropdown");
-  const deleteServerBtn = document.getElementById("deleteServer");
-  const promoteBtn = document.getElementById("promoteToAdmin");
-  const demoteBtn = document.getElementById("demoteToMember");
-  
-  // Show/hide settings button based on role
-  settingsButton.style.display = canPerformAction(userRole, "member") ? "block" : "none";
-  
-  // Show/hide specific actions based on role
-  if (deleteServerBtn) deleteServerBtn.style.display = canPerformAction(userRole, "owner") ? "block" : "none";
-  if (promoteBtn) promoteBtn.style.display = canPerformAction(userRole, "owner") ? "block" : "none";
-  if (demoteBtn) demoteBtn.style.display = canPerformAction(userRole, "owner") ? "block" : "none";
+.chat-container {
+    display: flex;
+    width: 80%;
+    height: 600px;
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.2);
 }
 
-// Create and display a member modal
-function createMemberModal() {
-  // Check if modal already exists
-  let memberModal = document.getElementById("memberModal");
-  if (memberModal) {
-    return memberModal;
-  }
-  
-  // Create modal elements
-  memberModal = document.createElement("div");
-  memberModal.id = "memberModal";
-  memberModal.className = "popUp";
-  
-  const modalContent = document.createElement("div");
-  modalContent.className = "popUp-content";
-  modalContent.style.width = "400px";
-  
-  const closeButton = document.createElement("span");
-  closeButton.className = "close-button";
-  closeButton.innerHTML = "&times;";
-  closeButton.onclick = () => memberModal.style.display = "none";
-  
-  const title = document.createElement("h2");
-  title.textContent = "Server Members";
-  
-  const membersList = document.createElement("div");
-  membersList.id = "membersListContainer";
-  membersList.style.maxHeight = "300px";
-  membersList.style.overflowY = "auto";
-  membersList.style.margin = "15px 0";
-  membersList.style.textAlign = "left";
-  
-  modalContent.appendChild(closeButton);
-  modalContent.appendChild(title);
-  modalContent.appendChild(membersList);
-  memberModal.appendChild(modalContent);
-  document.body.appendChild(memberModal);
-  
-  return memberModal;
+.sidebar {
+    width: 30%;
+    background: #333;
+    color: white;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
 }
 
-// Display members with action buttons
-async function displayMembers(serverId) {
-  if (!serverId) {
-    alert("❌ No server selected.");
-    return;
-  }
-  
-  try {
-    const currentUserRole = await getCurrentUserRole(serverId, auth.currentUser.uid);
-    const membersRef = ref(db, `servers/${serverId}/members`);
-    const snapshot = await get(membersRef);
-    
-    // Create and show modal
-    const memberModal = createMemberModal();
-    const membersListContainer = document.getElementById("membersListContainer");
-    membersListContainer.innerHTML = "";
-    
-    if (snapshot.exists()) {
-      snapshot.forEach((memberSnap) => {
-        const memberId = memberSnap.key;
-        const memberData = memberSnap.val();
-        
-        // Handle both formats (string username or object with role)
-        let username = memberData;
-        let role = "member";
-        
-        if (typeof memberData === "object") {
-          username = memberData.username || "Unknown";
-          role = memberData.role || "member";
-        }
-        
-        // Create member container
-        const memberDiv = document.createElement("div");
-        memberDiv.className = "member-item";
-        memberDiv.style.padding = "10px";
-        memberDiv.style.marginBottom = "10px";
-        memberDiv.style.backgroundColor = "#f1f1f1";
-        memberDiv.style.borderRadius = "5px";
-        memberDiv.style.display = "flex";
-        memberDiv.style.justifyContent = "space-between";
-        memberDiv.style.alignItems = "center";
-        
-        // Member info
-        const memberInfo = document.createElement("div");
-        memberInfo.innerHTML = `
-          <strong>${username}</strong>
-          <span style="margin-left: 10px; padding: 2px 6px; background: ${
-            role === "owner" ? "#ff9800" : 
-            role === "admin" ? "#4CAF50" : "#2196F3"
-          }; color: white; border-radius: 3px; font-size: 12px;">
-            ${role}
-          </span>
-        `;
-        
-        // Action buttons container
-        const actionButtons = document.createElement("div");
-        actionButtons.style.display = "flex";
-        actionButtons.style.gap = "5px";
-        
-        // Only show promote/demote buttons if current user is owner
-        if (canPerformAction(currentUserRole, "owner") && memberId !== auth.currentUser.uid) {
-          // Promote button - only show for members
-          if (role === "member") {
-            const promoteBtn = document.createElement("button");
-            promoteBtn.textContent = "Promote";
-            promoteBtn.className = "action-button promote";
-            promoteBtn.style.backgroundColor = "#4CAF50";
-            promoteBtn.style.color = "white";
-            promoteBtn.style.border = "none";
-            promoteBtn.style.padding = "5px 10px";
-            promoteBtn.style.borderRadius = "3px";
-            promoteBtn.style.cursor = "pointer";
-            
-            promoteBtn.onclick = async () => {
-              await set(ref(db, `servers/${serverId}/members/${memberId}`), {
-                username: username,
-                role: "admin"
-              });
-              memberModal.style.display = "none";
-              alert(`✅ ${username} has been promoted to admin!`);
-              displayMembers(serverId); // Refresh the member list
-            };
-            
-            actionButtons.appendChild(promoteBtn);
-          }
-          
-          // Demote button - only show for admins
-          if (role === "admin") {
-            const demoteBtn = document.createElement("button");
-            demoteBtn.textContent = "Demote";
-            demoteBtn.className = "action-button demote";
-            demoteBtn.style.backgroundColor = "#f44336";
-            demoteBtn.style.color = "white";
-            demoteBtn.style.border = "none";
-            demoteBtn.style.padding = "5px 10px";
-            demoteBtn.style.borderRadius = "3px";
-            demoteBtn.style.cursor = "pointer";
-            
-            demoteBtn.onclick = async () => {
-              await set(ref(db, `servers/${serverId}/members/${memberId}`), {
-                username: username,
-                role: "member"
-              });
-              memberModal.style.display = "none";
-              alert(`✅ ${username} has been demoted to member!`);
-              displayMembers(serverId); // Refresh the member list
-            };
-            
-            actionButtons.appendChild(demoteBtn);
-          }
-          
-          // Remove button (for both members and admins, but not owners)
-          if (role !== "owner") {
-            const removeBtn = document.createElement("button");
-            removeBtn.textContent = "Remove";
-            removeBtn.className = "action-button remove";
-            removeBtn.style.backgroundColor = "#9e9e9e";
-            removeBtn.style.color = "white";
-            removeBtn.style.border = "none";
-            removeBtn.style.padding = "5px 10px";
-            removeBtn.style.borderRadius = "3px";
-            removeBtn.style.cursor = "pointer";
-            
-            removeBtn.onclick = async () => {
-              const confirm = window.confirm(`Are you sure you want to remove ${username} from the server?`);
-              if (confirm) {
-                await set(ref(db, `servers/${serverId}/members/${memberId}`), null);
-                memberModal.style.display = "none";
-                alert(`✅ ${username} has been removed from the server!`);
-                displayMembers(serverId); // Refresh the member list
-              }
-            };
-            
-            actionButtons.appendChild(removeBtn);
-          }
-        }
-        
-        memberDiv.appendChild(memberInfo);
-        memberDiv.appendChild(actionButtons);
-        membersListContainer.appendChild(memberDiv);
-      });
-    } else {
-      membersListContainer.innerHTML = "<p>No members found in this server.</p>";
-    }
-    
-    memberModal.style.display = "flex";
-  } catch (error) {
-    console.error("❌ Error fetching members:", error);
-    alert("Failed to load members.");
-  }
+.server-section {
+    margin-bottom: 20px;
+    /* Add display property */
+    display: flex;
+    flex-direction: column;
 }
 
-// Setup real-time listeners for messages
-function setupMessageListeners(serverId, channelId) {
-  if (!serverId || !channelId) return;
-  
-  const messagesDiv = document.getElementById("messages");
-  messagesDiv.innerHTML = "";
-  
-  // Create reference to messages
-  const messagesRef = ref(db, `servers/${serverId}/channels/${channelId}/messages`);
-  
-  // Remove any existing listeners
-  off(messagesRef);
-  
-  // Listen for all messages with real-time updates
-  onValue(messagesRef, (snapshot) => {
-    messagesDiv.innerHTML = "";
-    
-    if (snapshot.exists()) {
-      // Convert to array for sorting
-      const messagesArray = [];
-      snapshot.forEach((childSnapshot) => {
-        messagesArray.push({
-          id: childSnapshot.key,
-          ...childSnapshot.val()
-        });
-      });
-      
-      // Sort messages by timestamp
-      messagesArray.sort((a, b) => a.timestamp - b.timestamp);
-      
-      // Display messages
-      messagesArray.forEach((message) => {
-        const messageElement = document.createElement("div");
-        messageElement.className = `message ${message.senderId === auth.currentUser.uid ? 'sent' : 'received'}`;
-        messageElement.innerHTML = `
-          <div class="message-header">${message.senderName}</div>
-          <div class="message-text">${message.text}</div>
-          <div class="message-time">${new Date(message.timestamp).toLocaleTimeString()}</div>
-        `;
-        messagesDiv.appendChild(messageElement);
-      });
-      
-      // Scroll to the bottom
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }
-  });
+h2 {
+    margin-bottom: 15px;
 }
 
-// Initialize event listeners
-document.addEventListener("DOMContentLoaded", () => {
-  // Override the viewMembers button click event
-  const viewMembersBtn = document.getElementById("viewMembers");
-  if (viewMembersBtn) {
-    viewMembersBtn.addEventListener("click", () => {
-      // Get selectedServer from window
-      const selectedServer = window.selectedServer;
-      
-      if (selectedServer) {
-        displayMembers(selectedServer.id);
-      } else {
-        alert("❌ Please select a server first.");
-      }
-    });
-  }
-  
-  // Add listeners for promote/demote buttons in settings dropdown
-  const promoteToAdminBtn = document.getElementById("promoteToAdmin");
-  if (promoteToAdminBtn) {
-    promoteToAdminBtn.addEventListener("click", async () => {
-      const selectedServer = window.selectedServer;
-      if (!selectedServer) {
-        alert("❌ Please select a server first.");
-        return;
-      }
-      
-      // Check if current user is owner
-      const userRole = await getCurrentUserRole(selectedServer.id, auth.currentUser.uid);
-      if (userRole !== "owner") {
-        alert("❌ Only the owner can promote members to admin.");
-        return;
-      }
-      
-      displayMembers(selectedServer.id);
-    });
-  }
-  
-  const demoteToMemberBtn = document.getElementById("demoteToMember");
-  if (demoteToMemberBtn) {
-    demoteToMemberBtn.addEventListener("click", async () => {
-      const selectedServer = window.selectedServer;
-      if (!selectedServer) {
-        alert("❌ Please select a server first.");
-        return;
-      }
-      
-      // Check if current user is owner
-      const userRole = await getCurrentUserRole(selectedServer.id, auth.currentUser.uid);
-      if (userRole !== "owner") {
-        alert("❌ Only the owner can demote admins to members.");
-        return;
-      }
-      
-      displayMembers(selectedServer.id);
-    });
-  }
-  
-  // Override add member functionality to use proper member structure
-  const confirmAddMemberBtn = document.getElementById("confirmAddMember");
-  if (confirmAddMemberBtn) {
-    confirmAddMemberBtn.addEventListener("click", async () => {
-      const username = document.getElementById("memberUsernameInput").value.trim();
-      const selectedServer = window.selectedServer;
-      
-      if (!username) {
-        alert("Please enter a username.");
-        return;
-      }
-      
-      if (!selectedServer) {
-        alert("❌ No server selected.");
-        return;
-      }
-      
-      try {
-        const usersSnapshot = await get(ref(db, "users"));
-        let userFound = false;
-        
-        usersSnapshot.forEach((userSnap) => {
-          const user = userSnap.val();
-          if (user.username === username) {
-            userFound = true;
-            // Set proper member structure with role
-            set(ref(db, `servers/${selectedServer.id}/members/${userSnap.key}`), {
-              username: username,
-              role: "member"
-            });
-          }
-        });
-        
-        if (userFound) {
-          alert(`✅ ${username} was added to ${selectedServer.name} successfully!`);
-          document.getElementById("addMemberPopUp").style.display = "none";
-          document.getElementById("memberUsernameInput").value = "";
-        } else {
-          alert("❌ User not found.");
-        }
-      } catch (error) {
-        console.error("❌ Error adding member:", error);
-        alert("Failed to add member.");
-      }
-    });
-  }
-});
+h3 {
+    margin-bottom: 10px;
+    font-size: 16px;
+    color: #aaa;
+}
 
-// Export functions for use in main script
-window.getCurrentUserRole = getCurrentUserRole;
-window.canPerformAction = canPerformAction;
-window.updateUIForRole = updateUIForRole;
-window.setupMessageListeners = setupMessageListeners;
-window.displayMembers = displayMembers;
+#searchServer, #searchChannel {
+    width: 100%;
+    padding: 10px;
+    border-radius: 5px;
+    border: none;
+    margin-bottom: 10px;
+}
+
+#serverList, #channelList {
+    margin-top: 15px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.server, .channel {
+    padding: 10px;
+    margin: 5px 0;
+    cursor: pointer;
+    background: #444;
+    border-radius: 5px;
+    transition: background 0.3s;
+}
+
+.server:hover, .channel:hover {
+    background: #5865F2;
+}
+
+.server.active {
+    background: #5865F2;
+}
+
+/* Fix for channel section display */
+.channel-section {
+    display: none;
+    flex-direction: column;
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.channel-section.active {
+    display: flex;
+}
+
+.back-button {
+    background: #555;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-bottom: 15px;
+    width: fit-content;
+}
+
+.back-button:hover {
+    background: #666;
+}
+
+.divider {
+    height: 1px;
+    background-color: #555;
+    margin: 15px 0;
+}
+
+.chat-box {
+    width: 70%;
+    display: flex;
+    flex-direction: column;
+}
+
+#messages {
+    flex-grow: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.message {
+    padding: 12px;
+    border-radius: 8px;
+    max-width: 80%;
+    word-break: break-word;
+}
+
+.sent {
+    background: #007bff;
+    color: white;
+    align-self: flex-end;
+}
+
+.received {
+    background: #f1f1f1;
+    color: black;
+    align-self: flex-start;
+}
+
+.message-header {
+    font-weight: bold;
+    margin-bottom: 4px;
+    font-size: 0.9em;
+}
+
+.message-text {
+    margin: 4px 0;
+}
+
+.message-time {
+    font-size: 0.75em;
+    opacity: 0.8;
+    text-align: right;
+}
+
+.message-input {
+    display: flex;
+    padding: 15px;
+    background: #fff;
+    border-top: 1px solid #ddd;
+}
+
+#messageInput {
+    flex-grow: 1;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-right: 10px;
+}
+
+#messageInput:disabled {
+    background: #eee;
+    cursor: not-allowed;
+}
+
+button {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+button:hover {
+    background: #0056b3;
+}
+
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+    position: relative;
+}
+
+.settings-container {
+    position: relative;
+    display: inline-block;
+}
+
+#settingsButton {
+    background-color: #333;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 5px;
+}
+
+.dropdown-menu {
+    display: none; /* 🔹 Hides the dropdown by default */
+    position: absolute;
+    right: 0;
+    top: 40px;
+    background: white;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+    border-radius: 5px;
+    width: 150px;
+    text-align: left;
+    z-index: 10;
+}
+
+.dropdown-menu button {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    color:#333;
+}
+
+.dropdown-menu button:hover {
+    background-color: #f1f1f1;
+}
+
+/* add member popup Styles */
+.popUp {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+}
+
+.popUp-content {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    width: 300px;
+    text-align: center;
+    position: relative;
+}
+
+.close-button {
+    position: absolute;
+    top: 10px; right: 15px;
+    font-size: 18px;
+    cursor: pointer;
+}
+
+#logoutButton {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background-color: red;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+/* Member modal styling */
+.member-item {
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: #f1f1f1;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Button styles for role management */
+#promoteToAdmin {
+    background-color: #4CAF50;
+    color: white;
+}
+
+#promoteToAdmin:hover {
+    background-color: #3e8e41;
+}
+
+#demoteToMember {
+    background-color: #f44336;
+    color: white;
+}
+
+#demoteToMember:hover {
+    background-color: #d32f2f;
+}
+
+#deleteServer {
+    background-color: #ff0000;
+    color: white;
+}
+
+#deleteServer:hover {
+    background-color: #cc0000;
+}
+
+/* Member item styles */
+.member-item {
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: #f1f1f1;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Member action buttons */
+.member-action-btn {
+    padding: 5px 10px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-left: 5px;
+}
+
+.promote-btn {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.demote-btn {
+    background-color: #f44336;
+    color: white;
+}
+
+.remove-btn {
+    background-color: #9e9e9e;
+    color: white;
+}
