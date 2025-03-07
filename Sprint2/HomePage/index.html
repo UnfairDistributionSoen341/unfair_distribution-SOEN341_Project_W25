@@ -11,7 +11,7 @@
         <!-- 🔹 Navigation Bar -->
         <nav>
             <button class="tab active" id="dmTab">💬 Direct Messages</button>
-            <button class="tab" id="serverTab">📢 Channels</button>
+            <button class="tab" id="serverTab">📢 Servers</button>
         </nav>
 
         <!-- 🔹 Content Sections -->
@@ -38,6 +38,14 @@
             document.getElementById("dmSection").classList.add("hidden");
             document.getElementById("serverTab").classList.add("active");
             document.getElementById("dmTab").classList.remove("active");
+        });
+        document.addEventListener("DOMContentLoaded", () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const inviteCode = urlParams.get("invite");
+
+            if (inviteCode) {
+                console.log(`🔗 User joined via invite code: ${inviteCode}`);
+            }
         });
     </script>
 </body>

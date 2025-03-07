@@ -1,305 +1,1084 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatHaven - Channels</title>
-    <link rel="stylesheet" href="./server.css">
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>ChatHaven - Servers & Channels</title>
+ <link rel="stylesheet" href="./server.css">
+ <style>
+ /* Delete button styles */
+ .message {
+ position: relative;
+ }
+ 
+ .delete-btn {
+ position: absolute;
+ top: 3px;
+ right: 3px;
+ background-color: rgba(255, 0, 0, 0.1);
+ color: #ff0000;
+ border: none;
+ width: 20px;
+ height: 20px;
+ border-radius: 50%;
+ font-size: 14px;
+ cursor: pointer;
+ display: none;
+ align-items: center;
+ justify-content: center;
+ padding: 0;
+ line-height: 1;
+ }
+ 
+ .message:hover .delete-btn {
+ display: flex;
+ }
+ 
+ .delete-btn:hover {
+ background-color: rgba(255, 0, 0, 0.2);
+ }
+ </style>
 </head>
 <body>
-    <div class="chat-container">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <h2>Channels</h2>
-            <input type="text" id="searchChannel" placeholder="Search for a channel...">
-            <button id="createChannel">+ Create Channel</button>
-            <div id="channelList"></div>
-        </div>
+ <div class="chat-container">
+ <!-- Sidebar -->
+ <div class="sidebar">
+ <!-- Server Section -->
+ <div class="server-section" id="serverSectionView">
+ <h2>Servers</h2>
+ <input type="text" id="searchServer" placeholder="Search for a server...">
+ <button id="createServer">+ Create Server</button>
+ <div id="serverList"></div>
+ </div>
 
-        <!-- Chat Box -->
-        <div class="chat-box">
-            <div class="chat-header">
-                <h2 id="chatChannelName">Select a channel to chat</h2>
-                <!-- Settings Button -->
-                <div class="settings-container">
-                    <button id="settingsButton">⚙ Settings</button>
-                    <div class="dropdown-menu" id="settingsDropdown">
-                        <button id="addMember">➕ Add Member</button>
-                        <button id="removeMember">➖ Remove Member</button>
-                        <button id="viewMembers">👥 Current Members</button>
-                    </div>
-                </div>
-            </div>
+ <!-- Channel Section (hidden initially) -->
+ <div class="channel-section" id="channelSectionView">
+ <button class="back-button" id="backToServers">← Back to Servers</button>
+ <h2 id="currentServerName">Server Name</h2>
+ <div class="divider"></div>
+ <h3>CHANNELS</h3>
+ <input type="text" id="searchChannel" placeholder="Search for a channel...">
+ <button id="createChannel">+ Create Channel</button>
+ <div id="channelList"></div>
+ </div>
+ </div>
 
-            <div id="messages"></div>
-            <div class="message-input">
-                <input type="text" id="messageInput" placeholder="Type a message...">
-                <button id="sendMessage">Send</button>
-            </div>
-        </div>
-    </div>
+ <!-- Chat Box -->
+ <div class="chat-box">
+ <div class="chat-header">
+ <h2 id="chatChannelName">Select a server and channel to chat</h2>
+ <!-- Settings Button -->
+ <div class="settings-container">
+ <button id="settingsButton">⚙ Settings</button>
+ <div class="dropdown-menu" id="settingsDropdown">
+ <button id="addMember">➕ Add Member</button>
+ <button id="removeMember">➖ Remove Member</button>
+ <button id="viewMembers">👥 Current Members</button>
+ <button id="promoteToAdmin">⭐ Promote to Admin</button>
+ <button id="demoteToMember">⬇ Demote to Member</button>
+ <button id="deleteServer">❌ Delete Server</button>
+ <button id="deleteChannel">🗑️ Delete Channel</button>
+ </div>
+ </div>
+ </div>
 
-    <!-- Add Member Popup -->
-    <div id="addMemberPopUp" class="popUp">
-        <div class="popUp-content">
-            <span class="close-button" id="closeAddMemberPopUp">&times;</span>
-            <h2>Add Member</h2>
-            <input type="text" id="memberUsernameInput" placeholder="Enter username">
-            <button id="confirmAddMember">Add Member</button>
-        </div>
-    </div>
-<!-- JS Files -->
-<script src="./settings.js"></script>
+ <div id="messages"></div>
+ <div class="message-input">
+ <input type="text" id="messageInput" placeholder="Type a message...">
+ <button id="sendMessage">Send</button>
+ </div>
+ </div>
+ </div>
 
-<!-- creating different js files messed things up too much so needed to include them in the js at the bottom -->
-<!-- <script type="module" src="./addMember.js"></script> -->
-<!-- <script type="module" src="./currentMembers.js"></script> -->
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-    import { getDatabase, ref, push, set, get, onChildAdded, off } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-    
-    const firebaseConfig = {
-        apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
-        authDomain: "project-8042491080443698183.firebaseapp.com",
-        databaseURL: "https://project-8042491080443698183-default-rtdb.firebaseio.com",
-        projectId: "project-8042491080443698183",
-        storageBucket: "project-8042491080443698183.appspot.com",
-        messagingSenderId: "583304911847",
-        appId: "1:583304911847:web:8dfe3e5c016062dd457b42"
-    };
-    
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    const auth = getAuth(app);
-    
-    window.selectedChannelId = null;
-    let currentUser = null;
-    let selectedChannel = null;
-    
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            currentUser = user;
-            const userRef = ref(db, `users/${user.uid}`);
-            const snapshot = await get(userRef);
-            if (snapshot.exists()) {
-                currentUser.username = snapshot.val().username;
-            }
-            console.log("✅ Logged in as:", currentUser.username);
-            loadChannels();
-        } else {
-            console.error("❌ No user detected. Redirecting...");
-            window.location.href = "../LoginPage/user_login.html";
-        }
-    });
-    
-    async function loadChannels() {
-        const channelList = document.getElementById("channelList");
-        channelList.innerHTML = "";
-        try {
-            const channelsRef = ref(db, "channels");
-            const snapshot = await get(channelsRef);
-            if (snapshot.exists()) {
-                const channels = [];
-                snapshot.forEach((childSnapshot) => {
-                    const channel = {
-                        id: childSnapshot.key,
-                        ...childSnapshot.val()
-                    };
-                    if (channel.members && channel.members[currentUser.uid]) {
-                        channels.push(channel);
-                    }
-                });
-                displayChannels(channels);
-            } else {
-                channelList.innerHTML = "<p>No channels found.</p>";
-            }
-        } catch (error) {
-            console.error("❌ Error loading channels:", error);
-        }
-    }
-    
-    function displayChannels(channels) {
-        const channelList = document.getElementById("channelList");
-        channelList.innerHTML = channels.length === 0 
-            ? "<p>No channels available. Create one!</p>"
-            : "";
-    
-        channels.forEach(channel => {
-            const channelDiv = document.createElement("div");
-            channelDiv.className = "channel";
-            channelDiv.textContent = channel.name;
-            channelDiv.addEventListener("click", () => joinChannel(channel));
-            channelList.appendChild(channelDiv);
-        });
-    }
-    
-    function joinChannel(channel) {
-        selectedChannel = channel;
-        window.selectedChannelId = channel.id;
-        document.body.dataset.selectedChannel = channel.id;
-        document.getElementById("chatChannelName").textContent = `Chat in ${channel.name}`;
-        loadMessages();
-    }
-    
-    function loadMessages() {
-        const messagesDiv = document.getElementById("messages");
-        messagesDiv.innerHTML = "";
-        const messagesRef = ref(db, `channels/${selectedChannel.id}/messages`);
-    
-        off(messagesRef);
-    
-        onChildAdded(messagesRef, (snapshot) => {
-            const message = snapshot.val();
-            const messageElement = document.createElement("div");
-            messageElement.className = `message ${message.senderId === currentUser.uid ? 'sent' : 'received'}`;
-            messageElement.innerHTML = `
-                <strong>${message.senderName}:</strong>
-                <p>${message.text}</p>
-            `;
-            messagesDiv.appendChild(messageElement);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        });
-    }
-    
-    document.addEventListener("DOMContentLoaded", () => {
-        const sendMessageBtn = document.getElementById("sendMessage");
-        const messageInput = document.getElementById("messageInput");
-        const addMemberBtn = document.getElementById("addMember");
-        const removeMemberBtn = document.getElementById("removeMember");
-        const viewMembersBtn = document.getElementById("viewMembers");
-        const modal = document.getElementById("addMemberPopUp");
-        const closeModalBtn = document.getElementById("closeAddMemberPopUp");
-        const confirmAddBtn = document.getElementById("confirmAddMember");
-    
-        sendMessageBtn.addEventListener("click", () => {
-            const messageText = messageInput.value.trim();
-            if (messageText && selectedChannel) {
-                const messagesRef = ref(db, `channels/${selectedChannel.id}/messages`);
-                push(messagesRef, {
-                    text: messageText,
-                    senderId: currentUser.uid,
-                    senderName: currentUser.username,
-                    timestamp: Date.now()
-                });
-                messageInput.value = "";
-            }
-        });
-    
-        addMemberBtn.addEventListener("click", () => {
-            modal.style.display = "block";
-        });
-    
-        closeModalBtn.addEventListener("click", () => {
-            modal.style.display = "none";
-        });
-    
-        window.addEventListener("click", (event) => {
-            if (event.target === modal) {
-                modal.style.display = "none";
-            }
-        });
-    
-        confirmAddBtn.addEventListener("click", async () => {
-            const username = document.getElementById("memberUsernameInput").value.trim();
-            if (!username) {
-                alert("Please enter a username.");
-                return;
-            }
-    
-            if (!window.selectedChannelId) {
-                alert("❌ No channel selected.");
-                return;
-            }
-    
-            try {
-                const usersSnapshot = await get(ref(db, "users"));
-                let userFound = false;
-    
-                usersSnapshot.forEach((userSnap) => {
-                    const user = userSnap.val();
-                    if (user.username === username) {
-                        userFound = true;
-                        set(ref(db, `channels/${window.selectedChannelId}/members/${userSnap.key}`), username);
-                    }
-                });
-    
-                if (userFound) {
-                    alert(`✅ ${username} was added successfully!`);
-                    modal.style.display = "none";
-                } else {
-                    alert("❌ User not found.");
-                }
-            } catch (error) {
-                console.error("❌ Error adding member:", error);
-                alert("Failed to add member.");
-            }
-        });
-    
-        viewMembersBtn.addEventListener("click", async () => {
-            const selectedChannelId = document.body.dataset.selectedChannel;
-    
-            if (!selectedChannelId) {
-                alert("❌ No channel selected.");
-                return;
-            }
-    
-            try {
-                const membersRef = ref(db, `channels/${selectedChannelId}/members`);
-                const snapshot = await get(membersRef);
-    
-                if (snapshot.exists()) {
-                    let membersList = "👥 Members:\n";
-                    snapshot.forEach((memberSnap) => {
-                        membersList += `- ${memberSnap.val()}\n`;
-                    });
-                    alert(membersList);
-                } else {
-                    alert("❌ No members found in this channel.");
-                }
-            } catch (error) {
-                console.error("❌ Error fetching members:", error);
-                alert("Failed to load members.");
-            }
-        });
-    
-        removeMemberBtn.addEventListener("click", async () => {
-            const selectedChannelId = document.body.dataset.selectedChannel;
-    
-            if (!selectedChannelId) {
-                alert("❌ No channel selected.");
-                return;
-            }
-    
-            try {
-                const membersRef = ref(db, `channels/${selectedChannelId}/members`);
-                const snapshot = await get(membersRef);
-    
-                if (snapshot.exists()) {
-                    let membersArray = [];
-                    snapshot.forEach((memberSnap) => {
-                        membersArray.push({ uid: memberSnap.key, username: memberSnap.val() });
-                    });
-    
-                    let membersList = "👥 Current Members:\n";
-                    membersArray.forEach((member, index) => {
-                        membersList += `${index + 1}. ${member.username}\n`;
-                    });
-    
-                    const usernameToRemove = prompt(`${membersList}\nEnter the username you want to remove:`).trim();
-    
-                    const memberToRemove = membersArray.find(member => member.username === usernameToRemove);
-    
-                    if (memberToRemove) {
-                        await set(ref(db, `channels/${selectedChannelId}/members/${memberToRemove.uid}`), null);
-                        alert(`✅ ${usernameToRemove} was removed successfully!`);
-                    } else {
-                        alert(`❌ User not found.`);
-                    }
-                }
-            } catch (error) {
-                console.error("❌ Error removing member:", error);
-            }
-        });
-    });
-    </script>
+ <!-- Add Member Popup -->
+ <div id="addMemberPopUp" class="popUp">
+ <div class="popUp-content">
+ <span class="close-button" id="closeAddMemberPopUp">&times;</span>
+ <h2>Add Member</h2>
+ <input type="text" id="memberUsernameInput" placeholder="Enter username">
+ <button id="confirmAddMember">Add Member</button>
+ </div>
+ </div>
+
+ <!-- Create Server Popup -->
+ <div id="createServerPopUp" class="popUp">
+ <div class="popUp-content">
+ <span class="close-button" id="closeCreateServerPopUp">&times;</span>
+ <h2>Create Server</h2>
+ <input type="text" id="serverNameInput" placeholder="Enter server name">
+ <button id="confirmCreateServer">Create Server</button>
+ </div>
+ </div>
+
+ <!-- Create Channel Popup -->
+ <div id="createChannelPopUp" class="popUp">
+ <div class="popUp-content">
+ <span class="close-button" id="closeCreateChannelPopUp">&times;</span>
+ <h2>Create Channel</h2>
+ <input type="text" id="channelNameInput" placeholder="Enter channel name">
+ <button id="confirmCreateChannel">Create Channel</button>
+ </div>
+ </div>
+
+ <button id="logoutButton">Logout</button>
+ 
+ <!-- JS Files -->
+ <script src="./settings.js"></script>
+
+ <script type="module">
+ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+ import { getDatabase, ref, push, set, get, onChildAdded, off, remove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+ import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+ 
+ const firebaseConfig = {
+ apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
+ authDomain: "project-8042491080443698183.firebaseapp.com",
+ databaseURL: "https://project-8042491080443698183-default-rtdb.firebaseio.com",
+ projectId: "project-8042491080443698183",
+ storageBucket: "project-8042491080443698183.appspot.com",
+ messagingSenderId: "583304911847",
+ appId: "1:583304911847:web:8dfe3e5c016062dd457b42"
+ };
+ 
+ const app = initializeApp(firebaseConfig);
+ const db = getDatabase(app);
+ const auth = getAuth(app);
+ 
+ let currentUser = null;
+ let selectedServer = null;
+ let selectedChannel = null;
+ 
+ // DOM Elements for Server & Channel Views
+ const serverSectionView = document.getElementById("serverSectionView");
+ const channelSectionView = document.getElementById("channelSectionView");
+ const backToServersBtn = document.getElementById("backToServers");
+ const currentServerNameEl = document.getElementById("currentServerName");
+ 
+ // Initialize UI state
+ function initializeUIState() {
+ serverSectionView.style.display = "block";
+ channelSectionView.style.display = "none";
+ document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
+ document.getElementById("messageInput").disabled = true;
+ }
+ 
+ onAuthStateChanged(auth, async (user) => {
+ if (user) {
+ currentUser = user;
+ const userRef = ref(db, `users/${user.uid}`);
+ const snapshot = await get(userRef);
+ if (snapshot.exists()) {
+ currentUser.username = snapshot.val().username;
+ }
+ console.log("✅ Logged in as:", currentUser.username);
+ loadServers();
+ initializeUIState();
+ } else {
+ console.error("❌ No user detected. Redirecting...");
+ window.location.href = "../LoginPage/user_login.html";
+ }
+ });
+ 
+ // Get the current user's role in a server
+ async function getCurrentUserRole(serverId, userId) {
+ if (!serverId || !userId) return "member";
+ 
+ try {
+ console.log(`Checking role for user ${userId} in server ${serverId}`);
+ 
+ // Check if user is server creator (owner)
+ const serverRef = ref(db, `servers/${serverId}`);
+ const serverSnapshot = await get(serverRef);
+ 
+ if (serverSnapshot.exists()) {
+ const server = serverSnapshot.val();
+ // If user is the server creator, they are the owner
+ if (server.createdBy === userId) {
+ console.log("User is server creator -> OWNER");
+ return "owner";
+ }
+ }
+ 
+ // Otherwise check their role in members
+ const memberRef = ref(db, `servers/${serverId}/members/${userId}`);
+ const snapshot = await get(memberRef);
+ 
+ if (!snapshot.exists()) {
+ console.log("User not found in members");
+ return "member";
+ }
+ 
+ // Handle both string username and object with role
+ const memberData = snapshot.val();
+ console.log("Member data:", memberData);
+ 
+ if (typeof memberData === "object" && memberData.role) {
+ console.log(`Found role: ${memberData.role}`);
+ return memberData.role;
+ }
+ 
+ // If it's just a username string or no role specified
+ console.log("No role specified, defaulting to member");
+ return "member";
+ } catch (error) {
+ console.error("Error getting user role:", error);
+ return "member";
+ }
+ }
+ 
+ // Update UI based on user role
+ function updateUIBasedOnRole(role) {
+ console.log("Current user role:", role);
+ 
+ const createChannelBtn = document.getElementById("createChannel");
+ const deleteChannelBtn = document.getElementById("deleteChannel");
+ const deleteServerBtn = document.getElementById("deleteServer");
+ const promoteBtn = document.getElementById("promoteToAdmin");
+ const demoteBtn = document.getElementById("demoteToMember");
+ 
+ // Only admin and owner can create channels
+ createChannelBtn.style.display = (role === "admin" || role === "owner") ? "block" : "none";
+ 
+ // Only admin and owner can delete channels
+ if (deleteChannelBtn) {
+ deleteChannelBtn.style.display = (role === "admin" || role === "owner") ? "block" : "none";
+ }
+ 
+ // Only owner can delete server, promote/demote
+ if (deleteServerBtn) {
+ deleteServerBtn.style.display = role === "owner" ? "block" : "none";
+ }
+ 
+ if (promoteBtn) {
+ promoteBtn.style.display = role === "owner" ? "block" : "none";
+ }
+ 
+ if (demoteBtn) {
+ demoteBtn.style.display = role === "owner" ? "block" : "none";
+ }
+ }
+ 
+ // Load servers from database
+ async function loadServers() {
+ const serverList = document.getElementById("serverList");
+ serverList.innerHTML = "";
+ try {
+ const serversRef = ref(db, "servers");
+ const snapshot = await get(serversRef);
+ if (snapshot.exists()) {
+ const servers = [];
+ snapshot.forEach((childSnapshot) => {
+ const server = {
+ id: childSnapshot.key,
+ ...childSnapshot.val()
+ };
+ if (server.members && (server.members[currentUser.uid] || 
+ (typeof server.members[currentUser.uid] === 'object' && 
+ server.members[currentUser.uid].username))) {
+ servers.push(server);
+ }
+ });
+ displayServers(servers);
+ } else {
+ serverList.innerHTML = "<p>No servers found.</p>";
+ }
+ } catch (error) {
+ console.error("❌ Error loading servers:", error);
+ }
+ }
+ 
+ // Display servers in the server list
+ function displayServers(servers) {
+ const serverList = document.getElementById("serverList");
+ serverList.innerHTML = servers.length === 0 
+ ? "<p>No servers available. Create one!</p>"
+ : "";
+ 
+ servers.forEach(server => {
+ const serverDiv = document.createElement("div");
+ serverDiv.className = "server";
+ serverDiv.textContent = server.name;
+ serverDiv.addEventListener("click", () => selectServer(server));
+ serverList.appendChild(serverDiv);
+ });
+ }
+ 
+ // Select a server
+ async function selectServer(server) {
+ selectedServer = server;
+ currentServerNameEl.textContent = server.name;
+ 
+ // Switch to channel view
+ serverSectionView.style.display = "none";
+ channelSectionView.style.display = "flex";
+ 
+ // Make selectedServer available globally
+ window.selectedServer = server;
+ 
+ // Check user role and update UI accordingly
+ const userRole = await getCurrentUserRole(server.id, currentUser.uid);
+ updateUIBasedOnRole(userRole);
+ 
+ // Load channels for this server
+ loadChannels(server.id);
+ }
+ 
+ // Load channels for a specific server
+ async function loadChannels(serverId) {
+ const channelList = document.getElementById("channelList");
+ channelList.innerHTML = "";
+ try {
+ const channelsRef = ref(db, `servers/${serverId}/channels`);
+ const snapshot = await get(channelsRef);
+ 
+ if (snapshot.exists()) {
+ const channels = [];
+ snapshot.forEach((childSnapshot) => {
+ const channel = {
+ id: childSnapshot.key,
+ ...childSnapshot.val()
+ };
+ channels.push(channel);
+ });
+ 
+ displayChannels(channels);
+ console.log("Channels loaded:", channels);
+ } else {
+ console.log("No channels found for server:", serverId);
+ channelList.innerHTML = "<p>No channels found in this server.</p>";
+ }
+ } catch (error) {
+ console.error("❌ Error loading channels:", error);
+ channelList.innerHTML = "<p>Error loading channels.</p>";
+ }
+ }
+ 
+ // Display channels in the channel list
+ function displayChannels(channels) {
+ const channelList = document.getElementById("channelList");
+ channelList.innerHTML = channels.length === 0 
+ ? "<p>No channels available. Create one!</p>"
+ : "";
+ 
+ channels.forEach(channel => {
+ const channelDiv = document.createElement("div");
+ channelDiv.className = "channel";
+ channelDiv.textContent = channel.name;
+ channelDiv.addEventListener("click", () => joinChannel(channel));
+ channelList.appendChild(channelDiv);
+ });
+ }
+ 
+ // Join a channel
+ function joinChannel(channel) {
+ selectedChannel = channel;
+ window.selectedChannel = channel; // Make it globally available
+ document.getElementById("chatChannelName").textContent = `#${channel.name} (${selectedServer.name})`;
+ document.getElementById("messageInput").disabled = false;
+ loadMessages();
+ }
+ 
+ // Load messages for a channel
+ async function loadMessages() {
+ const messagesDiv = document.getElementById("messages");
+ messagesDiv.innerHTML = "";
+ 
+ if (!selectedServer || !selectedChannel) {
+ return;
+ }
+ 
+ const messagesRef = ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/messages`);
+ 
+ // Get current user role for permission checking
+ const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+ console.log("Current user role for message deletion:", userRole);
+ const canDeleteAnyMessage = userRole === "admin" || userRole === "owner";
+ 
+ off(messagesRef); // Remove any existing listeners
+ 
+ onChildAdded(messagesRef, (snapshot) => {
+ const messageId = snapshot.key;
+ const message = snapshot.val();
+ 
+ // Create message container
+ const messageElement = document.createElement("div");
+ messageElement.className = `message ${message.senderId === currentUser.uid ? 'sent' : 'received'}`;
+ 
+ // Create message header
+ const headerDiv = document.createElement("div");
+ headerDiv.className = "message-header";
+ headerDiv.textContent = message.senderName;
+ 
+ // Create message text
+ const textDiv = document.createElement("div");
+ textDiv.className = "message-text";
+ textDiv.textContent = message.text;
+ 
+ // Create message time
+ const timeDiv = document.createElement("div");
+ timeDiv.className = "message-time";
+ timeDiv.textContent = new Date(message.timestamp).toLocaleTimeString();
+ 
+ // Add all elements to message container
+ messageElement.appendChild(headerDiv);
+ messageElement.appendChild(textDiv);
+ messageElement.appendChild(timeDiv);
+ 
+ // Check if user can delete this message
+ const canDeleteThisMessage = canDeleteAnyMessage || message.senderId === currentUser.uid;
+ 
+ if (canDeleteThisMessage) {
+ const deleteBtn = document.createElement("button");
+ deleteBtn.className = "delete-btn";
+ deleteBtn.innerHTML = "&times;";
+ deleteBtn.title = "Delete message";
+ deleteBtn.setAttribute("data-message-id", messageId);
+ 
+ deleteBtn.addEventListener("click", async (event) => {
+ event.stopPropagation();
+ 
+ // Confirm deletion
+ if (confirm(`Are you sure you want to delete this message?`)) {
+ try {
+ // Get reference to the message
+ const messageRef = ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/messages/${messageId}`);
+ 
+ // Delete the message
+ await remove(messageRef);
+ 
+ console.log("Message deleted successfully");
+ // Remove the message element directly instead of reloading all messages
+ messageElement.remove();
+ } catch (error) {
+ console.error("Error deleting message:", error);
+ alert("Failed to delete message.");
+ }
+ }
+ });
+ 
+ messageElement.appendChild(deleteBtn);
+ }
+ 
+ messagesDiv.appendChild(messageElement);
+ messagesDiv.scrollTop = messagesDiv.scrollHeight;
+ });
+ }
+ 
+ // Event listeners
+ document.addEventListener("DOMContentLoaded", () => {
+ // Main buttons
+ const sendMessageBtn = document.getElementById("sendMessage");
+ const messageInput = document.getElementById("messageInput");
+ const createServerBtn = document.getElementById("createServer");
+ const createChannelBtn = document.getElementById("createChannel");
+ const deleteChannelBtn = document.getElementById("deleteChannel");
+ 
+ // Allow sending message with Enter key
+ messageInput.addEventListener("keydown", (event) => {
+ if (event.key === "Enter") {
+ sendMessageBtn.click();
+ }
+ });
+ 
+ // Server popup elements
+ const createServerPopUp = document.getElementById("createServerPopUp");
+ const closeCreateServerBtn = document.getElementById("closeCreateServerPopUp");
+ const confirmCreateServerBtn = document.getElementById("confirmCreateServer");
+ 
+ // Channel popup elements
+ const createChannelPopUp = document.getElementById("createChannelPopUp");
+ const closeCreateChannelBtn = document.getElementById("closeCreateChannelPopUp");
+ const confirmCreateChannelBtn = document.getElementById("confirmCreateChannel");
+ 
+ // Member management
+ const addMemberBtn = document.getElementById("addMember");
+ const removeMemberBtn = document.getElementById("removeMember");
+ const viewMembersBtn = document.getElementById("viewMembers");
+ const addMemberPopUp = document.getElementById("addMemberPopUp");
+ const closeAddMemberBtn = document.getElementById("closeAddMemberPopUp");
+ const confirmAddMemberBtn = document.getElementById("confirmAddMember");
+ 
+ // Back button
+ backToServersBtn.addEventListener("click", () => {
+ serverSectionView.style.display = "block";
+ channelSectionView.style.display = "none";
+ document.getElementById("messages").innerHTML = "";
+ document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
+ document.getElementById("messageInput").disabled = true;
+ selectedServer = null;
+ selectedChannel = null;
+ window.selectedServer = null;
+ window.selectedChannel = null;
+ });
+ 
+ // Send message
+ sendMessageBtn.addEventListener("click", () => {
+ const messageText = messageInput.value.trim();
+ if (messageText && selectedServer && selectedChannel) {
+ const messagesRef = ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/messages`);
+ push(messagesRef, {
+ text: messageText,
+ senderId: currentUser.uid,
+ senderName: currentUser.username,
+ timestamp: Date.now()
+ });
+ messageInput.value = "";
+ }
+ });
+ 
+ // Create server
+ createServerBtn.addEventListener("click", () => {
+ createServerPopUp.style.display = "flex";
+ });
+ 
+ closeCreateServerBtn.addEventListener("click", () => {
+ createServerPopUp.style.display = "none";
+ });
+ 
+ confirmCreateServerBtn.addEventListener("click", async () => {
+ const serverName = document.getElementById("serverNameInput").value.trim();
+ if (!serverName) {
+ alert("Please enter a server name.");
+ return;
+ }
+ 
+ try {
+ const serversRef = ref(db, "servers");
+ const newServerRef = push(serversRef);
+ const newServerId = newServerRef.key;
+ 
+ await set(newServerRef, {
+ name: serverName,
+ createdBy: currentUser.uid,
+ createdAt: Date.now(),
+ members: {
+ [currentUser.uid]: {
+ username: currentUser.username,
+ role: "owner"
+ }
+ }
+ });
+ 
+ // Create a default "general" channel
+ const channelsRef = ref(db, `servers/${newServerId}/channels`);
+ await push(channelsRef, {
+ name: "general",
+ createdBy: currentUser.uid,
+ createdAt: Date.now()
+ });
+ 
+ alert(`✅ Server "${serverName}" created successfully!`);
+ createServerPopUp.style.display = "none";
+ document.getElementById("serverNameInput").value = "";
+ loadServers();
+ } catch (error) {
+ console.error("❌ Error creating server:", error);
+ alert("Failed to create server.");
+ }
+ });
+ 
+ // Create channel
+ createChannelBtn.addEventListener("click", async () => {
+ if (!selectedServer) {
+ alert("❌ Please select a server first.");
+ return;
+ }
+ 
+ // Check user role
+ const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+ if (userRole !== "admin" && userRole !== "owner") {
+ alert("❌ Only admins and owners can create channels.");
+ return;
+ }
+ 
+ createChannelPopUp.style.display = "flex";
+ });
+ 
+ closeCreateChannelBtn.addEventListener("click", () => {
+ createChannelPopUp.style.display = "none";
+ });
+ 
+ confirmCreateChannelBtn.addEventListener("click", async () => {
+ const channelName = document.getElementById("channelNameInput").value.trim();
+ if (!channelName) {
+ alert("Please enter a channel name.");
+ return;
+ }
+ 
+ if (!selectedServer) {
+ alert("❌ No server selected.");
+ return;
+ }
+ 
+ // Double-check user role
+ const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+ if (userRole !== "admin" && userRole !== "owner") {
+ alert("❌ Only admins and owners can create channels.");
+ return;
+ }
+ 
+ try {
+ const channelsRef = ref(db, `servers/${selectedServer.id}/channels`);
+ await push(channelsRef, {
+ name: channelName,
+ createdBy: currentUser.uid,
+ createdAt: Date.now()
+ });
+ 
+ alert(`✅ Channel "${channelName}" created successfully!`);
+ createChannelPopUp.style.display = "none";
+ document.getElementById("channelNameInput").value = "";
+ 
+ // Reload channels to show the newly created one
+ loadChannels(selectedServer.id);
+ } catch (error) {
+ console.error("❌ Error creating channel:", error);
+ alert("Failed to create channel.");
+ }
+ });
+ 
+ // Delete channel
+ deleteChannelBtn.addEventListener("click", async () => {
+ if (!selectedServer || !selectedChannel) {
+ alert("❌ Please select a server and channel first.");
+ return;
+ }
+ 
+ // Check user role
+ const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+ if (userRole !== "admin" && userRole !== "owner") {
+ alert("❌ Only admins and owners can delete channels.");
+ return;
+ }
+ 
+ const confirmDelete = confirm(`Are you sure you want to delete the channel "${selectedChannel.name}"?`);
+ if (confirmDelete) {
+ try {
+ const channelRef = ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}`);
+ await remove(channelRef);
+ 
+ alert(`✅ Channel "${selectedChannel.name}" deleted successfully!`);
+ 
+ // Reset view
+ document.getElementById("messages").innerHTML = "";
+ document.getElementById("chatChannelName").textContent = "Select a channel to chat";
+ document.getElementById("messageInput").disabled = true;
+ selectedChannel = null;
+ window.selectedChannel = null;
+ 
+ // Reload channels
+ loadChannels(selectedServer.id);
+ } catch (error) {
+ console.error("❌ Error deleting channel:", error);
+ alert("Failed to delete channel.");
+ }
+ }
+ });
+ 
+ // Add member
+ addMemberBtn.addEventListener("click", async () => {
+ if (!selectedServer) {
+ alert("❌ Please select a server first.");
+ return;
+ }
+ 
+ // Check if user has permission (admin or owner)
+ const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+ if (userRole !== "admin" && userRole !== "owner") {
+ alert("❌ Only admins and owners can add members.");
+ return;
+ }
+ 
+ addMemberPopUp.style.display = "flex";
+ });
+ 
+ closeAddMemberBtn.addEventListener("click", () => {
+ addMemberPopUp.style.display = "none";
+ });
+ 
+ confirmAddMemberBtn.addEventListener("click", async () => {
+ const username = document.getElementById("memberUsernameInput").value.trim();
+ if (!username) {
+ alert("Please enter a username.");
+ return;
+ }
+ 
+ if (!selectedServer) {
+ alert("❌ No server selected.");
+ return;
+ }
+ 
+ try {
+ const usersSnapshot = await get(ref(db, "users"));
+ let userFound = false;
+ 
+ usersSnapshot.forEach((userSnap) => {
+ const user = userSnap.val();
+ if (user.username === username) {
+ userFound = true;
+ set(ref(db, `servers/${selectedServer.id}/members/${userSnap.key}`), {
+ username: username,
+ role: "member"
+ });
+ }
+ });
+ 
+ if (userFound) {
+ alert(`✅ ${username} was added to ${selectedServer.name} successfully!`);
+ addMemberPopUp.style.display = "none";
+ document.getElementById("memberUsernameInput").value = "";
+ } else {
+ alert("❌ User not found.");
+ }
+ } catch (error) {
+ console.error("❌ Error adding member:", error);
+ alert("Failed to add member.");
+ }
+ });
+ 
+ // View members
+ viewMembersBtn.addEventListener("click", async () => {
+ if (!selectedServer) {
+ alert("❌ Please select a server first.");
+ return;
+ }
+ 
+ try {
+ const membersRef = ref(db, `servers/${selectedServer.id}/members`);
+ const snapshot = await get(membersRef);
+ 
+ if (snapshot.exists()) {
+ let membersList = `👥 Members of "${selectedServer.name}":\n`;
+ snapshot.forEach((memberSnap) => {
+ const memberData = memberSnap.val();
+ let username = memberData;
+ let role = "member";
+ 
+ if (typeof memberData === 'object') {
+ username = memberData.username;
+ role = memberData.role || "member";
+ }
+ 
+ // Check if member is server creator (owner)
+ if (memberSnap.key === selectedServer.createdBy) {
+ role = "owner";
+ }
+ 
+ membersList += `- ${username} (${role})\n`;
+ });
+ alert(membersList);
+ } else {
+ alert("❌ No members found in this server.");
+ }
+ } catch (error) {
+ console.error("❌ Error fetching members:", error);
+ alert("Failed to load members.");
+ }
+ });
+ 
+ // Remove member
+ removeMemberBtn.addEventListener("click", async () => {
+ if (!selectedServer) {
+ alert("❌ Please select a server first.");
+ return;
+ }
+ 
+ // Check user role
+ const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+ if (userRole !== "admin" && userRole !== "owner") {
+ alert("❌ Only admins and owners can remove members.");
+ return;
+ }
+
+ try {
+ const membersRef = ref(db, `servers/${selectedServer.id}/members`);
+ const snapshot = await get(membersRef);
+
+ if (snapshot.exists()) {
+ let membersArray = [];
+ snapshot.forEach((memberSnap) => {
+ const memberData = memberSnap.val();
+ let username = memberData;
+ let role = "member";
+ 
+ if (typeof memberData === 'object') {
+ username = memberData.username;
+ role = memberData.role || "member";
+ }
+ 
+ // Check if member is server creator (owner)
+ if (memberSnap.key === selectedServer.createdBy) {
+ role = "owner";
+ }
+ 
+ membersArray.push({ 
+ uid: memberSnap.key, 
+ username, 
+ role 
+ });
+ });
+
+ let membersList = `👥 Current Members of "${selectedServer.name}":\n`;
+ membersArray.forEach((member, index) => {
+ membersList += `${index + 1}. ${member.username} (${member.role})\n`;
+ });
+
+ const usernameToRemove = prompt(`${membersList}\nEnter the username you want to remove:`);
+
+ if (!usernameToRemove) {
+ return; // User canceled
+ }
+
+ const memberToRemove = membersArray.find(member =>
+ member.username.toLowerCase() === usernameToRemove.trim().toLowerCase()
+ );
+
+ if (memberToRemove) {
+ // Check if member is the server creator/owner
+ if (memberToRemove.role === "owner") {
+ alert("❌ Cannot remove the server owner.");
+ return;
+ }
+ 
+ // Check if current user is trying to remove an admin while not being owner
+ if (memberToRemove.role === "admin" && userRole !== "owner") {
+ alert("❌ Only the owner can remove admins.");
+ return;
+ }
+
+ await remove(ref(db, `servers/${selectedServer.id}/members/${memberToRemove.uid}`));
+ alert(`✅ ${memberToRemove.username} was removed from ${selectedServer.name} successfully!`);
+ } else {
+ alert(`❌ User "${usernameToRemove}" not found.`);
+ }
+ } else {
+ alert("❌ No members found in this server.");
+ }
+ } catch (error) {
+ console.error("❌ Error removing member:", error);
+ alert("Failed to remove member.");
+ }
+ });
+ 
+ // Promote to admin
+ const promoteToAdminBtn = document.getElementById("promoteToAdmin");
+ if (promoteToAdminBtn) {
+ promoteToAdminBtn.addEventListener("click", async () => {
+ if (!selectedServer) {
+ alert("❌ Please select a server first.");
+ return;
+ }
+ 
+ // Check if user is owner
+ const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+ if (userRole !== "owner") {
+ alert("❌ Only the server owner can promote members to admin.");
+ return;
+ }
+ 
+ try {
+ const membersRef = ref(db, `servers/${selectedServer.id}/members`);
+ const snapshot = await get(membersRef);
+ 
+ if (snapshot.exists()) {
+ let membersList = "Select a member to promote to admin:\n";
+ let members = [];
+ 
+ snapshot.forEach((memberSnap) => {
+ const memberId = memberSnap.key;
+ const memberData = memberSnap.val();
+ 
+ let username = memberData;
+ let role = "member";
+ 
+ if (typeof memberData === 'object') {
+ username = memberData.username;
+ role = memberData.role || "member";
+ }
+ 
+ // Only include regular members, not admins or owners
+ if (role === "member" && memberId !== selectedServer.createdBy) {
+ members.push({
+ id: memberId,
+ username,
+ role
+ });
+ membersList += `${members.length}. ${username}\n`;
+ }
+ });
+ 
+ if (members.length === 0) {
+ alert("❌ No regular members to promote.");
+ return;
+ }
+ 
+ const memberIndexStr = prompt(membersList + "\nEnter the number of the member you want to promote:");
+ if (!memberIndexStr) return;
+ 
+ const memberIndex = parseInt(memberIndexStr) - 1;
+ if (isNaN(memberIndex) || memberIndex < 0 || memberIndex >= members.length) {
+ alert("❌ Invalid selection.");
+ return;
+ }
+ 
+ const selectedMember = members[memberIndex];
+ await set(ref(db, `servers/${selectedServer.id}/members/${selectedMember.id}`), {
+ username: selectedMember.username,
+ role: "admin"
+ });
+ 
+ alert(`✅ ${selectedMember.username} has been promoted to admin!`);
+ } else {
+ alert("❌ No members found in this server.");
+ }
+ } catch (error) {
+ console.error("❌ Error promoting member:", error);
+ alert("Failed to promote member.");
+ }
+ });
+ }
+ 
+ // Demote to member
+ const demoteToMemberBtn = document.getElementById("demoteToMember");
+ if (demoteToMemberBtn) {
+ demoteToMemberBtn.addEventListener("click", async () => {
+ if (!selectedServer) {
+ alert("❌ Please select a server first.");
+ return;
+ }
+ 
+ // Check if user is owner
+ const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+ if (userRole !== "owner") {
+ alert("❌ Only the server owner can demote admins to members.");
+ return;
+ }
+ 
+ try {
+ const membersRef = ref(db, `servers/${selectedServer.id}/members`);
+ const snapshot = await get(membersRef);
+ 
+ if (snapshot.exists()) {
+ let membersList = "Select an admin to demote to regular member:\n";
+ let admins = [];
+ 
+ snapshot.forEach((memberSnap) => {
+ const memberId = memberSnap.key;
+ const memberData = memberSnap.val();
+ 
+ let username = memberData;
+ let role = "member";
+ 
+ if (typeof memberData === 'object') {
+ username = memberData.username;
+ role = memberData.role || "member";
+ }
+ 
+ // Only include admins, not regular members or owners
+ if (role === "admin" && memberId !== selectedServer.createdBy) {
+ admins.push({
+ id: memberId,
+ username,
+ role
+ });
+ membersList += `${admins.length}. ${username}\n`;
+ }
+ });
+ 
+ if (admins.length === 0) {
+ alert("❌ No admins to demote.");
+ return;
+ }
+ 
+ const adminIndexStr = prompt(membersList + "\nEnter the number of the admin you want to demote:");
+ if (!adminIndexStr) return;
+ 
+ const adminIndex = parseInt(adminIndexStr) - 1;
+ if (isNaN(adminIndex) || adminIndex < 0 || adminIndex >= admins.length) {
+ alert("❌ Invalid selection.");
+ return;
+ }
+ 
+ const selectedAdmin = admins[adminIndex];
+ await set(ref(db, `servers/${selectedServer.id}/members/${selectedAdmin.id}`), {
+ username: selectedAdmin.username,
+ role: "member"
+ });
+ 
+ alert(`✅ ${selectedAdmin.username} has been demoted to member!`);
+ } else {
+ alert("❌ No members found in this server.");
+ }
+ } catch (error) {
+ console.error("❌ Error demoting admin:", error);
+ alert("Failed to demote admin.");
+ }
+ });
+ }
+ 
+ // Delete server
+ const deleteServerBtn = document.getElementById("deleteServer");
+ if (deleteServerBtn) {
+ deleteServerBtn.addEventListener("click", async () => {
+ if (!selectedServer) {
+ alert("❌ Please select a server first.");
+ return;
+ }
+ 
+ // Check if user is owner
+ const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+ if (userRole !== "owner") {
+ alert("❌ Only the server owner can delete the server.");
+ return;
+ }
+ 
+ const confirmDelete = confirm(`Are you sure you want to delete the server "${selectedServer.name}"? This action cannot be undone.`);
+ if (confirmDelete) {
+ try {
+ const serverRef = ref(db, `servers/${selectedServer.id}`);
+ await remove(serverRef);
+ 
+ alert(`✅ Server "${selectedServer.name}" deleted successfully!`);
+ 
+ // Reset view and go back to server list
+ serverSectionView.style.display = "block";
+ channelSectionView.style.display = "none";
+ document.getElementById("messages").innerHTML = "";
+ document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
+ document.getElementById("messageInput").disabled = true;
+ selectedServer = null;
+ selectedChannel = null;
+ window.selectedServer = null;
+ window.selectedChannel = null;
+ 
+ // Reload servers
+ loadServers();
+ } catch (error) {
+ console.error("❌ Error deleting server:", error);
+ alert("Failed to delete server.");
+ }
+ }
+ });
+ }
+ });
+
+ // Logout
+ document.getElementById("logoutButton").addEventListener("click", function () {
+ console.log("🚀 Logout button clicked!");
+
+ signOut(auth).then(() => {
+ console.log("✅ User logged out. Redirecting...");
+ window.top.location.href = "../../Sprint1/LoginPage/user_login.html";
+ }).catch((error) => {
+ console.error("❌ Logout failed:", error);
+ });
+ });
+
+ // Make variables available globally
+ window.selectedServer = selectedServer;
+ window.selectedChannel = selectedChannel;
+ window.getCurrentUserRole = getCurrentUserRole;
+ </script>
+ <script type="module" src="./memberHandler.js"></script>
+</body>
+</html>
