@@ -551,6 +551,103 @@
                 });
             }
 
+            // Handle member management functions
+            const viewMembersBtn = document.getElementById("viewMembers");
+            if (viewMembersBtn) {
+                viewMembersBtn.addEventListener("click", function() {
+                    if (!selectedServer) {
+                        alert("❌ Please select a server first.");
+                        return;
+                    }
+                    
+                    // Use displayMembers from currentMembers.js (exported to window)
+                    if (typeof window.displayMembers === 'function') {
+                        window.displayMembers(selectedServer.id);
+                    } else {
+                        console.error("displayMembers function not found");
+                        alert("❌ Member management function not available");
+                    }
+                });
+            }
+            
+            // Handle promote to admin button
+            const promoteToAdminBtn = document.getElementById("promoteToAdmin");
+            if (promoteToAdminBtn) {
+                promoteToAdminBtn.addEventListener("click", async function() {
+                    if (!selectedServer) {
+                        alert("❌ Please select a server first.");
+                        return;
+                    }
+                    
+                    // Check if user is owner
+                    const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+                    if (userRole !== "owner") {
+                        alert("❌ Only the owner can promote members to admin.");
+                        return;
+                    }
+                    
+                    // Use displayMembers from currentMembers.js (exported to window)
+                    if (typeof window.displayMembers === 'function') {
+                        window.displayMembers(selectedServer.id);
+                    } else {
+                        console.error("displayMembers function not found");
+                        alert("❌ Member management function not available");
+                    }
+                });
+            }
+            
+            // Handle demote to member button
+            const demoteToMemberBtn = document.getElementById("demoteToMember");
+            if (demoteToMemberBtn) {
+                demoteToMemberBtn.addEventListener("click", async function() {
+                    if (!selectedServer) {
+                        alert("❌ Please select a server first.");
+                        return;
+                    }
+                    
+                    // Check if user is owner
+                    const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+                    if (userRole !== "owner") {
+                        alert("❌ Only the owner can demote admins to members.");
+                        return;
+                    }
+                    
+                    // Use displayMembers from currentMembers.js (exported to window)
+                    if (typeof window.displayMembers === 'function') {
+                        window.displayMembers(selectedServer.id);
+                    } else {
+                        console.error("displayMembers function not found");
+                        alert("❌ Member management function not available");
+                    }
+                });
+            }
+            
+            // Handle remove member button
+            const removeMemberBtn = document.getElementById("removeMember");
+            if (removeMemberBtn) {
+                removeMemberBtn.addEventListener("click", async function() {
+                    if (!selectedServer) {
+                        alert("❌ Please select a server first.");
+                        return;
+                    }
+                    
+                    // Check if user has permissions
+                    const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+                    if (userRole !== "owner" && userRole !== "admin") {
+                        alert("❌ Only admins and owners can remove members.");
+                        return;
+                    }
+                    
+                    // Use displayMembers from currentMembers.js (exported to window)
+                    if (typeof window.displayMembers === 'function') {
+                        window.displayMembers(selectedServer.id);
+                    } else {
+                        console.error("displayMembers function not found");
+                        alert("❌ Member management function not available");
+                    }
+                });
+            }
+            
             // Handle delete server action
             const deleteServerBtn = document.getElementById("deleteServer");
             if (deleteServerBtn) {
@@ -595,6 +692,20 @@
 
         // Make getCurrentUserRole available globally
         window.getCurrentUserRole = getCurrentUserRole;
+    </script>
+    <!-- Load member management scripts -->
+    <script>
+        // This script ensures the modules load and make their functions available in the window object
+        window.addEventListener('load', function() {
+            console.log("Checking if member management functions are available...");
+            setTimeout(function() {
+                if (typeof window.displayMembers !== 'function') {
+                    console.error("displayMembers function not available after loading scripts");
+                } else {
+                    console.log("Member management functions loaded successfully");
+                }
+            }, 500); // Give the modules time to load
+        });
     </script>
     <script type="module" src="./currentMembers.js"></script>
     <script type="module" src="./memberHandler.js"></script>
