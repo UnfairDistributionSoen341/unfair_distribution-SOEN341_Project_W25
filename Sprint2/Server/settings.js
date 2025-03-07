@@ -2,16 +2,37 @@
 import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
+// Get Firebase instances
+const db = getDatabase();
+const auth = getAuth();
+
+// Initialize settings when DOM is loaded
 document.addEventListener("DOMContentLoaded", function () {
-    // Get Firebase instances
-    const db = getDatabase();
-    const auth = getAuth();
+    initSettings();
+});
+
+// Make settings init function available globally
+window.initSettings = initSettings;
+
+function initSettings() {
+    console.log("Initializing settings...");
     
     const settingsButton = document.getElementById("settingsButton");
     const settingsDropdown = document.getElementById("settingsDropdown");
 
-    settingsButton.addEventListener("click", function (event) {
+    if (!settingsButton || !settingsDropdown) {
+        console.error("Settings elements not found");
+        return;
+    }
+
+    // Remove existing listeners to prevent duplicates
+    const newSettingsButton = settingsButton.cloneNode(true);
+    settingsButton.parentNode.replaceChild(newSettingsButton, settingsButton);
+    
+    // Add new click listener
+    newSettingsButton.addEventListener("click", function (event) {
         event.stopPropagation();
+        console.log("Settings button clicked");
         settingsDropdown.style.display = settingsDropdown.style.display === "block" ? "none" : "block";
     });
 
@@ -100,4 +121,6 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         });
     }
-});
+    
+    console.log("Settings initialized successfully!");
+}
