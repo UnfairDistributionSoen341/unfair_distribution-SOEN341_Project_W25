@@ -5,10 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChatHaven - Servers & Channels</title>
     <link rel="stylesheet" href="./server.css">
-    <script>
-        // Set up global variables for use across modules
-        window.selectedServer = null;
-    </script>
 </head>
 <body>
     <div class="chat-container">
@@ -45,9 +41,6 @@
                         <button id="addMember">➕ Add Member</button>
                         <button id="removeMember">➖ Remove Member</button>
                         <button id="viewMembers">👥 Current Members</button>
-                        <button id="promoteToAdmin">⭐ Promote to Admin</button>
-                        <button id="demoteToMember">⬇ Demote to Member</button>
-                        <button id="deleteServer">❌ Delete Server</button>
                     </div>
                 </div>
             </div>
@@ -91,12 +84,10 @@
     </div>
 
     <button id="logoutButton">Logout</button>
+    
+    <!-- JS Files -->
+    <script src="./settings.js"></script>
 
-    <!-- Load module management scripts first-->
-    <script type="module" src="./currentMembers.js"></script>
-    <script type="module" src="./memberHandler.js"></script>
-
-    <!-- Main application script -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getDatabase, ref, push, set, get, onChildAdded, off } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
@@ -197,7 +188,6 @@
         // Select a server
         function selectServer(server) {
             selectedServer = server;
-            window.selectedServer = server; // Make it available globally
             currentServerNameEl.textContent = server.name;
             
             // Switch to channel view
@@ -284,38 +274,6 @@
             });
         }
         
-        // Get the current user's role for permission checks
-        async function getCurrentUserRole(serverId, userId) {
-            // Try to use the function from currentMembers.js first
-            if (typeof window.getCurrentUserRole === 'function') {
-                return window.getCurrentUserRole(serverId, userId);
-            }
-            
-            if (!serverId || !userId) return "member";
-            
-            try {
-                const roleRef = ref(db, `servers/${serverId}/members/${userId}/role`);
-                const snapshot = await get(roleRef);
-                
-                if (snapshot.exists()) {
-                    return snapshot.val();
-                } else {
-                    // Check if user is the creator
-                    const serverRef = ref(db, `servers/${serverId}`);
-                    const serverSnapshot = await get(serverRef);
-                    
-                    if (serverSnapshot.exists() && serverSnapshot.val().createdBy === userId) {
-                        return "owner";
-                    }
-                    
-                    return "member"; // Default role
-                }
-            } catch (error) {
-                console.error("Error getting user role:", error);
-                return "member";
-            }
-        }
-        
         // Event listeners
         document.addEventListener("DOMContentLoaded", () => {
             // Main buttons
@@ -323,29 +281,6 @@
             const messageInput = document.getElementById("messageInput");
             const createServerBtn = document.getElementById("createServer");
             const createChannelBtn = document.getElementById("createChannel");
-            
-            // Settings dropdown functionality
-            const settingsButton = document.getElementById("settingsButton");
-            const settingsDropdown = document.getElementById("settingsDropdown");
-
-            if (settingsButton && settingsDropdown) {
-                // Setup settings dropdown toggle
-                settingsButton.addEventListener("click", function(event) {
-                    event.stopPropagation();
-                    console.log("Settings button clicked!");
-                    settingsDropdown.style.display = settingsDropdown.style.display === "block" ? "none" : "block";
-                });
-                
-                // Close dropdown when clicking elsewhere
-                document.addEventListener("click", function() {
-                    settingsDropdown.style.display = "none";
-                });
-                
-                // Prevent clicks inside dropdown from closing it
-                settingsDropdown.addEventListener("click", function(event) {
-                    event.stopPropagation();
-                });
-            }
             
             // Allow sending message with Enter key
             messageInput.addEventListener("keydown", (event) => {
@@ -380,7 +315,6 @@
                 document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
                 document.getElementById("messageInput").disabled = true;
                 selectedServer = null;
-                window.selectedServer = null; // Update global reference
                 selectedChannel = null;
             });
             
@@ -425,10 +359,7 @@
                         createdBy: currentUser.uid,
                         createdAt: Date.now(),
                         members: {
-                            [currentUser.uid]: {
-                                username: currentUser.username,
-                                role: "owner" // Explicitly set the creator as owner
-                            }
+                            [currentUser.uid]: currentUser.username
                         }
                     });
                     
@@ -451,25 +382,12 @@
             });
             
             // Create channel
-            createChannelBtn.addEventListener("click", async () => {
+            createChannelBtn.addEventListener("click", () => {
                 if (!selectedServer) {
                     alert("❌ Please select a server first.");
                     return;
                 }
-
-                try {
-                    // Check if the current user is an admin or owner
-                    const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
-                    if (userRole !== "admin" && userRole !== "owner") {
-                        alert("❌ Only admins and owners can create channels.");
-                        return;
-                    }
-
-                    createChannelPopUp.style.display = "flex";
-                } catch (error) {
-                    console.error("Error checking user role:", error);
-                    alert("❌ Error checking permissions.");
-                }
+                createChannelPopUp.style.display = "flex";
             });
             
             closeCreateChannelBtn.addEventListener("click", () => {
@@ -541,11 +459,7 @@
                         const user = userSnap.val();
                         if (user.username === username) {
                             userFound = true;
-                            // Store proper member structure
-                            set(ref(db, `servers/${selectedServer.id}/members/${userSnap.key}`), {
-                                username: username,
-                                role: "member"
-                            });
+                            set(ref(db, `servers/${selectedServer.id}/members/${userSnap.key}`), username);
                         }
                     });
                     
@@ -562,138 +476,84 @@
                 }
             });
             
-            // Member management buttons
-            // View Members button
-            if (viewMembersBtn) {
-                viewMembersBtn.addEventListener("click", function() {
-                    if (!selectedServer) {
-                        alert("❌ Please select a server first.");
-                        return;
-                    }
+            // View members
+            viewMembersBtn.addEventListener("click", async () => {
+                if (!selectedServer) {
+                    alert("❌ Please select a server first.");
+                    return;
+                }
+                
+                try {
+                    const membersRef = ref(db, `servers/${selectedServer.id}/members`);
+                    const snapshot = await get(membersRef);
                     
-                    console.log("View Members clicked, calling displayMembers with server id:", selectedServer.id);
-                    
-                    // Use displayMembers from currentMembers.js
-                    if (typeof window.displayMembers === 'function') {
-                        window.displayMembers(selectedServer.id);
+                    if (snapshot.exists()) {
+                        let membersList = `👥 Members of "${selectedServer.name}":\n`;
+                        snapshot.forEach((memberSnap) => {
+                            membersList += `- ${memberSnap.val()}\n`;
+                        });
+                        alert(membersList);
                     } else {
-                        console.error("displayMembers function not found");
-                        alert("❌ Member management function not available");
+                        alert("❌ No members found in this server.");
                     }
-                });
-            }
+                } catch (error) {
+                    console.error("❌ Error fetching members:", error);
+                    alert("Failed to load members.");
+                }
+            });
             
-            // Promote to Admin button
-            const promoteToAdminBtn = document.getElementById("promoteToAdmin");
-            if (promoteToAdminBtn) {
-                promoteToAdminBtn.addEventListener("click", async function() {
-                    if (!selectedServer) {
-                        alert("❌ Please select a server first.");
-                        return;
-                    }
-                    
-                    // Check if user is owner
-                    const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
-                    if (userRole !== "owner") {
-                        alert("❌ Only the owner can promote members to admin.");
-                        return;
-                    }
-                    
-                    console.log("Promote to Admin clicked, calling displayMembers");
-                    
-                    // Use displayMembers from currentMembers.js
-                    if (typeof window.displayMembers === 'function') {
-                        window.displayMembers(selectedServer.id);
+            // Remove member
+            removeMemberBtn.addEventListener("click", async () => {
+                if (!selectedServer) {
+                    alert("❌ Please select a server first.");
+                    return;
+                }
+
+                try {
+                    const membersRef = ref(db, `servers/${selectedServer.id}/members`);
+                    const snapshot = await get(membersRef);
+
+                    if (snapshot.exists()) {
+                        let membersArray = [];
+                        snapshot.forEach((memberSnap) => {
+                            membersArray.push({ uid: memberSnap.key, username: memberSnap.val() });
+                        });
+
+                        let membersList = `👥 Current Members of "${selectedServer.name}":\n`;
+                        membersArray.forEach((member, index) => {
+                            membersList += `${index + 1}. ${member.username}\n`;
+                        });
+
+                        const usernameToRemove = prompt(`${membersList}\nEnter the username you want to remove:`);
+
+                        if (!usernameToRemove) {
+                            return; // User canceled
+                        }
+
+                        const memberToRemove = membersArray.find(member =>
+                            member.username.toLowerCase() === usernameToRemove.trim().toLowerCase()
+                        );
+
+                        if (memberToRemove) {
+                            // Check if member is the server creator
+                            if (memberToRemove.uid === selectedServer.createdBy) {
+                                alert("❌ Cannot remove the server creator.");
+                                return;
+                            }
+
+                            await set(ref(db, `servers/${selectedServer.id}/members/${memberToRemove.uid}`), null);
+                            alert(`✅ ${memberToRemove.username} was removed from ${selectedServer.name} successfully!`);
+                        } else {
+                            alert(`❌ User "${usernameToRemove}" not found.`);
+                        }
                     } else {
-                        console.error("displayMembers function not found");
-                        alert("❌ Member management function not available");
+                        alert("❌ No members found in this server.");
                     }
-                });
-            }
-            
-            // Demote to Member button
-            const demoteToMemberBtn = document.getElementById("demoteToMember");
-            if (demoteToMemberBtn) {
-                demoteToMemberBtn.addEventListener("click", async function() {
-                    if (!selectedServer) {
-                        alert("❌ Please select a server first.");
-                        return;
-                    }
-                    
-                    // Check if user is owner
-                    const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
-                    if (userRole !== "owner") {
-                        alert("❌ Only the owner can demote admins to members.");
-                        return;
-                    }
-                    
-                    console.log("Demote to Member clicked, calling displayMembers");
-                    
-                    // Use displayMembers from currentMembers.js
-                    if (typeof window.displayMembers === 'function') {
-                        window.displayMembers(selectedServer.id);
-                    } else {
-                        console.error("displayMembers function not found");
-                        alert("❌ Member management function not available");
-                    }
-                });
-            }
-            
-            // Remove Member button
-            if (removeMemberBtn) {
-                removeMemberBtn.addEventListener("click", async function() {
-                    if (!selectedServer) {
-                        alert("❌ Please select a server first.");
-                        return;
-                    }
-                    
-                    // Check if user is admin or owner
-                    const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
-                    if (userRole !== "admin" && userRole !== "owner") {
-                        alert("❌ Only admins and owners can remove members.");
-                        return;
-                    }
-                    
-                    console.log("Remove Member clicked, calling displayMembers");
-                    
-                    // Use displayMembers from currentMembers.js
-                    if (typeof window.displayMembers === 'function') {
-                        window.displayMembers(selectedServer.id);
-                    } else {
-                        console.error("displayMembers function not found");
-                        alert("❌ Member management function not available");
-                    }
-                });
-            }
-            
-            // Delete Server button
-            const deleteServerBtn = document.getElementById("deleteServer");
-            if (deleteServerBtn) {
-                deleteServerBtn.addEventListener("click", function() {
-                    if (!selectedServer) {
-                        alert("❌ Please select a server first.");
-                        return;
-                    }
-                    
-                    // Check if user is owner
-                    if (selectedServer.createdBy !== auth.currentUser.uid) {
-                        alert("❌ Only the server owner can delete the server.");
-                        return;
-                    }
-                    
-                    if (confirm(`Are you sure you want to delete the server "${selectedServer.name}"?`)) {
-                        set(ref(db, `servers/${selectedServer.id}`), null)
-                            .then(() => {
-                                alert(`✅ Server "${selectedServer.name}" has been deleted.`);
-                                window.location.reload();
-                            })
-                            .catch((error) => {
-                                console.error("❌ Error deleting server:", error);
-                                alert("Failed to delete server.");
-                            });
-                    }
-                });
-            }
+                } catch (error) {
+                    console.error("❌ Error removing member:", error);
+                    alert("Failed to remove member.");
+                }
+            });
         });
 
         //Logout
@@ -708,23 +568,7 @@
             });
         });
 
-        // Make getCurrentUserRole available globally if needed
-        window.getCurrentUserRole = getCurrentUserRole;
     </script>
-    
-    <!-- Check if member functions loaded properly -->
-    <script>
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                console.log("Checking member functions availability:");
-                console.log("displayMembers available:", typeof window.displayMembers === 'function');
-                console.log("getCurrentUserRole available:", typeof window.getCurrentUserRole === 'function');
-                
-                if (typeof window.displayMembers !== 'function') {
-                    console.warn("Member functions not loaded properly. Using fallback methods.");
-                }
-            }, 1000);
-        });
-    </script>
+    <script type="module" src="./memberHandler.js"></script>
 </body>
 </html>
