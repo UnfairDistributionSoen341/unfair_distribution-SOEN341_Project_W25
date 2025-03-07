@@ -73,6 +73,9 @@
             </div>
         </div>
     </div>
+
+
+
     <button id="logoutButton">Logout</button>
     <style>
         #logoutButton {
@@ -156,59 +159,65 @@
         });
         
         function loadUsers() {
-            const userList = document.getElementById("userList");
-            userList.innerHTML = "";
-        
-            const chatsRef = ref(db, "chats");
-        
-            get(chatsRef).then((snapshot) => {
-                if (snapshot.exists()) {
-                    let chatUserIDs = new Set();
-        
-                    snapshot.forEach((chatSnapshot) => {
-                        const chatKey = chatSnapshot.key;
-                        const [userA, userB] = chatKey.split("_");
-        
-                        if (userA === currentUser.uid) {
-                            chatUserIDs.add(userB);
-                        } else if (userB === currentUser.uid) {
-                            chatUserIDs.add(userA);
-                        }
-                    });
-        
-                    if (chatUserIDs.size === 0) {
-                        userList.innerHTML = "<p>No conversations yet.</p>";
-                        return;
-                    }
-        
-                    const usersRef = ref(db, "users");
-        
-                    get(usersRef).then((userSnapshot) => {
-                        if (userSnapshot.exists()) {
-                            chatUsers = [];
-        
-                            userSnapshot.forEach((childSnapshot) => {
-                                let user = childSnapshot.val();
-                                if (chatUserIDs.has(user.uid)) {
-                                    chatUsers.push(user);
-                                }
-                            });
-        
-                            displayUsers(chatUsers);
-        
-                        } else {
-                            userList.innerHTML = "<p>No users found.</p>";
-                        }
-                    });
-        
-                } else {
-                    userList.innerHTML = "<p>No conversations found.</p>";
-                }
-            }).catch(error => {
-                console.error("❌ Error loading conversations:", error);
-                userList.innerHTML = "<p>Error loading conversations.</p>";
+    const userList = document.getElementById("userList");
+    userList.innerHTML = "";
+
+    const chatsRef = ref(db, "chats");
+    const blockedRef = ref(db, `blocked/${currentUser.uid}`);
+
+    get(blockedRef).then((blockedSnapshot) => {
+        let blockedUsers = new Set();
+        if (blockedSnapshot.exists()) {
+            blockedSnapshot.forEach(childSnapshot => {
+                blockedUsers.add(childSnapshot.key);
             });
         }
+
+        get(chatsRef).then((snapshot) => {
+            if (snapshot.exists()) {
+                let chatUserIDs = new Set();
+
+                snapshot.forEach((chatSnapshot) => {
+                    const [userA, userB] = chatSnapshot.key.split("_");
+                    if (userA === currentUser.uid && !blockedUsers.has(userB)) {
+                        chatUserIDs.add(userB);
+                    } else if (userB === currentUser.uid && !blockedUsers.has(userA)) {
+                        chatUserIDs.add(userA);
+                    }
+                });
+
+                if (chatUserIDs.size === 0) {
+                    userList.innerHTML = "<p>No conversations yet.</p>";
+                    return;
+                }
+
+                const usersRef = ref(db, "users");
+                get(usersRef).then((userSnapshot) => {
+                    if (userSnapshot.exists()) {
+                        chatUsers = [];
+
+                        userSnapshot.forEach((childSnapshot) => {
+                            let user = childSnapshot.val();
+                            if (chatUserIDs.has(user.uid)) {
+                                chatUsers.push(user);
+                            }
+                        });
+
+                        displayUsers(chatUsers);
+                    } else {
+                        userList.innerHTML = "<p>No users found.</p>";
+                    }
+                });
+            } else {
+                userList.innerHTML = "<p>No conversations found.</p>";
+            }
+        }).catch(error => {
+            console.error("❌ Error loading conversations:", error);
+            userList.innerHTML = "<p>Error loading conversations.</p>";
+        });
+    });
+}
+
         
         function setupSearch() {
             const searchInput = document.getElementById("searchUser");
@@ -351,8 +360,24 @@
         }
 
         function blockUser(user) {
-            showReasonModal("block", user);
+    showReasonModal("block", user);
+    
+    const submitButton = document.getElementById("submitReason");
+    submitButton.onclick = () => {
+        const reason = document.getElementById("reasonText").value.trim();
+        if (reason) {
+            const blockedRef = ref(db, `blocked/${currentUser.uid}/${user.uid}`);
+            update(blockedRef, { blocked: true, reason: reason }).then(() => {
+                alert(`🚫 You have blocked ${user.username}.`);
+                document.getElementById("reasonModal").style.display = "none";
+                loadUsers(); // Refresh the user list
+            }).catch(error => {
+                console.error("❌ Error blocking user:", error);
+            });
         }
+    };
+}
+
 
         function showReasonModal(action, user) {
             const reasonModal = document.getElementById("reasonModal");
@@ -387,24 +412,50 @@
         
         document.getElementById("sendMessage").addEventListener("click", sendMessage);
         
+       
+
         function sendMessage() {
-            if (!selectedUser) {
-                alert("Select a user first!");
-                return;
+    if (!selectedUser) {
+        alert("Select a user first!");
+        return;
+    }
+
+    // Check if the selected user has blocked the current user
+    const blockedBySelectedUserRef = ref(db, `blocked/${selectedUser.uid}/${currentUser.uid}`);
+    get(blockedBySelectedUserRef).then(snapshot => {
+        if (snapshot.exists()) {
+            alert(`🚫 You have been blocked by ${selectedUser.username}. You cannot send messages.`);
+            return; // Stop message sending
+        }
+
+        // Check if the current user has blocked the selected user
+        const blockedByCurrentUserRef = ref(db, `blocked/${currentUser.uid}/${selectedUser.uid}`);
+        get(blockedByCurrentUserRef).then(snapshot => {
+            if (snapshot.exists()) {
+                alert("🚫 You have blocked this user. Unblock them to send messages.");
+                return; // Stop message sending
             }
+
+            // If neither has blocked the other, proceed with sending the message
             const messageInput = document.getElementById("messageInput");
             const messageText = messageInput.value.trim();
             if (messageText === "") return;
-        
+
             const chatRef = ref(db, `chats/${chatID}/messages`);
             push(chatRef, {
                 sender: currentUser.email,
                 text: messageText,
                 timestamp: Date.now()
             });
-        
+
             messageInput.value = "";
-        }
+        });
+
+    }).catch(error => {
+        console.error("❌ Error checking block status:", error);
+    });
+}
+
         
         document.getElementById("logoutButton").addEventListener("click", function () {
             console.log("🚀 Logout button clicked!");
