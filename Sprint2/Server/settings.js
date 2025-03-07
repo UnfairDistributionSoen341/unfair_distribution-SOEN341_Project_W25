@@ -1,4 +1,12 @@
+// Import Firebase modules
+import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
 document.addEventListener("DOMContentLoaded", function () {
+    // Get Firebase instances
+    const db = getDatabase();
+    const auth = getAuth();
+    
     const settingsButton = document.getElementById("settingsButton");
     const settingsDropdown = document.getElementById("settingsDropdown");
 
@@ -59,7 +67,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
-            displayMembers(selectedServer.id);
+            // Call the displayMembers function from the window object
+            if (typeof window.displayMembers === 'function') {
+                window.displayMembers(selectedServer.id);
+            } else {
+                alert("❌ Member management function not found.");
+                console.error("displayMembers function is not available");
+            }
         });
     }
 
@@ -77,7 +91,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
-            displayMembers(selectedServer.id);
+            // Call the displayMembers function from the window object
+            if (typeof window.displayMembers === 'function') {
+                window.displayMembers(selectedServer.id);
+            } else {
+                alert("❌ Member management function not found.");
+                console.error("displayMembers function is not available");
+            }
         });
     }
 });
