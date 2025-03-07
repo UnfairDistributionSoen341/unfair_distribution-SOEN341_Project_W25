@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChatHaven - Servers & Channels</title>
     <link rel="stylesheet" href="./server.css">
+    <script>
+        // Set up global variables for use across modules
+        window.selectedServer = null;
+    </script>
 </head>
 <body>
     <div class="chat-container">
@@ -88,6 +92,11 @@
 
     <button id="logoutButton">Logout</button>
 
+    <!-- Load module management scripts first-->
+    <script type="module" src="./currentMembers.js"></script>
+    <script type="module" src="./memberHandler.js"></script>
+
+    <!-- Main application script -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getDatabase, ref, push, set, get, onChildAdded, off } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
@@ -110,9 +119,6 @@
         let currentUser = null;
         let selectedServer = null;
         let selectedChannel = null;
-        
-        // Make selectedServer available globally
-        window.selectedServer = null;
         
         // DOM Elements for Server & Channel Views
         const serverSectionView = document.getElementById("serverSectionView");
@@ -280,6 +286,11 @@
         
         // Get the current user's role for permission checks
         async function getCurrentUserRole(serverId, userId) {
+            // Try to use the function from currentMembers.js first
+            if (typeof window.getCurrentUserRole === 'function') {
+                return window.getCurrentUserRole(serverId, userId);
+            }
+            
             if (!serverId || !userId) return "member";
             
             try {
@@ -312,6 +323,29 @@
             const messageInput = document.getElementById("messageInput");
             const createServerBtn = document.getElementById("createServer");
             const createChannelBtn = document.getElementById("createChannel");
+            
+            // Settings dropdown functionality
+            const settingsButton = document.getElementById("settingsButton");
+            const settingsDropdown = document.getElementById("settingsDropdown");
+
+            if (settingsButton && settingsDropdown) {
+                // Setup settings dropdown toggle
+                settingsButton.addEventListener("click", function(event) {
+                    event.stopPropagation();
+                    console.log("Settings button clicked!");
+                    settingsDropdown.style.display = settingsDropdown.style.display === "block" ? "none" : "block";
+                });
+                
+                // Close dropdown when clicking elsewhere
+                document.addEventListener("click", function() {
+                    settingsDropdown.style.display = "none";
+                });
+                
+                // Prevent clicks inside dropdown from closing it
+                settingsDropdown.addEventListener("click", function(event) {
+                    event.stopPropagation();
+                });
+            }
             
             // Allow sending message with Enter key
             messageInput.addEventListener("keydown", (event) => {
@@ -528,31 +562,8 @@
                 }
             });
             
-            // Settings dropdown functionality
-            const settingsButton = document.getElementById("settingsButton");
-            const settingsDropdown = document.getElementById("settingsDropdown");
-
-            if (settingsButton && settingsDropdown) {
-                // Setup settings dropdown toggle
-                settingsButton.addEventListener("click", function(event) {
-                    event.stopPropagation();
-                    console.log("Settings button clicked!");
-                    settingsDropdown.style.display = settingsDropdown.style.display === "block" ? "none" : "block";
-                });
-                
-                // Close dropdown when clicking elsewhere
-                document.addEventListener("click", function() {
-                    settingsDropdown.style.display = "none";
-                });
-                
-                // Prevent clicks inside dropdown from closing it
-                settingsDropdown.addEventListener("click", function(event) {
-                    event.stopPropagation();
-                });
-            }
-
-            // Handle member management functions
-            const viewMembersBtn = document.getElementById("viewMembers");
+            // Member management buttons
+            // View Members button
             if (viewMembersBtn) {
                 viewMembersBtn.addEventListener("click", function() {
                     if (!selectedServer) {
@@ -560,7 +571,9 @@
                         return;
                     }
                     
-                    // Use displayMembers from currentMembers.js (exported to window)
+                    console.log("View Members clicked, calling displayMembers with server id:", selectedServer.id);
+                    
+                    // Use displayMembers from currentMembers.js
                     if (typeof window.displayMembers === 'function') {
                         window.displayMembers(selectedServer.id);
                     } else {
@@ -570,7 +583,7 @@
                 });
             }
             
-            // Handle promote to admin button
+            // Promote to Admin button
             const promoteToAdminBtn = document.getElementById("promoteToAdmin");
             if (promoteToAdminBtn) {
                 promoteToAdminBtn.addEventListener("click", async function() {
@@ -586,7 +599,9 @@
                         return;
                     }
                     
-                    // Use displayMembers from currentMembers.js (exported to window)
+                    console.log("Promote to Admin clicked, calling displayMembers");
+                    
+                    // Use displayMembers from currentMembers.js
                     if (typeof window.displayMembers === 'function') {
                         window.displayMembers(selectedServer.id);
                     } else {
@@ -596,7 +611,7 @@
                 });
             }
             
-            // Handle demote to member button
+            // Demote to Member button
             const demoteToMemberBtn = document.getElementById("demoteToMember");
             if (demoteToMemberBtn) {
                 demoteToMemberBtn.addEventListener("click", async function() {
@@ -612,7 +627,9 @@
                         return;
                     }
                     
-                    // Use displayMembers from currentMembers.js (exported to window)
+                    console.log("Demote to Member clicked, calling displayMembers");
+                    
+                    // Use displayMembers from currentMembers.js
                     if (typeof window.displayMembers === 'function') {
                         window.displayMembers(selectedServer.id);
                     } else {
@@ -622,8 +639,7 @@
                 });
             }
             
-            // Handle remove member button
-            const removeMemberBtn = document.getElementById("removeMember");
+            // Remove Member button
             if (removeMemberBtn) {
                 removeMemberBtn.addEventListener("click", async function() {
                     if (!selectedServer) {
@@ -631,14 +647,16 @@
                         return;
                     }
                     
-                    // Check if user has permissions
+                    // Check if user is admin or owner
                     const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
-                    if (userRole !== "owner" && userRole !== "admin") {
+                    if (userRole !== "admin" && userRole !== "owner") {
                         alert("❌ Only admins and owners can remove members.");
                         return;
                     }
                     
-                    // Use displayMembers from currentMembers.js (exported to window)
+                    console.log("Remove Member clicked, calling displayMembers");
+                    
+                    // Use displayMembers from currentMembers.js
                     if (typeof window.displayMembers === 'function') {
                         window.displayMembers(selectedServer.id);
                     } else {
@@ -648,7 +666,7 @@
                 });
             }
             
-            // Handle delete server action
+            // Delete Server button
             const deleteServerBtn = document.getElementById("deleteServer");
             if (deleteServerBtn) {
                 deleteServerBtn.addEventListener("click", function() {
@@ -690,24 +708,23 @@
             });
         });
 
-        // Make getCurrentUserRole available globally
+        // Make getCurrentUserRole available globally if needed
         window.getCurrentUserRole = getCurrentUserRole;
     </script>
-    <!-- Load member management scripts -->
+    
+    <!-- Check if member functions loaded properly -->
     <script>
-        // This script ensures the modules load and make their functions available in the window object
         window.addEventListener('load', function() {
-            console.log("Checking if member management functions are available...");
             setTimeout(function() {
+                console.log("Checking member functions availability:");
+                console.log("displayMembers available:", typeof window.displayMembers === 'function');
+                console.log("getCurrentUserRole available:", typeof window.getCurrentUserRole === 'function');
+                
                 if (typeof window.displayMembers !== 'function') {
-                    console.error("displayMembers function not available after loading scripts");
-                } else {
-                    console.log("Member management functions loaded successfully");
+                    console.warn("Member functions not loaded properly. Using fallback methods.");
                 }
-            }, 500); // Give the modules time to load
+            }, 1000);
         });
     </script>
-    <script type="module" src="./currentMembers.js"></script>
-    <script type="module" src="./memberHandler.js"></script>
 </body>
 </html>
