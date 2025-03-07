@@ -41,6 +41,9 @@
                         <button id="addMember">➕ Add Member</button>
                         <button id="removeMember">➖ Remove Member</button>
                         <button id="viewMembers">👥 Current Members</button>
+                        <button id="promoteToAdmin">⭐ Promote to Admin</button>
+                        <button id="demoteToMember">⬇ Demote to Member</button>
+                        <button id="deleteServer">❌ Delete Server</button>
                     </div>
                 </div>
             </div>
@@ -107,9 +110,11 @@
         const db = getDatabase(app);
         const auth = getAuth(app);
         
-        let currentUser = null;
-        let selectedServer = null;
-        let selectedChannel = null;
+        // Make these variables global for access from other scripts
+        window.currentUser = null;
+        window.selectedServer = null;
+        window.selectedChannel = null;
+        window.db = db;
         
         // DOM Elements for Server & Channel Views
         const serverSectionView = document.getElementById("serverSectionView");
@@ -127,13 +132,13 @@
         
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                currentUser = user;
+                window.currentUser = user;
                 const userRef = ref(db, `users/${user.uid}`);
                 const snapshot = await get(userRef);
                 if (snapshot.exists()) {
-                    currentUser.username = snapshot.val().username;
+                    window.currentUser.username = snapshot.val().username;
                 }
-                console.log("✅ Logged in as:", currentUser.username);
+                console.log("✅ Logged in as:", window.currentUser.username);
                 loadServers();
                 initializeUIState();
             } else {
@@ -156,7 +161,7 @@
                             id: childSnapshot.key,
                             ...childSnapshot.val()
                         };
-                        if (server.members && server.members[currentUser.uid]) {
+                        if (server.members && server.members[window.currentUser.uid]) {
                             servers.push(server);
                         }
                     });
@@ -187,8 +192,11 @@
         
         // Select a server
         function selectServer(server) {
-            selectedServer = server;
+            window.selectedServer = server;
             currentServerNameEl.textContent = server.name;
+            
+            // Update UI based on user's role
+            window.updateUIForRole(server.id, window.currentUser.uid);
             
             // Switch to channel view
             serverSectionView.style.display = "none";
@@ -246,32 +254,12 @@
         
         // Join a channel
         function joinChannel(channel) {
-            selectedChannel = channel;
-            document.getElementById("chatChannelName").textContent = `#${channel.name} (${selectedServer.name})`;
+            window.selectedChannel = channel;
+            document.getElementById("chatChannelName").textContent = `#${channel.name} (${window.selectedServer.name})`;
             document.getElementById("messageInput").disabled = false;
-            loadMessages();
-        }
-        
-        // Load messages for a channel
-        function loadMessages() {
-            const messagesDiv = document.getElementById("messages");
-            messagesDiv.innerHTML = "";
-            const messagesRef = ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/messages`);
-        
-            off(messagesRef); // Remove any existing listeners
-        
-            onChildAdded(messagesRef, (snapshot) => {
-                const message = snapshot.val();
-                const messageElement = document.createElement("div");
-                messageElement.className = `message ${message.senderId === currentUser.uid ? 'sent' : 'received'}`;
-                messageElement.innerHTML = `
-                    <div class="message-header">${message.senderName}</div>
-                    <div class="message-text">${message.text}</div>
-                    <div class="message-time">${new Date(message.timestamp).toLocaleTimeString()}</div>
-                `;
-                messagesDiv.appendChild(messageElement);
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            });
+            
+            // Use the new message listener for real-time updates
+            window.setupMessageListeners(window.selectedServer.id, channel.id);
         }
         
         // Event listeners
@@ -302,10 +290,8 @@
             // Member management
             const addMemberBtn = document.getElementById("addMember");
             const removeMemberBtn = document.getElementById("removeMember");
-            const viewMembersBtn = document.getElementById("viewMembers");
             const addMemberPopUp = document.getElementById("addMemberPopUp");
             const closeAddMemberBtn = document.getElementById("closeAddMemberPopUp");
-            const confirmAddMemberBtn = document.getElementById("confirmAddMember");
             
             // Back button
             backToServersBtn.addEventListener("click", () => {
@@ -314,19 +300,19 @@
                 document.getElementById("messages").innerHTML = "";
                 document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
                 document.getElementById("messageInput").disabled = true;
-                selectedServer = null;
-                selectedChannel = null;
+                window.selectedServer = null;
+                window.selectedChannel = null;
             });
             
             // Send message
             sendMessageBtn.addEventListener("click", () => {
                 const messageText = messageInput.value.trim();
-                if (messageText && selectedServer && selectedChannel) {
-                    const messagesRef = ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/messages`);
+                if (messageText && window.selectedServer && window.selectedChannel) {
+                    const messagesRef = ref(db, `servers/${window.selectedServer.id}/channels/${window.selectedChannel.id}/messages`);
                     push(messagesRef, {
                         text: messageText,
-                        senderId: currentUser.uid,
-                        senderName: currentUser.username,
+                        senderId: window.currentUser.uid,
+                        senderName: window.currentUser.username,
                         timestamp: Date.now()
                     });
                     messageInput.value = "";
@@ -356,10 +342,13 @@
                     
                     await set(newServerRef, {
                         name: serverName,
-                        createdBy: currentUser.uid,
+                        createdBy: window.currentUser.uid,
                         createdAt: Date.now(),
                         members: {
-                            [currentUser.uid]: currentUser.username
+                            [window.currentUser.uid]: {
+                                username: window.currentUser.username,
+                                role: "owner" // Set the creator as owner
+                            }
                         }
                     });
                     
@@ -367,7 +356,7 @@
                     const channelsRef = ref(db, `servers/${newServerId}/channels`);
                     await push(channelsRef, {
                         name: "general",
-                        createdBy: currentUser.uid,
+                        createdBy: window.currentUser.uid,
                         createdAt: Date.now()
                     });
                     
@@ -383,7 +372,7 @@
             
             // Create channel
             createChannelBtn.addEventListener("click", () => {
-                if (!selectedServer) {
+                if (!window.selectedServer) {
                     alert("❌ Please select a server first.");
                     return;
                 }
@@ -401,16 +390,16 @@
                     return;
                 }
                 
-                if (!selectedServer) {
+                if (!window.selectedServer) {
                     alert("❌ No server selected.");
                     return;
                 }
                 
                 try {
-                    const channelsRef = ref(db, `servers/${selectedServer.id}/channels`);
+                    const channelsRef = ref(db, `servers/${window.selectedServer.id}/channels`);
                     await push(channelsRef, {
                         name: channelName,
-                        createdBy: currentUser.uid,
+                        createdBy: window.currentUser.uid,
                         createdAt: Date.now()
                     });
                     
@@ -419,7 +408,7 @@
                     document.getElementById("channelNameInput").value = "";
                     
                     // Reload channels to show the newly created one
-                    loadChannels(selectedServer.id);
+                    loadChannels(window.selectedServer.id);
                 } catch (error) {
                     console.error("❌ Error creating channel:", error);
                     alert("Failed to create channel.");
@@ -428,7 +417,7 @@
             
             // Add member
             addMemberBtn.addEventListener("click", () => {
-                if (!selectedServer) {
+                if (!window.selectedServer) {
                     alert("❌ Please select a server first.");
                     return;
                 }
@@ -439,119 +428,50 @@
                 addMemberPopUp.style.display = "none";
             });
             
-            confirmAddMemberBtn.addEventListener("click", async () => {
-                const username = document.getElementById("memberUsernameInput").value.trim();
-                if (!username) {
-                    alert("Please enter a username.");
-                    return;
-                }
-                
-                if (!selectedServer) {
-                    alert("❌ No server selected.");
-                    return;
-                }
-                
-                try {
-                    const usersSnapshot = await get(ref(db, "users"));
-                    let userFound = false;
-                    
-                    usersSnapshot.forEach((userSnap) => {
-                        const user = userSnap.val();
-                        if (user.username === username) {
-                            userFound = true;
-                            set(ref(db, `servers/${selectedServer.id}/members/${userSnap.key}`), username);
-                        }
-                    });
-                    
-                    if (userFound) {
-                        alert(`✅ ${username} was added to ${selectedServer.name} successfully!`);
-                        addMemberPopUp.style.display = "none";
-                        document.getElementById("memberUsernameInput").value = "";
-                    } else {
-                        alert("❌ User not found.");
-                    }
-                } catch (error) {
-                    console.error("❌ Error adding member:", error);
-                    alert("Failed to add member.");
-                }
-            });
-            
-            // View members
-            viewMembersBtn.addEventListener("click", async () => {
-                if (!selectedServer) {
-                    alert("❌ Please select a server first.");
-                    return;
-                }
-                
-                try {
-                    const membersRef = ref(db, `servers/${selectedServer.id}/members`);
-                    const snapshot = await get(membersRef);
-                    
-                    if (snapshot.exists()) {
-                        let membersList = `👥 Members of "${selectedServer.name}":\n`;
-                        snapshot.forEach((memberSnap) => {
-                            membersList += `- ${memberSnap.val()}\n`;
-                        });
-                        alert(membersList);
-                    } else {
-                        alert("❌ No members found in this server.");
-                    }
-                } catch (error) {
-                    console.error("❌ Error fetching members:", error);
-                    alert("Failed to load members.");
-                }
-            });
-            
-            // Remove member
+            // Remove member functionality
             removeMemberBtn.addEventListener("click", async () => {
-                if (!selectedServer) {
+                if (!window.selectedServer) {
                     alert("❌ Please select a server first.");
                     return;
                 }
-
+                
+                // Use the new displayMembers function to show a modal with remove options
+                window.displayMembers(window.selectedServer.id);
+            });
+            
+            // Delete server functionality
+            const deleteServerBtn = document.getElementById("deleteServer");
+            deleteServerBtn.addEventListener("click", async () => {
+                if (!window.selectedServer) {
+                    alert("❌ Please select a server first.");
+                    return;
+                }
+                
+                // Check if current user is owner
+                const userRole = await window.getCurrentUserRole(window.selectedServer.id, window.currentUser.uid);
+                if (userRole !== "owner") {
+                    alert("❌ Only the owner can delete the server.");
+                    return;
+                }
+                
+                // Confirm deletion
+                const confirmDelete = confirm(`Are you sure you want to delete the server "${window.selectedServer.name}"? This action cannot be undone.`);
+                if (!confirmDelete) {
+                    return;
+                }
+                
                 try {
-                    const membersRef = ref(db, `servers/${selectedServer.id}/members`);
-                    const snapshot = await get(membersRef);
-
-                    if (snapshot.exists()) {
-                        let membersArray = [];
-                        snapshot.forEach((memberSnap) => {
-                            membersArray.push({ uid: memberSnap.key, username: memberSnap.val() });
-                        });
-
-                        let membersList = `👥 Current Members of "${selectedServer.name}":\n`;
-                        membersArray.forEach((member, index) => {
-                            membersList += `${index + 1}. ${member.username}\n`;
-                        });
-
-                        const usernameToRemove = prompt(`${membersList}\nEnter the username you want to remove:`);
-
-                        if (!usernameToRemove) {
-                            return; // User canceled
-                        }
-
-                        const memberToRemove = membersArray.find(member =>
-                            member.username.toLowerCase() === usernameToRemove.trim().toLowerCase()
-                        );
-
-                        if (memberToRemove) {
-                            // Check if member is the server creator
-                            if (memberToRemove.uid === selectedServer.createdBy) {
-                                alert("❌ Cannot remove the server creator.");
-                                return;
-                            }
-
-                            await set(ref(db, `servers/${selectedServer.id}/members/${memberToRemove.uid}`), null);
-                            alert(`✅ ${memberToRemove.username} was removed from ${selectedServer.name} successfully!`);
-                        } else {
-                            alert(`❌ User "${usernameToRemove}" not found.`);
-                        }
-                    } else {
-                        alert("❌ No members found in this server.");
-                    }
+                    // Delete the server
+                    await set(ref(db, `servers/${window.selectedServer.id}`), null);
+                    
+                    alert(`✅ Server "${window.selectedServer.name}" has been deleted.`);
+                    
+                    // Return to servers view and reload
+                    backToServersBtn.click();
+                    loadServers();
                 } catch (error) {
-                    console.error("❌ Error removing member:", error);
-                    alert("Failed to remove member.");
+                    console.error("❌ Error deleting server:", error);
+                    alert("Failed to delete server.");
                 }
             });
         });
@@ -567,8 +487,9 @@
                 console.error("❌ Logout failed:", error);
             });
         });
-
     </script>
-    <script type="module" src="./memberHandler.js"></script>
+    
+    <!-- Import the updated currentMembers.js file -->
+    <script type="module" src="./currentMembers.js"></script>
 </body>
 </html>
