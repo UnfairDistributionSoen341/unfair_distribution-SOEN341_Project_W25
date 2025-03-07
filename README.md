@@ -1,7 +1,5 @@
 # unfair_distribution-SOEN341_Project_W25
 
-# unfair_distribution-SOEN341_Project_W25
-
 ## Description
 ChatHaven is a real-time web-based chat application that allows users to interact via Direct Messages (DMs) and Servers with Channels, similar to platforms like Discord. This project was developed as part of a collaborative effort to create an organized and interactive chatting environment with user authentication and server management features.
 
