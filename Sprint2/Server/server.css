@@ -329,8 +329,19 @@ button:hover {
     background-color: #cc0000;
 }
 
-/* Action buttons in member list */
-.action-button {
+/* Member item styles */
+.member-item {
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: #f1f1f1;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Member action buttons */
+.member-action-btn {
     padding: 5px 10px;
     border: none;
     border-radius: 3px;
@@ -339,17 +350,17 @@ button:hover {
     margin-left: 5px;
 }
 
-.action-button.promote {
+.promote-btn {
     background-color: #4CAF50;
     color: white;
 }
 
-.action-button.demote {
+.demote-btn {
     background-color: #f44336;
     color: white;
 }
 
-.action-button.remove {
+.remove-btn {
     background-color: #9e9e9e;
     color: white;
 }
