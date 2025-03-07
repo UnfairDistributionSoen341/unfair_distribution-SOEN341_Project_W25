@@ -1,4 +1,4 @@
-import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+import { getDatabase, ref, get, set, remove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
 // Get database and auth instances
@@ -10,19 +10,42 @@ async function getCurrentUserRole(serverId, userId) {
   if (!serverId || !userId) return "member";
   
   try {
+    console.log(`Checking role for user ${userId} in server ${serverId}`);
+    
+    // Check if user is server creator (owner)
+    const serverRef = ref(db, `servers/${serverId}`);
+    const serverSnapshot = await get(serverRef);
+    
+    if (serverSnapshot.exists()) {
+      const server = serverSnapshot.val();
+      // If user is the server creator, they are the owner
+      if (server.createdBy === userId) {
+        console.log("User is server creator -> OWNER");
+        return "owner";
+      }
+    }
+    
+    // Otherwise check their role in members
     const memberRef = ref(db, `servers/${serverId}/members/${userId}`);
     const snapshot = await get(memberRef);
     
-    if (!snapshot.exists()) return "member";
+    if (!snapshot.exists()) {
+      console.log("User not found in members");
+      return "member";
+    }
     
     // Handle both string username and object with role
     const memberData = snapshot.val();
+    console.log("Member data:", memberData);
+    
     if (typeof memberData === "object" && memberData.role) {
+      console.log(`Found role: ${memberData.role}`);
       return memberData.role;
     }
     
     // If it's just a username string or no role specified
-    return userId === serverId.createdBy ? "owner" : "member";
+    console.log("No role specified, defaulting to member");
+    return "member";
   } catch (error) {
     console.error("Error getting user role:", error);
     return "member";
@@ -39,10 +62,7 @@ async function showMemberManagementModal(serverId) {
   try {
     // Get current user role (to check permissions)
     const currentUserId = auth.currentUser.uid;
-    const serverRef = ref(db, `servers/${serverId}`);
-    const serverSnapshot = await get(serverRef);
-    const server = serverSnapshot.val();
-    const isOwner = server.createdBy === currentUserId;
+    const userRole = await getCurrentUserRole(serverId, currentUserId);
     
     // Get members
     const membersRef = ref(db, `servers/${serverId}/members`);
@@ -80,6 +100,11 @@ async function showMemberManagementModal(serverId) {
     // Add members list
     const membersList = document.createElement("div");
     membersList.style.textAlign = "left";
+    
+    // Get server data to identify owner
+    const serverRef = ref(db, `servers/${serverId}`);
+    const serverSnapshot = await get(serverRef);
+    const server = serverSnapshot.val();
     
     // Populate members list
     membersSnapshot.forEach((memberSnap) => {
@@ -127,8 +152,9 @@ async function showMemberManagementModal(serverId) {
       actionButtons.style.display = "flex";
       actionButtons.style.gap = "5px";
       
-      // Only show actions if current user is owner and not acting on themselves
-      if (isOwner && memberId !== currentUserId) {
+      // Only show actions if current user has proper permissions
+      // Owner can do everything
+      if (userRole === "owner" && memberId !== currentUserId) {
         // Promote button (for members)
         if (role === "member") {
           const promoteBtn = document.createElement("button");
@@ -197,7 +223,7 @@ async function showMemberManagementModal(serverId) {
           
           removeBtn.onclick = async () => {
             if (confirm(`Are you sure you want to remove ${username} from the server?`)) {
-              await set(ref(db, `servers/${serverId}/members/${memberId}`), null);
+              await remove(ref(db, `servers/${serverId}/members/${memberId}`));
               alert(`✅ ${username} has been removed from the server!`);
               document.body.removeChild(modal);
               showMemberManagementModal(serverId); // Refresh with updated members
@@ -206,6 +232,29 @@ async function showMemberManagementModal(serverId) {
           
           actionButtons.appendChild(removeBtn);
         }
+      } 
+      // Admin can remove regular members, but not other admins or owner
+      else if (userRole === "admin" && role === "member" && memberId !== currentUserId) {
+        const removeBtn = document.createElement("button");
+        removeBtn.textContent = "Remove";
+        removeBtn.style.backgroundColor = "#9e9e9e";
+        removeBtn.style.color = "white";
+        removeBtn.style.border = "none";
+        removeBtn.style.padding = "5px 10px";
+        removeBtn.style.borderRadius = "3px";
+        removeBtn.style.cursor = "pointer";
+        removeBtn.style.fontSize = "12px";
+        
+        removeBtn.onclick = async () => {
+          if (confirm(`Are you sure you want to remove ${username} from the server?`)) {
+            await remove(ref(db, `servers/${serverId}/members/${memberId}`));
+            alert(`✅ ${username} has been removed from the server!`);
+            document.body.removeChild(modal);
+            showMemberManagementModal(serverId); // Refresh with updated members
+          }
+        };
+        
+        actionButtons.appendChild(removeBtn);
       }
       
       memberItem.appendChild(memberInfo);
@@ -228,110 +277,56 @@ async function showMemberManagementModal(serverId) {
   }
 }
 
-// Add role management buttons to the settings dropdown
-function addRoleManagementButtons() {
-  const settingsDropdown = document.getElementById("settingsDropdown");
-  if (!settingsDropdown) return;
-  
-  // Check if buttons already exist
-  if (document.getElementById("promoteToAdmin")) return;
-  
-  // Add promote/demote buttons
-  const promoteBtn = document.createElement("button");
-  promoteBtn.id = "promoteToAdmin";
-  promoteBtn.innerHTML = "⭐ Promote to Admin";
-  promoteBtn.style.backgroundColor = "#4CAF50";
-  promoteBtn.style.color = "white";
-  
-  const demoteBtn = document.createElement("button");
-  demoteBtn.id = "demoteToMember";
-  demoteBtn.innerHTML = "⬇ Demote to Member";
-  demoteBtn.style.backgroundColor = "#f44336";
-  demoteBtn.style.color = "white";
-  
-  const deleteServerBtn = document.createElement("button");
-  deleteServerBtn.id = "deleteServer";
-  deleteServerBtn.innerHTML = "❌ Delete Server";
-  deleteServerBtn.style.backgroundColor = "#ff0000";
-  deleteServerBtn.style.color = "white";
-  
-  // Add buttons to dropdown
-  settingsDropdown.appendChild(promoteBtn);
-  settingsDropdown.appendChild(demoteBtn);
-  settingsDropdown.appendChild(deleteServerBtn);
-  
-  // Setup event listeners for buttons
-  promoteBtn.addEventListener("click", () => {
-    const selectedServer = window.selectedServer || selectedServer;
-    if (!selectedServer) {
-      alert("❌ Please select a server first.");
-      return;
-    }
-    showMemberManagementModal(selectedServer.id);
-  });
-  
-  demoteBtn.addEventListener("click", () => {
-    const selectedServer = window.selectedServer || selectedServer;
-    if (!selectedServer) {
-      alert("❌ Please select a server first.");
-      return;
-    }
-    showMemberManagementModal(selectedServer.id);
-  });
-  
-  deleteServerBtn.addEventListener("click", async () => {
-    const selectedServer = window.selectedServer || selectedServer;
-    if (!selectedServer) {
-      alert("❌ Please select a server first.");
-      return;
-    }
-    
-    // Check if user is owner
-    const currentUserId = auth.currentUser.uid;
-    const serverRef = ref(db, `servers/${selectedServer.id}`);
-    const serverSnapshot = await get(serverRef);
-    const server = serverSnapshot.val();
-    
-    if (server.createdBy !== currentUserId) {
-      alert("❌ Only the server owner can delete the server.");
-      return;
-    }
-    
-    if (confirm(`Are you sure you want to delete the server "${selectedServer.name}"? This action cannot be undone.`)) {
-      await set(serverRef, null);
-      alert(`✅ Server "${selectedServer.name}" has been deleted.`);
-      window.location.reload(); // Reload to show updated server list
-    }
-  });
-}
-
-// Override the viewMembers button to use the new modal
-function overrideViewMembersButton() {
-  const viewMembersBtn = document.getElementById("viewMembers");
-  if (!viewMembersBtn) return;
-  
-  viewMembersBtn.addEventListener("click", () => {
-    const selectedServer = window.selectedServer || selectedServer;
-    if (!selectedServer) {
-      alert("❌ Please select a server first.");
-      return;
-    }
-    showMemberManagementModal(selectedServer.id);
-  }, true); // Use capture to override existing listener
-}
-
-// Initialize member management features
+// Initialize event listeners
 document.addEventListener("DOMContentLoaded", () => {
   console.log("🔄 Initializing member management...");
   
-  // Add role management buttons
-  addRoleManagementButtons();
-  
   // Override view members button
-  overrideViewMembersButton();
+  const viewMembersBtn = document.getElementById("viewMembers");
+  if (viewMembersBtn) {
+    viewMembersBtn.addEventListener("click", () => {
+      const selectedServer = window.selectedServer;
+      
+      if (selectedServer) {
+        showMemberManagementModal(selectedServer.id);
+      } else {
+        alert("❌ Please select a server first.");
+      }
+    }, true); // Use capture to override existing listener
+  }
+  
+  // Add listeners for delete server button
+  const deleteServerBtn = document.getElementById("deleteServer");
+  if (deleteServerBtn) {
+    deleteServerBtn.addEventListener("click", async () => {
+      const selectedServer = window.selectedServer;
+      if (!selectedServer) {
+        alert("❌ Please select a server first.");
+        return;
+      }
+      
+      // Check if user is owner
+      const userRole = await getCurrentUserRole(selectedServer.id, auth.currentUser.uid);
+      if (userRole !== "owner") {
+        alert("❌ Only the server owner can delete the server.");
+        return;
+      }
+      
+      if (confirm(`Are you sure you want to delete the server "${selectedServer.name}"? This action cannot be undone.`)) {
+        try {
+          await remove(ref(db, `servers/${selectedServer.id}`));
+          alert(`✅ Server "${selectedServer.name}" has been deleted.`);
+          window.location.reload(); // Reload to update server list
+        } catch (error) {
+          console.error("Error deleting server:", error);
+          alert("❌ Failed to delete server. See console for details.");
+        }
+      }
+    });
+  }
   
   console.log("✅ Member management initialized!");
 });
 
-// Export functions for direct use
-export { showMemberManagementModal, getCurrentUserRole };
+// Export functions for use in main script
+export { getCurrentUserRole, showMemberManagementModal };
