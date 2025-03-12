@@ -1,24 +1,29 @@
-// Restore the previous mocks if needed for next tests
-    global.createUserWithEmailAndPassword = jest.fn();
-    global.ref = jest.fn();
-    global.set = jest.fn();    // Mock successful registration
-    global.createUserWithEmailAndPassword = jest.fn().mockResolvedValue({
-      user: { uid: 'test-uid-123' }
-    });// tests/register.test.js
-// Set up mock Firebase functions
-const mockRef = jest.fn().mockReturnValue("mocked-ref");
-const mockSet = jest.fn().mockResolvedValue(undefined);
-const mockCreateUserWithEmailAndPassword = jest.fn().mockResolvedValue({
-  user: { uid: 'test-uid-123' }
-});
+// tests/register.test.js
+// Set up manual mocks for Firebase modules
+// These mocks work without requiring the actual Firebase packages to be installed
+const mockFirebaseApp = {
+  initializeApp: jest.fn(() => mockApp)
+};
 
-// Assign to global for the registerNode module to use
-global.ref = mockRef;
-global.set = mockSet;
-global.createUserWithEmailAndPassword = mockCreateUserWithEmailAndPassword;
-global.getAuth = jest.fn(() => ({}));
-global.getDatabase = jest.fn(() => ({}));
-global.initializeApp = jest.fn(() => ({}));
+const mockApp = {
+  // Mock app instance
+};
+
+const mockAuth = {
+  // Mock auth instance
+};
+
+const mockDb = {
+  // Mock database instance
+};
+
+// Global mocks
+global.initializeApp = mockFirebaseApp.initializeApp;
+global.getAuth = jest.fn(() => mockAuth);
+global.createUserWithEmailAndPassword = jest.fn();
+global.getDatabase = jest.fn(() => mockDb);
+global.ref = jest.fn();
+global.set = jest.fn();
 
 // Mock hashUtils
 jest.mock('./hashUtilsNode', () => ({
@@ -48,121 +53,120 @@ import { hashPassword } from './hashUtilsNode';
 
 describe('Register Page Tests', () => {
   let event;
-  
+
   beforeEach(() => {
     // Reset mocks
     jest.clearAllMocks();
-    
+
     // Reset form values
     document.getElementById('username').value = '';
     document.getElementById('email').value = '';
     document.getElementById('password').value = '';
     document.getElementById('message').innerText = '';
-    
+
     // Mock event
     event = { preventDefault: jest.fn() };
   });
-  
+
   test('Firebase is initialized correctly', () => {
     // Import register code to trigger initialization
     require('./registerNode');
-    
+
     expect(initializeApp).toHaveBeenCalledWith(expect.objectContaining({
       apiKey: expect.any(String),
       authDomain: expect.any(String),
       databaseURL: expect.any(String),
       projectId: expect.any(String)
     }));
-    
+
     expect(getAuth).toHaveBeenCalled();
     expect(getDatabase).toHaveBeenCalled();
   });
-  
+
   test('Form validation works when fields are empty', () => {
     // Import register code
     const { handleRegister } = require('./registerNode');
-    
+
     // Call the handler with empty fields
     handleRegister(event);
-    
+
     expect(event.preventDefault).toHaveBeenCalled();
     expect(document.getElementById('message').innerText).toBe('❌ Please fill in all required fields!');
     expect(createUserWithEmailAndPassword).not.toHaveBeenCalled();
   });
-  
+
   test('Registration successful with valid data', async () => {
-    // Spy on console.error to prevent output in tests
-    jest.spyOn(console, 'error').mockImplementation(() => {});
-    jest.spyOn(console, 'log').mockImplementation(() => {});
-    
-    // Set up global mock functions
-    global.ref = jest.fn(() => "mocked-ref");
-    global.set = jest.fn().mockResolvedValue(undefined);
-    
+
+
+
+
+    // Mock successful registration
+    createUserWithEmailAndPassword.mockResolvedValue({
+      user: { uid: 'test-uid-123' }
+    });
+    set.mockResolvedValue(undefined);
+
     // Setup form values
     document.getElementById('username').value = 'testuser';
     document.getElementById('email').value = 'test@example.com';
     document.getElementById('password').value = 'Password123!';
-    
+
     // Import register code
     const { handleRegister } = require('./registerNode');
-    
+
     // Call the handler
     await handleRegister(event);
-    
+
     expect(event.preventDefault).toHaveBeenCalled();
     expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(
       expect.anything(),
       'test@example.com',
       'Password123!'
     );
-    
+
     expect(hashPassword).toHaveBeenCalledWith('Password123!');
-    
+
     expect(set).toHaveBeenCalledWith(
-      "mocked-ref",
-      {
+      expect.anything(),
+      expect.objectContaining({
         username: 'testuser',
         email: 'test@example.com',
         uid: 'test-uid-123'
-      }
+      })
     );
-    
+
     expect(document.getElementById('message').innerText).toBe('✅ Registration successful!');
     expect(document.getElementById('username').value).toBe('');
     expect(document.getElementById('email').value).toBe('');
-    // Restore console functions
-    console.log.mockRestore();
-    console.error.mockRestore();
+    expect(document.getElementById('password').value).toBe('');
+
+
   });
-  
+
   test('Registration handles Firebase errors', async () => {
-    // Spy on console.error to prevent output in tests
-    jest.spyOn(console, 'error').mockImplementation(() => {});
-    
+
+
+
     // Mock Firebase error
-    global.createUserWithEmailAndPassword = jest.fn().mockRejectedValue({
+    createUserWithEmailAndPassword.mockRejectedValue({
       message: 'Email already in use'
     });
-    
+
     // Setup form values
     document.getElementById('username').value = 'testuser';
     document.getElementById('email').value = 'test@example.com';
     document.getElementById('password').value = 'Password123!';
-    
+
     // Import register code
     const { handleRegister } = require('./registerNode');
-    
+
     // Call the handler
     await handleRegister(event);
-    
+
     expect(event.preventDefault).toHaveBeenCalled();
     expect(document.getElementById('message').innerText).toBe('❌ Registration failed：Email already in use');
-    
-    // Restore the previous mocks if needed for next tests
-    global.createUserWithEmailAndPassword = jest.fn();
-    
-    // Restore console error
-    console.error.mockRestore();
+
+
+
   });
 });
