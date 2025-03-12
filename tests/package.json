@@ -1,10 +1,11 @@
 {
-  "name": "chathaven",
+  "name": "chathaven-tests",
   "version": "1.0.0",
   "description": "ChatHaven secure messaging application",
   "main": "index.js",
+  "private": true,
   "scripts": {
-    "test": "jest --coverage",
+    "test": "jest --config=jest.config.js --coverage",
     "lint": "eslint ."
   },
   "author": "",
@@ -33,6 +34,9 @@
     "coverageReporters": [
       "text",
       "html"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/setupTests.js"
     ]
   }
 }
