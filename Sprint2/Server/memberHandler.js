@@ -471,3 +471,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Export functions for use in main script
 export { getCurrentUserRole, showMemberManagementModal, showChannelAccessModal, canAccessChannel };
+
+// Make showMemberManagementModal available globally
+window.showMemberManagementModal = showMemberManagementModal;
