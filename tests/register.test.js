@@ -5,31 +5,20 @@
     global.createUserWithEmailAndPassword = jest.fn().mockResolvedValue({
       user: { uid: 'test-uid-123' }
     });// tests/register.test.js
-// Set up manual mocks for Firebase modules
-// These mocks work without requiring the actual Firebase packages to be installed
-const mockFirebaseApp = {
-  initializeApp: jest.fn(() => mockApp)
-};
+// Set up mock Firebase functions
+const mockRef = jest.fn().mockReturnValue("mocked-ref");
+const mockSet = jest.fn().mockResolvedValue(undefined);
+const mockCreateUserWithEmailAndPassword = jest.fn().mockResolvedValue({
+  user: { uid: 'test-uid-123' }
+});
 
-const mockApp = {
-  // Mock app instance
-};
-
-const mockAuth = {
-  // Mock auth instance
-};
-
-const mockDb = {
-  // Mock database instance
-};
-
-// Global mocks
-global.initializeApp = mockFirebaseApp.initializeApp;
-global.getAuth = jest.fn(() => mockAuth);
-global.createUserWithEmailAndPassword = jest.fn();
-global.getDatabase = jest.fn(() => mockDb);
-global.ref = jest.fn();
-global.set = jest.fn();
+// Assign to global for the registerNode module to use
+global.ref = mockRef;
+global.set = mockSet;
+global.createUserWithEmailAndPassword = mockCreateUserWithEmailAndPassword;
+global.getAuth = jest.fn(() => ({}));
+global.getDatabase = jest.fn(() => ({}));
+global.initializeApp = jest.fn(() => ({}));
 
 // Mock hashUtils
 jest.mock('./hashUtilsNode', () => ({
