@@ -52,6 +52,20 @@ async function getCurrentUserRole(serverId, userId) {
   }
 }
 
+// Check if user can access a channel (used in the main script but defined here for consistency)
+async function canAccessChannel(serverId, channelId, userId) {
+  // Owners and admins always have access
+  const userRole = await getCurrentUserRole(serverId, userId);
+  if (userRole === "owner" || userRole === "admin") {
+    return true;
+  }
+  
+  // For regular members, check allowedMembers
+  const allowedRef = ref(db, `servers/${serverId}/channels/${channelId}/allowedMembers/${userId}`);
+  const allowedSnapshot = await get(allowedRef);
+  return allowedSnapshot.exists();
+}
+
 // Create and display member management modal
 async function showMemberManagementModal(serverId) {
   if (!serverId) {
@@ -277,6 +291,122 @@ async function showMemberManagementModal(serverId) {
   }
 }
 
+// Channel access management modal
+async function showChannelAccessModal(serverId, channelId) {
+  if (!serverId || !channelId) {
+    alert("❌ Please select a server and channel first.");
+    return;
+  }
+
+  try {
+    const currentUserId = auth.currentUser.uid;
+    const userRole = await getCurrentUserRole(serverId, currentUserId);
+    if (userRole !== "admin" && userRole !== "owner") {
+      alert("❌ Only admins and owners can manage channel access.");
+      return;
+    }
+
+    const membersRef = ref(db, `servers/${serverId}/members`);
+    const membersSnapshot = await get(membersRef);
+    
+    if (!membersSnapshot.exists()) {
+      alert("❌ No members found in this server.");
+      return;
+    }
+
+    const allowedMembersRef = ref(db, `servers/${serverId}/channels/${channelId}/allowedMembers`);
+    const allowedSnapshot = await get(allowedMembersRef);
+
+    const modal = document.createElement("div");
+    modal.className = "popUp";
+    modal.id = "channelAccessModal";
+    modal.style.display = "flex";
+
+    const modalContent = document.createElement("div");
+    modalContent.className = "popUp-content";
+    modalContent.style.width = "400px";
+    modalContent.style.maxHeight = "80vh";
+    modalContent.style.overflowY = "auto";
+
+    const closeButton = document.createElement("span");
+    closeButton.className = "close-button";
+    closeButton.innerHTML = "&times;";
+    closeButton.onclick = () => document.body.removeChild(modal);
+
+    const title = document.createElement("h2");
+    title.textContent = "Manage Channel Access";
+    title.style.marginBottom = "20px";
+
+    const membersList = document.createElement("div");
+    membersList.style.textAlign = "left";
+
+    // Get server data to identify owner
+    const serverRef = ref(db, `servers/${serverId}`);
+    const serverSnapshot = await get(serverRef);
+    const server = serverSnapshot.val();
+
+    membersSnapshot.forEach((memberSnap) => {
+      const memberId = memberSnap.key;
+      const memberData = memberSnap.val();
+      
+      // Extract username and role
+      let username = memberData;
+      let role = "member";
+      
+      if (typeof memberData === "object") {
+        username = memberData.username || "Unknown";
+        role = memberData.role || "member";
+      }
+      
+      // Skip admins and owners in the access management list (they always have access)
+      if (role === "admin" || memberId === server.createdBy) {
+        return;
+      }
+
+      const memberItem = document.createElement("div");
+      memberItem.className = "channel-access-item";
+
+      const memberInfo = document.createElement("div");
+      memberInfo.innerHTML = `<strong>${username}</strong>`;
+
+      const actionBtn = document.createElement("button");
+      actionBtn.className = `channel-access-button ${
+        allowedSnapshot.exists() && allowedSnapshot.hasChild(memberId) 
+          ? "remove-access" 
+          : "allow-access"
+      }`;
+
+      actionBtn.textContent = allowedSnapshot.exists() && allowedSnapshot.hasChild(memberId)
+        ? "Remove Access"
+        : "Allow Access";
+
+      actionBtn.onclick = async () => {
+        const path = `servers/${serverId}/channels/${channelId}/allowedMembers/${memberId}`;
+        if (allowedSnapshot.exists() && allowedSnapshot.hasChild(memberId)) {
+          await remove(ref(db, path));
+        } else {
+          await set(ref(db, path), true);
+        }
+        modal.remove();
+        showChannelAccessModal(serverId, channelId);
+      };
+
+      memberItem.appendChild(memberInfo);
+      memberItem.appendChild(actionBtn);
+      membersList.appendChild(memberItem);
+    });
+
+    modalContent.appendChild(closeButton);
+    modalContent.appendChild(title);
+    modalContent.appendChild(membersList);
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+  } catch (error) {
+    console.error("Error managing channel access:", error);
+    alert("❌ Failed to load channel access management.");
+  }
+}
+
 // Initialize event listeners
 document.addEventListener("DOMContentLoaded", () => {
   console.log("🔄 Initializing member management...");
@@ -325,8 +455,43 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   
+  const manageAccessBtn = document.getElementById("manageChannelAccess");
+  if (manageAccessBtn) {
+    manageAccessBtn.addEventListener("click", () => {
+      if (window.selectedServer && window.selectedChannel) {
+        showChannelAccessModal(window.selectedServer.id, window.selectedChannel.id);
+      } else {
+        alert("❌ Please select a server and channel first.");
+      }
+    });
+  }
+  
+  // Fix general channel access button
+  const fixGeneralBtn = document.getElementById("fixGeneralChannelAccess");
+  if (fixGeneralBtn) {
+    fixGeneralBtn.addEventListener("click", async () => {
+      if (!window.selectedServer) {
+        alert("Please select a server first");
+        return;
+      }
+      
+      try {
+        // Call the global function from the main script
+        if (typeof window.grantGeneralChannelAccess === 'function') {
+          await window.grantGeneralChannelAccess(window.selectedServer.id);
+          alert("General channel access has been fixed!");
+        } else {
+          alert("Fix function not available. Please make sure you have updated all files.");
+        }
+      } catch (error) {
+        console.error("Error fixing general channel access:", error);
+        alert("Error fixing general channel access. See console for details.");
+      }
+    });
+  }
+  
   console.log("✅ Member management initialized!");
 });
 
 // Export functions for use in main script
-export { getCurrentUserRole, showMemberManagementModal };
+export { getCurrentUserRole, showMemberManagementModal, showChannelAccessModal, canAccessChannel };
