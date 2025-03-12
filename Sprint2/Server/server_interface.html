@@ -61,11 +61,80 @@
    top: 40px;
    z-index: 10;
  }
+ 
+ /* Members sidebar styles */
+ .members-sidebar {
+   width: 200px;
+   background: #2C2F33;
+   color: white;
+   padding: 20px;
+   display: flex;
+   flex-direction: column;
+   border-left: 1px solid #555;
+ }
+ 
+ .members-section {
+   margin-top: 10px;
+   max-height: 100%;
+   overflow-y: auto;
+ }
+ 
+ .member-item {
+   padding: 8px;
+   margin: 5px 0;
+   background: #444;
+   border-radius: 5px;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+ }
+ 
+ .member-name {
+   color: white;
+   font-size: 14px;
+ }
+ 
+ .member-role {
+   font-size: 10px;
+   padding: 2px 5px;
+   border-radius: 3px;
+   color: white;
+ }
+ 
+ .role-owner {
+   background-color: #ff9800;
+ }
+ 
+ .role-admin {
+   background-color: #4CAF50;
+ }
+ 
+ .role-member {
+   background-color: #2196F3;
+ }
+
+ /* Updated chat container to include members sidebar */
+ .chat-container {
+   display: flex;
+   width: 90%;
+   height: 600px;
+   background: white;
+   border-radius: 10px;
+   overflow: hidden;
+   box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.2);
+ }
+ 
+ /* Updated chat box width */
+ .chat-box {
+   flex: 1;
+   display: flex;
+   flex-direction: column;
+ }
  </style>
 </head>
 <body>
  <div class="chat-container">
- <!-- Sidebar -->
+ <!-- Left Sidebar -->
  <div class="sidebar">
  <!-- Server Section -->
  <div class="server-section" id="serverSectionView">
@@ -111,6 +180,12 @@
  <button id="sendMessage">Send</button>
  </div>
  </div>
+ 
+ <!-- Members Sidebar (Right) -->
+ <div class="members-sidebar" id="membersSidebar">
+ <h3>MEMBERS</h3>
+ <div id="membersList" class="members-section"></div>
+ </div>
  </div>
 
  <!-- Add Member Popup -->
@@ -150,7 +225,7 @@
 
  <script type="module">
  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
- import { getDatabase, ref, push, set, get, onChildAdded, off, remove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+ import { getDatabase, ref, push, set, get, onChildAdded, off, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
  
  const firebaseConfig = {
@@ -174,15 +249,17 @@
  // DOM Elements for Server & Channel Views
  const serverSectionView = document.getElementById("serverSectionView");
  const channelSectionView = document.getElementById("channelSectionView");
+ const membersSidebar = document.getElementById("membersSidebar");
  const backToServersBtn = document.getElementById("backToServers");
  const currentServerNameEl = document.getElementById("currentServerName");
  
  // Initialize UI state
  function initializeUIState() {
- serverSectionView.style.display = "block";
- channelSectionView.style.display = "none";
- document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
- document.getElementById("messageInput").disabled = true;
+   serverSectionView.style.display = "block";
+   channelSectionView.style.display = "none";
+   membersSidebar.style.display = "none";
+   document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
+   document.getElementById("messageInput").disabled = true;
  }
  
  onAuthStateChanged(auth, async (user) => {
@@ -351,6 +428,85 @@
   }
  }
 
+ // Function to load and display members for the current server
+ async function loadServerMembers(serverId) {
+  const membersList = document.getElementById("membersList");
+  membersList.innerHTML = "";
+  
+  try {
+    const membersRef = ref(db, `servers/${serverId}/members`);
+    
+    // Use onValue to listen for changes in the members list
+    onValue(membersRef, async (snapshot) => {
+      membersList.innerHTML = "";
+      
+      if (!snapshot.exists()) {
+        membersList.innerHTML = "<p style='color: #aaa; text-align: center;'>No members found.</p>";
+        return;
+      }
+      
+      // Get server data to identify owner
+      const serverRef = ref(db, `servers/${serverId}`);
+      const serverSnapshot = await get(serverRef);
+      const server = serverSnapshot.val();
+      
+      const members = [];
+      
+      snapshot.forEach((memberSnap) => {
+        const memberId = memberSnap.key;
+        const memberData = memberSnap.val();
+        
+        // Extract username and role
+        let username = memberData;
+        let role = "member";
+        
+        if (typeof memberData === "object") {
+          username = memberData.username || "Unknown";
+          role = memberData.role || "member";
+        }
+        
+        // For owner role, check if this member is the creator
+        if (memberId === server.createdBy) {
+          role = "owner";
+        }
+        
+        members.push({
+          id: memberId,
+          username,
+          role
+        });
+      });
+      
+      // Sort members by role: owner first, then admins, then regular members
+      members.sort((a, b) => {
+        const roleOrder = { owner: 0, admin: 1, member: 2 };
+        return roleOrder[a.role] - roleOrder[b.role];
+      });
+      
+      // Display members
+      members.forEach(member => {
+        const memberItem = document.createElement("div");
+        memberItem.className = "member-item";
+        
+        const memberName = document.createElement("span");
+        memberName.className = "member-name";
+        memberName.textContent = member.username;
+        
+        const memberRole = document.createElement("span");
+        memberRole.className = `member-role role-${member.role}`;
+        memberRole.textContent = member.role;
+        
+        memberItem.appendChild(memberName);
+        memberItem.appendChild(memberRole);
+        membersList.appendChild(memberItem);
+      });
+    });
+  } catch (error) {
+    console.error("Error loading members:", error);
+    membersList.innerHTML = "<p style='color: red; text-align: center;'>Error loading members.</p>";
+  }
+ }
+
  // Load servers from database
  async function loadServers() {
  const serverList = document.getElementById("serverList");
@@ -401,9 +557,10 @@
   selectedServer = server;
   currentServerNameEl.textContent = server.name;
   
-  // Switch to channel view
+  // Switch to channel view and show members sidebar
   serverSectionView.style.display = "none";
   channelSectionView.style.display = "flex";
+  membersSidebar.style.display = "flex";
   
   // Make selectedServer available globally
   window.selectedServer = server;
@@ -421,6 +578,9 @@
   // Grant all members access to general channel
   await grantGeneralChannelAccess(server.id);
   
+  // Load members for this server
+  loadServerMembers(server.id);
+  
   // Load channels for this server
   loadChannels(server.id);
  }
@@ -435,7 +595,6 @@
     
     if (snapshot.exists()) {
       const channels = [];
-      const accessPromises = [];
       
       snapshot.forEach((childSnapshot) => {
         const channel = {
@@ -443,22 +602,12 @@
           ...childSnapshot.val()
         };
         
-        // Check if the current user has access to this channel
-        const accessPromise = canAccessChannel(serverId, childSnapshot.key, currentUser.uid)
-          .then(hasAccess => {
-            if (hasAccess) {
-              channels.push(channel);
-            }
-          });
-        
-        accessPromises.push(accessPromise);
+        // Add all channels regardless of access
+        channels.push(channel);
       });
       
-      // Wait for all access checks to complete
-      await Promise.all(accessPromises);
-      
       displayChannels(channels);
-      console.log("Accessible channels loaded:", channels);
+      console.log("All channels loaded:", channels);
     } else {
       console.log("No channels found for server:", serverId);
       channelList.innerHTML = "<p>No channels found in this server.</p>";
@@ -473,7 +622,7 @@
  function displayChannels(channels) {
   const channelList = document.getElementById("channelList");
   channelList.innerHTML = channels.length === 0 
-    ? "<p>No accessible channels available.</p>"
+    ? "<p>No channels available.</p>"
     : "";
   
   channels.forEach(channel => {
@@ -501,11 +650,24 @@
 
  // Join a channel
  async function joinChannel(channel) {
-  // We know the user has access since we only display accessible channels
   selectedChannel = channel;
   window.selectedChannel = channel;
+  
+  // Check if user has access before loading messages
+  const hasAccess = await canAccessChannel(selectedServer.id, channel.id, currentUser.uid);
+  
   document.getElementById("chatChannelName").textContent = `#${channel.name} (${selectedServer.name})`;
-  document.getElementById("messageInput").disabled = false;
+  document.getElementById("messageInput").disabled = !hasAccess;
+  
+  if (!hasAccess) {
+    const messagesDiv = document.getElementById("messages");
+    messagesDiv.innerHTML = `<div style="text-align: center; padding: 20px; color: #ff0000;">
+      <h3>You don't have access to this channel</h3>
+      <p>Please ask a server admin to grant you access.</p>
+    </div>`;
+    return;
+  }
+  
   loadMessages();
  }
  
@@ -617,7 +779,7 @@
       );
       
       if (!allowed) {
-        alert("❌ You no longer have access to this channel");
+        alert("❌ You don't have access to this channel");
         return;
       }
       sendMessageBtn.click();
@@ -649,6 +811,7 @@
  backToServersBtn.addEventListener("click", () => {
  serverSectionView.style.display = "block";
  channelSectionView.style.display = "none";
+ membersSidebar.style.display = "none";
  document.getElementById("messages").innerHTML = "";
  document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
  document.getElementById("messageInput").disabled = true;
@@ -672,14 +835,14 @@
         );
         
         if (!allowed) {
-            alert("❌ You no longer have access to this channel");
+            alert("❌ You don't have access to this channel");
             return;
         }
 
         // Send message if access exists
         const messagesRef = ref(db, 
             `servers/${selectedServer.id}/channels/${selectedChannel.id}/messages`
-        );
+            );
         await push(messagesRef, {
             text: messageText,
             senderId: currentUser.uid,
@@ -821,7 +984,7 @@
             createdBy: currentUser.uid,
             createdAt: Date.now(),
             members: {
-              [currentUser.uid]: {
+                [currentUser.uid]: {
                     username: currentUser.username,
                     role: "owner"
                 }
@@ -1160,6 +1323,7 @@
                             // Reset the view and go back to server list
                             serverSectionView.style.display = "block";
                             channelSectionView.style.display = "none";
+                            membersSidebar.style.display = "none";
                             document.getElementById("messages").innerHTML = "";
                             document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
                             document.getElementById("messageInput").disabled = true;
@@ -1326,9 +1490,8 @@
     
     document.getElementById("settingsDropdown").style.display = "none";
 });
-
- // Leave server functionality
- leaveServerBtn.addEventListener("click", async function() {
+// Leave server functionality
+leaveServerBtn.addEventListener("click", async function() {
     if (!window.selectedServer) {
         alert("❌ Please select a server first.");
         return;
@@ -1361,6 +1524,7 @@
         // Reset view and go back to server list
         serverSectionView.style.display = "block";
         channelSectionView.style.display = "none";
+        membersSidebar.style.display = "none";
         document.getElementById("messages").innerHTML = "";
         document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
         document.getElementById("messageInput").disabled = true;
@@ -1406,6 +1570,7 @@
  // Reset view and go back to server list
  serverSectionView.style.display = "block";
  channelSectionView.style.display = "none";
+ membersSidebar.style.display = "none";
  document.getElementById("messages").innerHTML = "";
  document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
  document.getElementById("messageInput").disabled = true;
