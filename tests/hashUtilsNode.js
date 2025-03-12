@@ -1,4 +1,5 @@
-// hashUtilsNode.js - Node.js compatible version for testing
+// tests/hashUtilsNode.js - Node.js compatible version for testing
+// This is a testing-friendly version of Sprint1/SignUpPage/hashUtils.js
 const bcrypt = require('bcryptjs');
 
 // Function to hash a password
