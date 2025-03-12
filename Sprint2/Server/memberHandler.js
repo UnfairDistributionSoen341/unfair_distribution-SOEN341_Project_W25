@@ -466,30 +466,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   
-  // Fix general channel access button
-  const fixGeneralBtn = document.getElementById("fixGeneralChannelAccess");
-  if (fixGeneralBtn) {
-    fixGeneralBtn.addEventListener("click", async () => {
-      if (!window.selectedServer) {
-        alert("Please select a server first");
-        return;
-      }
-      
-      try {
-        // Call the global function from the main script
-        if (typeof window.grantGeneralChannelAccess === 'function') {
-          await window.grantGeneralChannelAccess(window.selectedServer.id);
-          alert("General channel access has been fixed!");
-        } else {
-          alert("Fix function not available. Please make sure you have updated all files.");
-        }
-      } catch (error) {
-        console.error("Error fixing general channel access:", error);
-        alert("Error fixing general channel access. See console for details.");
-      }
-    });
-  }
-  
   console.log("✅ Member management initialized!");
 });
 
