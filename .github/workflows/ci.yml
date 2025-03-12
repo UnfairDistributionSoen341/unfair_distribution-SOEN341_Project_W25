@@ -27,7 +27,7 @@ jobs:
         else
           echo "No package.json found. Creating one..."
           npm init -y
-          npm install jest bcryptjs @babel/core @babel/preset-env babel-jest
+          npm install jest bcryptjs @babel/core @babel/preset-env babel-jest jest-environment-jsdom
         fi
 
     - name: Create Jest config if needed
@@ -46,6 +46,7 @@ jobs:
 
     - name: Run Tests
       run: |
+        cd tests
         npm test || echo "Tests failed, but continuing pipeline..."
 
     - name: Build success notification
