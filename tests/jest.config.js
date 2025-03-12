@@ -7,7 +7,7 @@ module.exports = {
   },
   moduleNameMapper: {
     // Map imports from SignUpPage directory
-    '^./SignUpPage/(.*)
+    './SignUpPage/(.*)
   roots: ['<rootDir>'],
   testMatch: ['**/*.test.js'],
   collectCoverage: true,
