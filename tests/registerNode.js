@@ -1,4 +1,5 @@
-// registerNode.js - Node.js compatible version for testing
+// tests/registerNode.js - Node.js compatible version for testing
+// This is a testing-friendly version of Sprint1/SignUpPage/Register.js
 const { initializeApp } = require('firebase/app');
 const { getDatabase, ref, set } = require('firebase/database');
 const { getAuth, createUserWithEmailAndPassword } = require('firebase/auth');
