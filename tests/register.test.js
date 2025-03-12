@@ -1,4 +1,4 @@
-// register.test.js
+// tests/register.test.js
 // Mock Firebase modules
 jest.mock('firebase/app', () => ({
   initializeApp: jest.fn(() => ({
