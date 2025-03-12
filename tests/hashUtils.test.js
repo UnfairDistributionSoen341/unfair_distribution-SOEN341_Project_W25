@@ -56,20 +56,32 @@ describe("Password Hashing Tests", () => {
     });
 
     test("✅ Handles errors in hashPassword function", async () => {
+        // Spy on console.error to prevent output in tests
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+        
         // Make genSaltSync throw an error for this test
         bcrypt.genSaltSync.mockImplementationOnce(() => {
             throw new Error("Salt generation failed");
         });
 
         await expect(hashPassword("password123")).rejects.toThrow("Salt generation failed");
+        
+        // Restore console.error
+        console.error.mockRestore();
     });
 
     test("✅ Handles errors in comparePassword function", async () => {
+        // Spy on console.error to prevent output in tests
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+        
         // Make compareSync throw an error for this test
         bcrypt.compareSync.mockImplementationOnce(() => {
             throw new Error("Compare failed");
         });
 
         await expect(comparePassword("password123", "hashedValue")).rejects.toThrow("Compare failed");
+        
+        // Restore console.error
+        console.error.mockRestore();
     });
 });
