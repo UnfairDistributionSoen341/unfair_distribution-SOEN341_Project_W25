@@ -1,4 +1,5 @@
 name: Acceptance Test - Sign Up Page
+# Path: .github/workflows/AT1.yml
 
 on:
   issues:
