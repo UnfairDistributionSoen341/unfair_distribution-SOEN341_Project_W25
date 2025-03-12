@@ -1,8 +1,15 @@
 // tests/registerNode.js - Node.js compatible version for testing
 // This is a testing-friendly version of Sprint1/SignUpPage/Register.js
-const { initializeApp } = require('firebase/app');
-const { getDatabase, ref, set } = require('firebase/database');
-const { getAuth, createUserWithEmailAndPassword } = require('firebase/auth');
+
+// Use global mock functions instead of requiring Firebase
+// These will be defined by Jest in the test environment
+const initializeApp = global.initializeApp || function() { return {}; };
+const getDatabase = global.getDatabase || function() { return {}; };
+const ref = global.ref || function() { return {}; };
+const set = global.set || function() { return Promise.resolve(); };
+const getAuth = global.getAuth || function() { return {}; };
+const createUserWithEmailAndPassword = global.createUserWithEmailAndPassword || 
+    function() { return Promise.resolve({user: {uid: 'mock-uid'}}); };
 const { hashPassword } = require('./hashUtilsNode');
 
 // Firebase set up
