@@ -1,25 +1,29 @@
 // tests/register.test.js
-// Mock Firebase modules
-jest.mock('firebase/app', () => ({
-  initializeApp: jest.fn(() => ({
-    // Mock app instance
-  }))
-}));
+// Set up manual mocks for Firebase modules
+// These mocks work without requiring the actual Firebase packages to be installed
+const mockFirebaseApp = {
+  initializeApp: jest.fn(() => mockApp)
+};
 
-jest.mock('firebase/auth', () => ({
-  getAuth: jest.fn(() => ({
-    // Mock auth instance
-  })),
-  createUserWithEmailAndPassword: jest.fn()
-}));
+const mockApp = {
+  // Mock app instance
+};
 
-jest.mock('firebase/database', () => ({
-  getDatabase: jest.fn(() => ({
-    // Mock database instance
-  })),
-  ref: jest.fn(),
-  set: jest.fn()
-}));
+const mockAuth = {
+  // Mock auth instance
+};
+
+const mockDb = {
+  // Mock database instance
+};
+
+// Global mocks
+global.initializeApp = mockFirebaseApp.initializeApp;
+global.getAuth = jest.fn(() => mockAuth);
+global.createUserWithEmailAndPassword = jest.fn();
+global.getDatabase = jest.fn(() => mockDb);
+global.ref = jest.fn();
+global.set = jest.fn();
 
 // Mock hashUtils
 jest.mock('./hashUtilsNode', () => ({
@@ -39,10 +43,10 @@ document.body.innerHTML = `
   <div id="message"></div>
 `;
 
-// Import the Firebase modules
-import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getDatabase, ref, set } from 'firebase/database';
+// Use the global mocks instead of importing Firebase modules
+const { initializeApp } = global;
+const { getAuth, createUserWithEmailAndPassword } = global;
+const { getDatabase, ref, set } = global;
 
 // Import the hashPassword function
 import { hashPassword } from './hashUtilsNode';
