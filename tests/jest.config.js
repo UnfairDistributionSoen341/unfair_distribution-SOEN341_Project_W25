@@ -7,7 +7,7 @@ module.exports = {
   },
   moduleNameMapper: {
     // Map imports from SignUpPage directory
-    '^../../Sprint1/SignUpPage/(.*)
+    '^../Sprint1/SignUpPage/(.*)
   roots: ['<rootDir>'],
   testMatch: ['**/*.test.js'],
   collectCoverage: true,
