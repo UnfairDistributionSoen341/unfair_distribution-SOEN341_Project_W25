@@ -1,4 +1,4 @@
-// hashUtils.test.js
+// tests/hashUtils.test.js
 import bcrypt from 'bcryptjs';
 
 // Mock the bcrypt module for testing
