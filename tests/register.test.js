@@ -1,29 +1,33 @@
 // tests/register.test.js
-// Set up manual mocks for Firebase modules
-// These mocks work without requiring the actual Firebase packages to be installed
-const mockFirebaseApp = {
-  initializeApp: jest.fn(() => mockApp)
-};
+// Mock Firebase modules
+jest.mock('firebase/app', () => ({
+  initializeApp: jest.fn(() => ({
+    // Mock app instance
+  }))
+}));
 
-const mockApp = {
-  // Mock app instance
-};
+jest.mock('firebase/auth', () => ({
+  getAuth: jest.fn(() => ({
+    // Mock auth instance
+  })),
+  createUserWithEmailAndPassword: jest.fn()
+}));
 
-const mockAuth = {
-  // Mock auth instance
-};
+jest.mock('firebase/database', () => ({
+  getDatabase: jest.fn(() => ({
+    // Mock database instance
+  })),
+  ref: jest.fn(),
+  set: jest.fn()
+}));
 
-const mockDb = {
-  // Mock database instance
-};
 
-// Global mocks
-global.initializeApp = mockFirebaseApp.initializeApp;
-global.getAuth = jest.fn(() => mockAuth);
-global.createUserWithEmailAndPassword = jest.fn();
-global.getDatabase = jest.fn(() => mockDb);
-global.ref = jest.fn();
-global.set = jest.fn();
+
+
+
+
+
+
 
 // Mock hashUtils
 jest.mock('./hashUtilsNode', () => ({
@@ -43,10 +47,10 @@ document.body.innerHTML = `
   <div id="message"></div>
 `;
 
-// Use the global mocks instead of importing Firebase modules
-const { initializeApp } = global;
-const { getAuth, createUserWithEmailAndPassword } = global;
-const { getDatabase, ref, set } = global;
+// Import the Firebase modules
+import { initializeApp } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { getDatabase, ref, set } from 'firebase/database';
 
 // Import the hashPassword function
 import { hashPassword } from './hashUtilsNode';
@@ -96,10 +100,6 @@ describe('Register Page Tests', () => {
   });
 
   test('Registration successful with valid data', async () => {
-
-
-
-
     // Mock successful registration
     createUserWithEmailAndPassword.mockResolvedValue({
       user: { uid: 'test-uid-123' }
@@ -139,14 +139,9 @@ describe('Register Page Tests', () => {
     expect(document.getElementById('username').value).toBe('');
     expect(document.getElementById('email').value).toBe('');
     expect(document.getElementById('password').value).toBe('');
-
-
   });
 
   test('Registration handles Firebase errors', async () => {
-
-
-
     // Mock Firebase error
     createUserWithEmailAndPassword.mockRejectedValue({
       message: 'Email already in use'
@@ -165,8 +160,5 @@ describe('Register Page Tests', () => {
 
     expect(event.preventDefault).toHaveBeenCalled();
     expect(document.getElementById('message').innerText).toBe('❌ Registration failed：Email already in use');
-
-
-
   });
 });
