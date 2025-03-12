@@ -373,48 +373,62 @@
  
  // Load channels for a specific server
  async function loadChannels(serverId) {
- const channelList = document.getElementById("channelList");
- channelList.innerHTML = "";
- try {
- const channelsRef = ref(db, `servers/${serverId}/channels`);
- const snapshot = await get(channelsRef);
- 
- if (snapshot.exists()) {
- const channels = [];
- snapshot.forEach((childSnapshot) => {
- const channel = {
- id: childSnapshot.key,
- ...childSnapshot.val()
- };
- channels.push(channel);
- });
- 
- displayChannels(channels);
- console.log("Channels loaded:", channels);
- } else {
- console.log("No channels found for server:", serverId);
- channelList.innerHTML = "<p>No channels found in this server.</p>";
- }
- } catch (error) {
- console.error("❌ Error loading channels:", error);
- channelList.innerHTML = "<p>Error loading channels.</p>";
- }
+  const channelList = document.getElementById("channelList");
+  channelList.innerHTML = "";
+  try {
+    const channelsRef = ref(db, `servers/${serverId}/channels`);
+    const snapshot = await get(channelsRef);
+    
+    if (snapshot.exists()) {
+      const channels = [];
+      const accessPromises = [];
+      
+      snapshot.forEach((childSnapshot) => {
+        const channel = {
+          id: childSnapshot.key,
+          ...childSnapshot.val()
+        };
+        
+        // Check if the current user has access to this channel
+        const accessPromise = canAccessChannel(serverId, childSnapshot.key, currentUser.uid)
+          .then(hasAccess => {
+            if (hasAccess) {
+              channels.push(channel);
+            }
+          });
+        
+        accessPromises.push(accessPromise);
+      });
+      
+      // Wait for all access checks to complete
+      await Promise.all(accessPromises);
+      
+      displayChannels(channels);
+      console.log("Accessible channels loaded:", channels);
+    } else {
+      console.log("No channels found for server:", serverId);
+      channelList.innerHTML = "<p>No channels found in this server.</p>";
+    }
+  } catch (error) {
+    console.error("❌ Error loading channels:", error);
+    channelList.innerHTML = "<p>Error loading channels.</p>";
+  }
  }
  
  // Display channels in the channel list
  function displayChannels(channels) {
- const channelList = document.getElementById("channelList");
- channelList.innerHTML = channels.length === 0 
- ? "<p>No channels available. Create one!</p>"
- : "";
- 
- channels.forEach(channel => {
- const channelDiv = document.createElement("div");
- channelDiv.className = "channel";
- channelDiv.textContent = channel.name;
- channelDiv.addEventListener("click", () => joinChannel(channel));
- channelList.appendChild(channelDiv);
- });
+  const channelList = document.getElementById("channelList");
+  channelList.innerHTML = channels.length === 0 
+    ? "<p>No accessible channels available.</p>"
+    : "";
+  
+  channels.forEach(channel => {
+    const channelDiv = document.createElement("div");
+    channelDiv.className = "channel";
+    channelDiv.textContent = channel.name;
+    channelDiv.addEventListener("click", () => joinChannel(channel));
+    channelList.appendChild(channelDiv);
+  });
  }
  
  // Check if user can access a channel
@@ -433,23 +447,13 @@
 
  // Join a channel
  async function joinChannel(channel) {
-    const hasAccess = await canAccessChannel(
-        selectedServer.id, 
-        channel.id, 
-        currentUser.uid
-    );
-    
-    if (!hasAccess) {
-        alert("You don't have access to this channel");
-        return;
-    }
-
-    selectedChannel = channel;
-    window.selectedChannel = channel;
-    document.getElementById("chatChannelName").textContent = `#${channel.name} (${selectedServer.name})`;
-    document.getElementById("messageInput").disabled = false;
-    loadMessages();
-}
+  // We know the user has access since we only display accessible channels
+  selectedChannel = channel;
+  window.selectedChannel = channel;
+  document.getElementById("chatChannelName").textContent = `#${channel.name} (${selectedServer.name})`;
+  document.getElementById("messageInput").disabled = false;
+  loadMessages();
+ }
  
  // Load messages for a channel
  async function loadMessages() {
@@ -1310,6 +1314,7 @@
  window.selectedChannel = selectedChannel;
  window.getCurrentUserRole = getCurrentUserRole;
  window.canAccessChannel = canAccessChannel;
+ window.grantGeneralChannelAccess = grantGeneralChannelAccess;
  </script>
  <script type="module" src="./memberHandler.js"></script>
 </body>
