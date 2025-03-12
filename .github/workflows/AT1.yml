@@ -10,12 +10,17 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      issues: write  # 🔹 Allows GitHub Actions to update issues
+      issues: write 
       pull-requests: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
 
       - name: Mark test as manually verified
         run: echo "Skipping automated test since this is a local project."
@@ -26,8 +31,11 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             github.rest.issues.createComment({
-              issue_number: ${{ github.event.issue.number }},
+              issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: "⚠️ This test was skipped because the project runs locally. Please verify manually!"
             });
+
+      - name: Success message
+        run: echo "Acceptance test workflow completed successfully!"
