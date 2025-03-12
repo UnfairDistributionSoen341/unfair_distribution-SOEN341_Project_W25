@@ -18,10 +18,13 @@ document.addEventListener("DOMContentLoaded", function () {
         settingsDropdown.style.display = "none";
     });
 
-    // Add event listeners for delete server and role management
+    // Add event listeners for settings buttons
     const deleteServerBtn = document.getElementById("deleteServer");
-    const promoteToAdminBtn = document.getElementById("promoteToAdmin");
-    const demoteToMemberBtn = document.getElementById("demoteToMember");
+    const manageMembersBtn = document.getElementById("manageMembers");
+    const addMemberBtn = document.getElementById("addMember");
+    const deleteChannelBtn = document.getElementById("deleteChannel");
+    const manageChannelAccessBtn = document.getElementById("manageChannelAccess");
+    const leaveServerBtn = document.getElementById("leaveServer");
 
     if (deleteServerBtn) {
         deleteServerBtn.addEventListener("click", function () {
@@ -30,16 +33,37 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    if (promoteToAdminBtn) {
-        promoteToAdminBtn.addEventListener("click", function () {
-            // We'll handle this in currentMembers.js
+    if (manageMembersBtn) {
+        manageMembersBtn.addEventListener("click", function () {
+            // We'll handle this in the main script
             settingsDropdown.style.display = "none";
         });
     }
 
-    if (demoteToMemberBtn) {
-        demoteToMemberBtn.addEventListener("click", function () {
-            // We'll handle this in currentMembers.js
+    if (addMemberBtn) {
+        addMemberBtn.addEventListener("click", function () {
+            // We'll handle this in the main script
+            settingsDropdown.style.display = "none";
+        });
+    }
+
+    if (deleteChannelBtn) {
+        deleteChannelBtn.addEventListener("click", function () {
+            // We'll handle this in the main script
+            settingsDropdown.style.display = "none";
+        });
+    }
+
+    if (manageChannelAccessBtn) {
+        manageChannelAccessBtn.addEventListener("click", function () {
+            // We'll handle this in the main script
+            settingsDropdown.style.display = "none";
+        });
+    }
+
+    if (leaveServerBtn) {
+        leaveServerBtn.addEventListener("click", function () {
+            // We'll handle this in the main script
             settingsDropdown.style.display = "none";
         });
     }
