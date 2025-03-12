@@ -1,4 +1,10 @@
-// tests/register.test.js
+// Restore the previous mocks if needed for next tests
+    global.createUserWithEmailAndPassword = jest.fn();
+    global.ref = jest.fn();
+    global.set = jest.fn();    // Mock successful registration
+    global.createUserWithEmailAndPassword = jest.fn().mockResolvedValue({
+      user: { uid: 'test-uid-123' }
+    });// tests/register.test.js
 // Set up manual mocks for Firebase modules
 // These mocks work without requiring the actual Firebase packages to be installed
 const mockFirebaseApp = {
@@ -100,11 +106,9 @@ describe('Register Page Tests', () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
     jest.spyOn(console, 'log').mockImplementation(() => {});
     
-    // Mock successful registration
-    createUserWithEmailAndPassword.mockResolvedValue({
-      user: { uid: 'test-uid-123' }
-    });
-    set.mockResolvedValue(undefined);
+    // Set up global mock functions
+    global.ref = jest.fn(() => "mocked-ref");
+    global.set = jest.fn().mockResolvedValue(undefined);
     
     // Setup form values
     document.getElementById('username').value = 'testuser';
@@ -127,7 +131,7 @@ describe('Register Page Tests', () => {
     expect(hashPassword).toHaveBeenCalledWith('Password123!');
     
     expect(set).toHaveBeenCalledWith(
-      expect.anything(), // We only care that some ref was passed, not what exactly it was
+      "mocked-ref",
       {
         username: 'testuser',
         email: 'test@example.com',
@@ -148,7 +152,7 @@ describe('Register Page Tests', () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
     
     // Mock Firebase error
-    createUserWithEmailAndPassword.mockRejectedValue({
+    global.createUserWithEmailAndPassword = jest.fn().mockRejectedValue({
       message: 'Email already in use'
     });
     
@@ -165,6 +169,9 @@ describe('Register Page Tests', () => {
     
     expect(event.preventDefault).toHaveBeenCalled();
     expect(document.getElementById('message').innerText).toBe('❌ Registration failed：Email already in use');
+    
+    // Restore the previous mocks if needed for next tests
+    global.createUserWithEmailAndPassword = jest.fn();
     
     // Restore console error
     console.error.mockRestore();
