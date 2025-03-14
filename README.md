@@ -46,5 +46,5 @@ ChatHaven is a real-time web-based chat application that allows users to interac
 - Nayla Nocera – 40283927 (Mixed) – Scrum Master
 - Yu HU – 40161963 (Mixed)
 - Aaida Hossain – 40281796 (Mixed)
-- Ali Issa – 40247851 (Front-End)
+- Ali Issa – 40247851 (Mixed)
 - Hanna-Anthony Khoury – 40228573 (Mixed)
