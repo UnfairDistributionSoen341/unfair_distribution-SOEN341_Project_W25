@@ -130,6 +130,128 @@
    display: flex;
    flex-direction: column;
  }
+
+ /* Channel type styles */
+ .channel {
+   position: relative;
+ }
+ 
+ .channel-info {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   width: 100%;
+ }
+ 
+ .channel-type-badge {
+   font-size: 10px;
+   padding: 2px 6px;
+   border-radius: 10px;
+   margin-left: 5px;
+ }
+ 
+ .badge-public {
+   background-color: #4CAF50;
+   color: white;
+ }
+ 
+ .badge-private {
+   background-color: #f44336;
+   color: white;
+ }
+ 
+ .request-access-btn {
+   display: block;
+   width: 100%;
+   margin-top: 5px;
+   padding: 5px;
+   background-color: #2196F3;
+   color: white;
+   border: none;
+   border-radius: 3px;
+   cursor: pointer;
+   font-size: 12px;
+   text-align: center;
+ }
+ 
+ .access-request-notification {
+   position: fixed;
+   bottom: 20px;
+   right: 20px;
+   background-color: #333;
+   color: white;
+   padding: 15px;
+   border-radius: 5px;
+   box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+   z-index: 1000;
+   display: flex;
+   flex-direction: column;
+   max-width: 300px;
+ }
+ 
+ .notification-buttons {
+   display: flex;
+   justify-content: flex-end;
+   margin-top: 10px;
+   gap: 10px;
+ }
+ 
+ .access-approve-btn {
+   background-color: #4CAF50;
+   color: white;
+   border: none;
+   padding: 5px 10px;
+   border-radius: 3px;
+   cursor: pointer;
+ }
+ 
+ .access-deny-btn {
+   background-color: #f44336;
+   color: white;
+   border: none;
+   padding: 5px 10px;
+   border-radius: 3px;
+   cursor: pointer;
+ }
+
+ /* Channel access management styles */
+ .channel-access-item {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   padding: 10px;
+   margin: 10px 0;
+   background: #f8f9fa;
+   border-radius: 8px;
+   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+ }
+ 
+ .channel-access-button {
+   padding: 8px 16px;
+   border: none;
+   border-radius: 20px;
+   cursor: pointer;
+   font-weight: 500;
+   transition: all 0.2s ease;
+ }
+ 
+ .allow-access {
+   background: #4CAF50;
+   color: white;
+ }
+ 
+ .allow-access:hover {
+   background: #45a049;
+ }
+ 
+ .remove-access {
+   background: #f44336;
+   color: white;
+ }
+ 
+ .remove-access:hover {
+   background: #d32f2f;
+ }
  </style>
 </head>
 <body>
@@ -214,6 +336,23 @@
  <span class="close-button" id="closeCreateChannelPopUp">&times;</span>
  <h2>Create Channel</h2>
  <input type="text" id="channelNameInput" placeholder="Enter channel name">
+ <div class="channel-type-selection" style="margin: 15px 0; text-align: left;">
+  <p style="margin-bottom: 10px;">Channel Type:</p>
+  <div style="display: flex; gap: 20px;">
+    <label style="display: flex; align-items: center; cursor: pointer;">
+      <input type="radio" name="channelType" value="public" checked>
+      <span style="margin-left: 8px;">Public</span>
+    </label>
+    <label style="display: flex; align-items: center; cursor: pointer;">
+      <input type="radio" name="channelType" value="private">
+      <span style="margin-left: 8px;">Private</span>
+    </label>
+  </div>
+  <p style="font-size: 12px; color: #666; margin-top: 8px;">
+    Public: All members can access<br>
+    Private: Only allowed members can access
+  </p>
+ </div>
  <button id="confirmCreateChannel">Create Channel</button>
  </div>
  </div>
@@ -225,7 +364,7 @@
 
  <script type="module">
  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
- import { getDatabase, ref, push, set, get, onChildAdded, off, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+ import { getDatabase, ref, push, set, get, onChildAdded, off, remove, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
  
  const firebaseConfig = {
@@ -273,6 +412,8 @@
  console.log("✅ Logged in as:", currentUser.username);
  loadServers();
  initializeUIState();
+ // Start listening for access requests
+ listenForAccessRequests();
  } else {
  console.error("❌ No user detected. Redirecting...");
  window.location.href = "../LoginPage/user_login.html";
@@ -619,35 +760,254 @@
  }
  
  // Display channels in the channel list
- function displayChannels(channels) {
+ async function displayChannels(channels) {
   const channelList = document.getElementById("channelList");
   channelList.innerHTML = channels.length === 0 
     ? "<p>No channels available.</p>"
     : "";
   
-  channels.forEach(channel => {
+  for (const channel of channels) {
     const channelDiv = document.createElement("div");
     channelDiv.className = "channel";
-    channelDiv.textContent = channel.name;
-    channelDiv.addEventListener("click", () => joinChannel(channel));
+    
+    // Create a container for channel name and type badge
+    const channelInfoDiv = document.createElement("div");
+    channelInfoDiv.className = "channel-info";
+    
+    // Channel name
+    const channelNameSpan = document.createElement("span");
+    channelNameSpan.textContent = channel.name;
+    
+    // Channel type badge
+    const typeBadge = document.createElement("span");
+    typeBadge.className = "channel-type-badge";
+    
+    if (channel.type === "private") {
+      typeBadge.textContent = "🔒 Private";
+      typeBadge.classList.add("badge-private");
+    } else {
+      typeBadge.textContent = "Public";
+      typeBadge.classList.add("badge-public");
+    }
+    
+    channelInfoDiv.appendChild(channelNameSpan);
+    channelInfoDiv.appendChild(typeBadge);
+    
+    channelDiv.appendChild(channelInfoDiv);
+    
+    // Check if user has access to this channel
+    const hasAccess = await canAccessChannel(selectedServer.id, channel.id, currentUser.uid);
+    
+    // If user doesn't have access to a private channel, show a request access button
+    if (!hasAccess && channel.type === "private") {
+      // Check if user already has a pending request
+      const pendingRequestRef = ref(db, `accessRequests/${selectedServer.id}/${channel.id}/${currentUser.uid}`);
+      const pendingRequestSnapshot = await get(pendingRequestRef);
+      const hasPendingRequest = pendingRequestSnapshot.exists();
+      
+      const requestAccessBtn = document.createElement("button");
+      requestAccessBtn.className = "request-access-btn";
+      
+      if (hasPendingRequest) {
+        requestAccessBtn.textContent = "Request Pending";
+        requestAccessBtn.style.backgroundColor = "#9e9e9e";
+        requestAccessBtn.disabled = true;
+      } else {
+        requestAccessBtn.textContent = "Request Access";
+      }
+      
+      requestAccessBtn.addEventListener("click", (event) => {
+        event.stopPropagation(); // Prevent channel selection when clicking the button
+        
+        if (!hasPendingRequest) {
+          requestChannelAccess(selectedServer.id, channel.id, channel.name);
+        }
+      });
+      
+      channelDiv.appendChild(requestAccessBtn);
+      
+      // Add click event to show access denied message
+      channelDiv.addEventListener("click", () => {
+        const messagesDiv = document.getElementById("messages");
+        document.getElementById("chatChannelName").textContent = `#${channel.name} (${selectedServer.name})`;
+        document.getElementById("messageInput").disabled = true;
+        
+        messagesDiv.innerHTML = `
+          <div style="text-align: center; padding: 20px; color: #ff0000;">
+            <h3>You don't have access to this channel</h3>
+            <p>This is a private channel. Please request access or ask a server admin to grant you access.</p>
+          </div>
+        `;
+      });
+    } else {
+      // Add normal click event for accessible channels
+      channelDiv.addEventListener("click", () => joinChannel(channel));
+    }
+    
     channelList.appendChild(channelDiv);
-  });
+  }
  }
  
  // Check if user can access a channel
  async function canAccessChannel(serverId, channelId, userId) {
+    // Get channel details
+    const channelRef = ref(db, `servers/${serverId}/channels/${channelId}`);
+    const channelSnapshot = await get(channelRef);
+    
+    if (!channelSnapshot.exists()) {
+      return false;
+    }
+    
+    const channel = channelSnapshot.val();
+    
     // Owners and admins always have access
     const userRole = await getCurrentUserRole(serverId, userId);
     if (userRole === "owner" || userRole === "admin") {
         return true;
     }
     
-    // For regular members, check allowedMembers
+    // If channel is public, all members have access by default
+    if (channel.type === "public") {
+        return true;
+    }
+    
+    // For private channels, check allowedMembers
     const allowedRef = ref(db, `servers/${serverId}/channels/${channelId}/allowedMembers/${userId}`);
     const allowedSnapshot = await get(allowedRef);
     return allowedSnapshot.exists();
 }
 
+ // Request access to a channel
+ async function requestChannelAccess(serverId, channelId, channelName) {
+   try {
+     const requestRef = ref(db, `accessRequests/${serverId}/${channelId}/${currentUser.uid}`);
+     await set(requestRef, {
+       username: currentUser.username,
+       requestedAt: Date.now(),
+       status: "pending"
+     });
+     
+     alert(`✅ Access request sent for #${channelName}`);
+     
+     // Refresh channel list to update the button
+     loadChannels(serverId);
+   } catch (error) {
+     console.error("Error requesting access:", error);
+     alert("❌ Failed to request access. Please try again.");
+   }
+ }
+ 
+ // Listen for access requests if user is admin or owner
+ function listenForAccessRequests() {
+   // Clear any existing notification elements
+   const existingNotifications = document.querySelectorAll('.access-request-notification');
+   existingNotifications.forEach(notification => notification.remove());
+   
+   auth.onAuthStateChanged(async user => {
+     if (!user) return;
+     
+     // Get all servers where the user is admin or owner
+     const serversRef = ref(db, 'servers');
+     const serversSnapshot = await get(serversRef);
+     
+     if (!serversSnapshot.exists()) return;
+     
+     serversSnapshot.forEach(async serverSnap => {
+       const serverId = serverSnap.key;
+       const server = serverSnap.val();
+       
+       // Check if user is admin or owner of this server
+       const userRole = await getCurrentUserRole(serverId, user.uid);
+       if (userRole !== 'admin' && userRole !== 'owner') return;
+       
+       // Listen for access requests for this server
+       const requestsRef = ref(db, `accessRequests/${serverId}`);
+       onValue(requestsRef, async snapshot => {
+         if (!snapshot.exists()) return;
+         
+         snapshot.forEach(channelSnap => {
+           const channelId = channelSnap.key;
+           
+           // Get channel name
+           get(ref(db, `servers/${serverId}/channels/${channelId}`)).then(channelDataSnap => {
+             if (!channelDataSnap.exists()) return;
+             
+             const channelName = channelDataSnap.val().name;
+             
+             // Process each request
+             channelSnap.forEach(requestSnap => {
+               const userId = requestSnap.key;
+               const request = requestSnap.val();
+               
+               // Only show pending requests
+               if (request.status === 'pending') {
+                 showAccessRequestNotification(serverId, channelId, userId, server.name, channelName, request.username);
+               }
+             });
+           });
+         });
+       });
+     });
+   });
+ }
+ 
+ // Show notification for access request
+ function showAccessRequestNotification(serverId, channelId, userId, serverName, channelName, username) {
+   // Check if notification already exists for this request
+   const existingNotification = document.getElementById(`notification-${serverId}-${channelId}-${userId}`);
+   if (existingNotification) return;
+   
+   const notification = document.createElement('div');
+   notification.className = 'access-request-notification';
+   notification.id = `notification-${serverId}-${channelId}-${userId}`;
+   
+   notification.innerHTML = `
+     <div>
+       <strong>${username}</strong> requested access to <strong>#${channelName}</strong> in <strong>${serverName}</strong>
+     </div>
+     <div class="notification-buttons">
+       <button class="access-approve-btn">Approve</button>
+       <button class="access-deny-btn">Deny</button>
+     </div>
+   `;
+   
+   // Add event listeners
+   notification.querySelector('.access-approve-btn').addEventListener('click', async () => {
+     try {
+       // Grant access
+       await set(ref(db, `servers/${serverId}/channels/${channelId}/allowedMembers/${userId}`), true);
+       
+       // Update request status
+       await update(ref(db, `accessRequests/${serverId}/${channelId}/${userId}`), {
+         status: 'approved',
+         resolvedAt: Date.now()
+       });
+       
+       notification.remove();
+     } catch (error) {
+       console.error('Error approving access:', error);
+       alert('❌ Failed to approve access.');
+     }
+   });
+   
+   notification.querySelector('.access-deny-btn').addEventListener('click', async () => {
+     try {
+       // Update request status
+       await update(ref(db, `accessRequests/${serverId}/${channelId}/${userId}`), {
+         status: 'denied',
+         resolvedAt: Date.now()
+       });
+       
+       notification.remove();
+     } catch (error) {
+       console.error('Error denying access:', error);
+       alert('❌ Failed to deny access.');
+     }
+   });
+   
+   document.body.appendChild(notification);
+ }
+ 
  // Join a channel
  async function joinChannel(channel) {
   selectedChannel = channel;
@@ -661,10 +1021,19 @@
   
   if (!hasAccess) {
     const messagesDiv = document.getElementById("messages");
-    messagesDiv.innerHTML = `<div style="text-align: center; padding: 20px; color: #ff0000;">
-      <h3>You don't have access to this channel</h3>
-      <p>Please ask a server admin to grant you access.</p>
-    </div>`;
+    
+    // Different message for private vs public channels
+    if (channel.type === "private") {
+      messagesDiv.innerHTML = `<div style="text-align: center; padding: 20px; color: #ff0000;">
+        <h3>You don't have access to this private channel</h3>
+        <p>Please request access or ask a server admin to grant you access.</p>
+      </div>`;
+    } else {
+      messagesDiv.innerHTML = `<div style="text-align: center; padding: 20px; color: #ff0000;">
+        <h3>You don't have access to this channel</h3>
+        <p>Please ask a server admin to grant you access.</p>
+      </div>`;
+    }
     return;
   }
   
@@ -678,6 +1047,24 @@
  
  if (!selectedServer || !selectedChannel) {
  return;
+ }
+ 
+ // Double-check if user has access before loading messages
+ const hasAccess = await canAccessChannel(selectedServer.id, selectedChannel.id, currentUser.uid);
+ if (!hasAccess) {
+   const channelType = selectedChannel.type || "private";
+   if (channelType === "private") {
+     messagesDiv.innerHTML = `<div style="text-align: center; padding: 20px; color: #ff0000;">
+       <h3>You don't have access to this private channel</h3>
+       <p>Please request access or ask a server admin to grant you access.</p>
+     </div>`;
+   } else {
+     messagesDiv.innerHTML = `<div style="text-align: center; padding: 20px; color: #ff0000;">
+       <h3>You don't have access to this channel</h3>
+       <p>Please ask a server admin to grant you access.</p>
+     </div>`;
+   }
+   return;
  }
  
  const messagesRef = ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/messages`);
@@ -756,7 +1143,6 @@
  messagesDiv.scrollTop = messagesDiv.scrollHeight;
  });
  }
- 
  // Event listeners
  document.addEventListener("DOMContentLoaded", () => {
  const sendMessageBtn = document.getElementById("sendMessage");
@@ -856,108 +1242,6 @@
     }
 });
 
- document.getElementById("manageChannelAccess").addEventListener("click", async () => {
-    if (!selectedServer || !selectedChannel) {
-        alert("Please select a server and channel first.");
-        return;
-    }
-
-    try {
-        const membersRef = ref(db, `servers/${selectedServer.id}/members`);
-        const membersSnapshot = await get(membersRef);
-        
-        if (!membersSnapshot.exists()) {
-            alert("No members found in this server.");
-            return;
-        }
-
-        const allowedMembersRef = ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/allowedMembers`);
-        const allowedSnapshot = await get(allowedMembersRef);
-
-        const modal = document.createElement("div");
-        modal.className = "popUp";
-        modal.id = "channelAccessModal";
-        modal.style.display = "flex";
-
-        const modalContent = document.createElement("div");
-        modalContent.className = "popUp-content";
-        modalContent.style.width = "400px";
-
-        const closeButton = document.createElement("span");
-        closeButton.className = "close-button";
-        closeButton.innerHTML = "&times;";
-        closeButton.onclick = () => document.body.removeChild(modal);
-
-        const title = document.createElement("h2");
-        title.textContent = "Manage Channel Access";
-
-        const membersList = document.createElement("div");
-        membersList.style.textAlign = "left";
-
-        membersSnapshot.forEach((memberSnap) => {
-            const memberId = memberSnap.key;
-            const memberData = memberSnap.val();
-            const username = typeof memberData === 'object' ? memberData.username : memberData;
-            const role = typeof memberData === 'object' ? memberData.role || "member" : "member";
-
-            // Skip admins and owners as they always have access
-            if (role === "admin" || memberId === selectedServer.createdBy) {
-                return;
-            }
-
-            const memberItem = document.createElement("div");
-            memberItem.style.padding = "10px";
-            memberItem.style.margin = "10px 0";
-            memberItem.style.backgroundColor = "#f1f1f1";
-            memberItem.style.borderRadius = "5px";
-            memberItem.style.display = "flex";
-            memberItem.style.justifyContent = "space-between";
-            memberItem.style.alignItems = "center";
-
-            const memberInfo = document.createElement("div");
-            memberInfo.innerHTML = `<strong>${username}</strong>`;
-
-            const actionBtn = document.createElement("button");
-            actionBtn.style.padding = "5px 10px";
-            actionBtn.style.borderRadius = "3px";
-            actionBtn.style.cursor = "pointer";
-
-            const isAllowed = allowedSnapshot.exists() && allowedSnapshot.hasChild(memberId);
-            if (isAllowed) {
-                actionBtn.textContent = "Remove Access";
-                actionBtn.style.backgroundColor = "#f44336";
-                actionBtn.onclick = async () => {
-                    await remove(ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/allowedMembers/${memberId}`));
-                    modal.remove();
-                    document.getElementById("manageChannelAccess").click();
-                };
-            } else {
-                actionBtn.textContent = "Allow Access";
-                actionBtn.style.backgroundColor = "#4CAF50";
-                actionBtn.onclick = async () => {
-                    await set(ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/allowedMembers/${memberId}`), true);
-                    modal.remove();
-                    document.getElementById("manageChannelAccess").click();
-                };
-            }
-
-            memberItem.appendChild(memberInfo);
-            memberItem.appendChild(actionBtn);
-            membersList.appendChild(memberItem);
-        });
-
-        modalContent.appendChild(closeButton);
-        modalContent.appendChild(title);
-        modalContent.appendChild(membersList);
-        modal.appendChild(modalContent);
-        document.body.appendChild(modal);
-
-    } catch (error) {
-        console.error("Error managing channel access:", error);
-        alert("Failed to load channel access management.");
-    }
-});
- 
  // Create server
  createServerBtn.addEventListener("click", () => {
  createServerPopUp.style.display = "flex";
@@ -991,13 +1275,14 @@
             }
         });
         
-        // Create a default "general" channel with access for all members
+        // Create a default "general" channel as public with access for all members
         const channelsRef = ref(db, `servers/${newServerId}/channels`);
         const generalChannelRef = push(channelsRef);
         await set(generalChannelRef, {
             name: "general",
             createdBy: currentUser.uid,
             createdAt: Date.now(),
+            type: "public", // Set the channel as public
             allowedMembers: {
                 [currentUser.uid]: true  // Owner always has access
             }
@@ -1012,7 +1297,7 @@
         alert("Failed to create server.");
     }
 });
- 
+
  // Create channel
  createChannelBtn.addEventListener("click", async () => {
  if (!selectedServer) {
@@ -1053,18 +1338,39 @@
         return;
     }
     
+    // Get the selected channel type
+    const channelType = document.querySelector('input[name="channelType"]:checked').value;
+    
     try {
         const channelsRef = ref(db, `servers/${selectedServer.id}/channels`);
-        await push(channelsRef, {
+        const newChannelRef = push(channelsRef);
+        
+        const newChannel = {
             name: channelName,
             createdBy: currentUser.uid,
             createdAt: Date.now(),
+            type: channelType,
             allowedMembers: {
                 [currentUser.uid]: true // Creator always has access
             }
-        });
+        };
         
-        alert(`✅ Channel "${channelName}" created successfully!`);
+        // If it's a public channel, add all current server members to allowedMembers
+        if (channelType === "public") {
+            const membersRef = ref(db, `servers/${selectedServer.id}/members`);
+            const membersSnapshot = await get(membersRef);
+            
+            if (membersSnapshot.exists()) {
+                membersSnapshot.forEach((memberSnap) => {
+                    const memberId = memberSnap.key;
+                    newChannel.allowedMembers[memberId] = true;
+                });
+            }
+        }
+        
+        await set(newChannelRef, newChannel);
+        
+        alert(`✅ ${channelType.charAt(0).toUpperCase() + channelType.slice(1)} channel "${channelName}" created successfully!`);
         createChannelPopUp.style.display = "none";
         document.getElementById("channelNameInput").value = "";
         
@@ -1075,9 +1381,8 @@
         alert("Failed to create channel.");
     }
 });
- 
- // Delete channel
- deleteChannelBtn.addEventListener("click", async () => {
+// Delete channel
+deleteChannelBtn.addEventListener("click", async () => {
  if (!selectedServer || !selectedChannel) {
  alert("❌ Please select a server and channel first.");
  return;
@@ -1128,6 +1433,39 @@
  addMemberPopUp.style.display = "none";
  });
  
+ // Add member to server and grant access to public channels
+ async function addMemberToServer(serverId, userId, username) {
+  try {
+    // Add member to server
+    await set(ref(db, `servers/${serverId}/members/${userId}`), {
+      username: username,
+      role: "member"
+    });
+    
+    // Get all channels in the server
+    const channelsRef = ref(db, `servers/${serverId}/channels`);
+    const channelsSnapshot = await get(channelsRef);
+    
+    if (channelsSnapshot.exists()) {
+      channelsSnapshot.forEach(async (channelSnap) => {
+        const channelId = channelSnap.key;
+        const channel = channelSnap.val();
+        
+        // Grant access to all public channels and general channel
+        if (channel.type === "public" || channel.name === "general") {
+          await set(ref(db, `servers/${serverId}/channels/${channelId}/allowedMembers/${userId}`), true);
+        }
+      });
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error adding member to server:", error);
+    return false;
+  }
+ }
+ 
+ // Update the Add Member functionality to grant access to public channels
  confirmAddMemberBtn.addEventListener("click", async () => {
     const username = document.getElementById("memberUsernameInput").value.trim();
     if (!username) {
@@ -1150,28 +1488,20 @@
             if (user.username === username) {
                 userFound = true;
                 addedUserId = userSnap.key;
-                set(ref(db, `servers/${selectedServer.id}/members/${userSnap.key}`), {
-                    username: username,
-                    role: "member"
-                });
             }
         });
         
         if (userFound && addedUserId) {
-            // Grant access to the general channel for the new member
-            // Find the general channel
-            const channelsSnapshot = await get(ref(db, `servers/${selectedServer.id}/channels`));
-            channelsSnapshot.forEach((channelSnap) => {
-                const channel = channelSnap.val();
-                if (channel.name === "general") {
-                    // Add member to allowed members of general channel
-                    set(ref(db, `servers/${selectedServer.id}/channels/${channelSnap.key}/allowedMembers/${addedUserId}`), true);
-                }
-            });
+            // Add member to server and grant access to public channels
+            const success = await addMemberToServer(selectedServer.id, addedUserId, username);
             
-            alert(`✅ ${username} was added to ${selectedServer.name} successfully!`);
-            addMemberPopUp.style.display = "none";
-            document.getElementById("memberUsernameInput").value = "";
+            if (success) {
+                alert(`✅ ${username} was added to ${selectedServer.name} successfully!`);
+                addMemberPopUp.style.display = "none";
+                document.getElementById("memberUsernameInput").value = "";
+            } else {
+                alert("❌ Failed to add member. Please try again.");
+            }
         } else {
             alert("❌ User not found.");
         }
@@ -1179,10 +1509,302 @@
         console.error("❌ Error adding member:", error);
         alert("Failed to add member.");
     }
+ });
+
+ document.getElementById("manageChannelAccess").addEventListener("click", async () => {
+    if (!selectedServer || !selectedChannel) {
+        alert("Please select a server and channel first.");
+        return;
+    }
+
+    try {
+        const membersRef = ref(db, `servers/${selectedServer.id}/members`);
+        const membersSnapshot = await get(membersRef);
+        
+        if (!membersSnapshot.exists()) {
+            alert("No members found in this server.");
+            return;
+        }
+
+        const allowedMembersRef = ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/allowedMembers`);
+        const allowedSnapshot = await get(allowedMembersRef);
+
+        const modal = document.createElement("div");
+        modal.className = "popUp";
+        modal.id = "channelAccessModal";
+        modal.style.display = "flex";
+
+        const modalContent = document.createElement("div");
+        modalContent.className = "popUp-content";
+        modalContent.style.width = "400px";
+
+        const closeButton = document.createElement("span");
+        closeButton.className = "close-button";
+        closeButton.innerHTML = "&times;";
+        closeButton.onclick = () => document.body.removeChild(modal);
+
+        const title = document.createElement("h2");
+        title.textContent = "Manage Channel Access";
+
+        // Channel type toggle
+        const channelTypeDiv = document.createElement("div");
+        channelTypeDiv.style.margin = "15px 0";
+        channelTypeDiv.style.padding = "10px";
+        channelTypeDiv.style.backgroundColor = "#f5f5f5";
+        channelTypeDiv.style.borderRadius = "5px";
+        
+        const channelTypeLabel = document.createElement("div");
+        channelTypeLabel.style.marginBottom = "10px";
+        channelTypeLabel.style.fontWeight = "bold";
+        channelTypeLabel.textContent = "Channel Type:";
+        
+        const channelTypeToggle = document.createElement("div");
+        channelTypeToggle.style.display = "flex";
+        channelTypeToggle.style.gap = "15px";
+        
+        // Get current channel type
+        const channelRef = ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}`);
+        const channelSnapshot = await get(channelRef);
+        const channelType = channelSnapshot.val().type || "private"; // Default to private if not set
+        
+        const publicOption = document.createElement("label");
+        publicOption.style.display = "flex";
+        publicOption.style.alignItems = "center";
+        publicOption.style.cursor = "pointer";
+        
+        const publicRadio = document.createElement("input");
+        publicRadio.type = "radio";
+        publicRadio.name = "channelTypeToggle";
+        publicRadio.value = "public";
+        publicRadio.checked = channelType === "public";
+        publicRadio.style.marginRight = "8px";
+        
+        const publicText = document.createTextNode("Public");
+        publicOption.appendChild(publicRadio);
+        publicOption.appendChild(publicText);
+        
+        const privateOption = document.createElement("label");
+        privateOption.style.display = "flex";
+        privateOption.style.alignItems = "center";
+        privateOption.style.cursor = "pointer";
+        
+        const privateRadio = document.createElement("input");
+        privateRadio.type = "radio";
+        privateRadio.name = "channelTypeToggle";
+        privateRadio.value = "private";
+        privateRadio.checked = channelType === "private";
+        privateRadio.style.marginRight = "8px";
+        
+        const privateText = document.createTextNode("Private");
+        privateOption.appendChild(privateRadio);
+        privateOption.appendChild(privateText);
+        
+        channelTypeToggle.appendChild(publicOption);
+        channelTypeToggle.appendChild(privateOption);
+        const channelTypeDescription = document.createElement("p");
+        channelTypeDescription.style.fontSize = "12px";
+        channelTypeDescription.style.color = "#666";
+        channelTypeDescription.style.marginTop = "8px";
+        channelTypeDescription.innerHTML = "Public: All members can access<br>Private: Only allowed members can access";
+        
+        const saveTypeButton = document.createElement("button");
+        saveTypeButton.style.marginTop = "10px";
+        saveTypeButton.style.backgroundColor = "#2196F3";
+        saveTypeButton.style.color = "white";
+        saveTypeButton.style.border = "none";
+        saveTypeButton.style.padding = "5px 10px";
+        saveTypeButton.style.borderRadius = "3px";
+        saveTypeButton.style.cursor = "pointer";
+        saveTypeButton.textContent = "Update Channel Type";
+        
+        saveTypeButton.addEventListener("click", async () => {
+            const newType = document.querySelector('input[name="channelTypeToggle"]:checked').value;
+            
+            try {
+                // Update channel type
+                await update(ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}`), {
+                    type: newType
+                });
+                
+                // If changing to public, add all members
+                if (newType === "public") {
+                    const allMembers = {};
+                    membersSnapshot.forEach(memberSnap => {
+                        allMembers[memberSnap.key] = true;
+                    });
+                    
+                    await update(ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/allowedMembers`), allMembers);
+                }
+                
+                alert(`✅ Channel type updated to ${newType}`);
+                modal.remove();
+                document.getElementById("manageChannelAccess").click();
+            } catch (error) {
+                console.error("Error updating channel type:", error);
+                alert("Failed to update channel type");
+            }
+        });
+        
+        channelTypeDiv.appendChild(channelTypeLabel);
+        channelTypeDiv.appendChild(channelTypeToggle);
+        channelTypeDiv.appendChild(channelTypeDescription);
+        channelTypeDiv.appendChild(saveTypeButton);
+        
+        // Member access management
+        const membersList = document.createElement("div");
+        membersList.style.textAlign = "left";
+        membersList.style.marginTop = "20px";
+        
+        const membersTitle = document.createElement("h3");
+        membersTitle.textContent = "Member Access";
+        membersTitle.style.marginBottom = "10px";
+        
+        membersSnapshot.forEach((memberSnap) => {
+            const memberId = memberSnap.key;
+            const memberData = memberSnap.val();
+            const username = typeof memberData === 'object' ? memberData.username : memberData;
+            const role = typeof memberData === 'object' ? memberData.role || "member" : "member";
+
+            // Skip admins and owners as they always have access
+            if (role === "admin" || memberId === selectedServer.createdBy) {
+                return;
+            }
+
+            const memberItem = document.createElement("div");
+            memberItem.className = "channel-access-item";
+
+            const memberInfo = document.createElement("div");
+            memberInfo.innerHTML = `<strong>${username}</strong>`;
+
+            const actionBtn = document.createElement("button");
+            actionBtn.className = "channel-access-button";
+
+            const isAllowed = allowedSnapshot.exists() && allowedSnapshot.hasChild(memberId);
+            if (isAllowed) {
+                actionBtn.textContent = "Remove Access";
+                actionBtn.classList.add("remove-access");
+                actionBtn.onclick = async () => {
+                    await remove(ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/allowedMembers/${memberId}`));
+                    modal.remove();
+                    document.getElementById("manageChannelAccess").click();
+                };
+            } else {
+                actionBtn.textContent = "Allow Access";
+                actionBtn.classList.add("allow-access");
+                actionBtn.onclick = async () => {
+                    await set(ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/allowedMembers/${memberId}`), true);
+                    modal.remove();
+                    document.getElementById("manageChannelAccess").click();
+                };
+            }
+
+            memberItem.appendChild(memberInfo);
+            memberItem.appendChild(actionBtn);
+            membersList.appendChild(memberItem);
+        });
+
+        // Check for pending access requests
+        const pendingRequestsDiv = document.createElement("div");
+        pendingRequestsDiv.style.marginTop = "20px";
+        
+        const pendingRequestsTitle = document.createElement("h3");
+        pendingRequestsTitle.textContent = "Pending Access Requests";
+        pendingRequestsTitle.style.marginBottom = "10px";
+        
+        const requestsRef = ref(db, `accessRequests/${selectedServer.id}/${selectedChannel.id}`);
+        const requestsSnapshot = await get(requestsRef);
+        
+        if (requestsSnapshot.exists()) {
+            let hasPendingRequests = false;
+            
+            requestsSnapshot.forEach(requestSnap => {
+                const userId = requestSnap.key;
+                const request = requestSnap.val();
+                
+                if (request.status === "pending") {
+                    hasPendingRequests = true;
+                    
+                    const requestItem = document.createElement("div");
+                    requestItem.className = "channel-access-item";
+                    
+                    const requestInfo = document.createElement("div");
+                    requestInfo.innerHTML = `<strong>${request.username}</strong> - ${new Date(request.requestedAt).toLocaleString()}`;
+                    
+                    const buttonsDiv = document.createElement("div");
+                    buttonsDiv.style.display = "flex";
+                    buttonsDiv.style.gap = "5px";
+                    
+                    const approveBtn = document.createElement("button");
+                    approveBtn.className = "channel-access-button allow-access";
+                    approveBtn.textContent = "Approve";
+                    approveBtn.onclick = async () => {
+                        // Grant access
+                        await set(ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/allowedMembers/${userId}`), true);
+                        
+                        // Update request status
+                        await update(ref(db, `accessRequests/${selectedServer.id}/${selectedChannel.id}/${userId}`), {
+                            status: "approved",
+                            resolvedAt: Date.now()
+                        });
+                        
+                        modal.remove();
+                        document.getElementById("manageChannelAccess").click();
+                    };
+                    
+                    const denyBtn = document.createElement("button");
+                    denyBtn.className = "channel-access-button remove-access";
+                    denyBtn.textContent = "Deny";
+                    denyBtn.onclick = async () => {
+                        // Update request status
+                        await update(ref(db, `accessRequests/${selectedServer.id}/${selectedChannel.id}/${userId}`), {
+                            status: "denied",
+                            resolvedAt: Date.now()
+                        });
+                        
+                        modal.remove();
+                        document.getElementById("manageChannelAccess").click();
+                    };
+                    
+                    buttonsDiv.appendChild(approveBtn);
+                    buttonsDiv.appendChild(denyBtn);
+                    
+                    requestItem.appendChild(requestInfo);
+                    requestItem.appendChild(buttonsDiv);
+                    pendingRequestsDiv.appendChild(requestItem);
+                }
+            });
+            
+            if (!hasPendingRequests) {
+                const noRequestsMsg = document.createElement("p");
+                noRequestsMsg.style.color = "#666";
+                noRequestsMsg.style.fontStyle = "italic";
+                noRequestsMsg.textContent = "No pending access requests";
+                pendingRequestsDiv.appendChild(noRequestsMsg);
+            }
+        } else {
+            const noRequestsMsg = document.createElement("p");
+            noRequestsMsg.style.color = "#666";
+            noRequestsMsg.style.fontStyle = "italic";
+            noRequestsMsg.textContent = "No pending access requests";
+            pendingRequestsDiv.appendChild(noRequestsMsg);
+        }
+        
+        modalContent.appendChild(closeButton);
+        modalContent.appendChild(title);
+        modalContent.appendChild(channelTypeDiv);
+        modalContent.appendChild(membersTitle);
+        modalContent.appendChild(membersList);
+        modalContent.appendChild(pendingRequestsDiv);
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+
+    } catch (error) {
+        console.error("Error managing channel access:", error);
+        alert("Failed to load channel access management.");
+    }
 });
- 
- // Manage Members
- manageMembersBtn.addEventListener("click", async function() {
+// Manage Members
+document.getElementById("manageMembers").addEventListener("click", async function() {
     if (!window.selectedServer) {
         alert("❌ Please select a server first.");
         document.getElementById("settingsDropdown").style.display = "none";
@@ -1366,7 +1988,7 @@
                             alert(`✅ ${username} has been promoted to admin!`);
                             document.body.removeChild(modal);
                             // Re-open the modal to refresh
-                            manageMembersBtn.click();
+                            document.getElementById("manageMembers").click();
                         } catch (error) {
                             console.error("Error promoting member:", error);
                             alert("Failed to promote member. See console for details.");
@@ -1399,7 +2021,7 @@
                             alert(`✅ ${username} has been demoted to member!`);
                             document.body.removeChild(modal);
                             // Re-open the modal to refresh
-                            manageMembersBtn.click();
+                            document.getElementById("manageMembers").click();
                         } catch (error) {
                             console.error("Error demoting member:", error);
                             alert("Failed to demote member. See console for details.");
@@ -1428,7 +2050,7 @@
                                 alert(`✅ ${username} has been removed from the server!`);
                                 document.body.removeChild(modal);
                                 // Re-open the modal to refresh
-                                manageMembersBtn.click();
+                                document.getElementById("manageMembers").click();
                             }
                         } catch (error) {
                             console.error("Error removing member:", error);
@@ -1458,7 +2080,7 @@
                             alert(`✅ ${username} has been removed from the server!`);
                             document.body.removeChild(modal);
                             // Re-open the modal to refresh
-                            manageMembersBtn.click();
+                            document.getElementById("manageMembers").click();
                         }
                     } catch (error) {
                         console.error("Error removing member:", error);
@@ -1542,7 +2164,7 @@ leaveServerBtn.addEventListener("click", async function() {
     
     document.getElementById("settingsDropdown").style.display = "none";
 });
- 
+
  // Delete server
  const deleteServerBtn = document.getElementById("deleteServer");
  if (deleteServerBtn) {
