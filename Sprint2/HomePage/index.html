@@ -8,19 +8,29 @@
 </head>
 <body>
     <div class="container">
-        <!-- 🔹 Navigation Bar -->
+        <!-- Navigation Bar -->
         <nav>
             <button class="tab active" id="dmTab">💬 Direct Messages</button>
             <button class="tab" id="serverTab">📢 Servers</button>
+            <!-- User Info Button -->
+            <button id="userInfoButton">👤 Profile</button>
         </nav>
 
-        <!-- 🔹 Content Sections -->
+        <!-- Content Sections -->
         <div id="dmSection" class="content">
             <iframe src="../DirectMessaging/user_interface.html" frameborder="0"></iframe>
         </div>
 
         <div id="serverSection" class="content hidden">
             <iframe src="../Server/server_interface.html" frameborder="0"></iframe>
+        </div>
+    </div> 
+
+    <!-- Profile Popup Modal (Initially Hidden) -->
+    <div id="profilePopup" class="popup hidden">
+        <div class="popup-content">
+            <span class="close-button" id="closeProfilePopup">&times;</span>
+            <iframe id="profileFrame" src="../ProfilePage/pfp.html" frameborder="0"></iframe>
         </div>
     </div>
 
@@ -39,12 +49,30 @@
             document.getElementById("serverTab").classList.add("active");
             document.getElementById("dmTab").classList.remove("active");
         });
+
         document.addEventListener("DOMContentLoaded", () => {
             const urlParams = new URLSearchParams(window.location.search);
             const inviteCode = urlParams.get("invite");
 
             if (inviteCode) {
                 console.log(`🔗 User joined via invite code: ${inviteCode}`);
+            }
+        });
+
+        // Profile Page Popup Logic
+        document.getElementById("userInfoButton").addEventListener("click", () => {
+            document.getElementById("profilePopup").classList.remove("hidden");
+        });
+
+        document.getElementById("closeProfilePopup").addEventListener("click", () => {
+            document.getElementById("profilePopup").classList.add("hidden");
+        });
+
+        // Close the modal if user clicks outside the popup
+        window.addEventListener("click", (event) => {
+            const popup = document.getElementById("profilePopup");
+            if (event.target === popup) {
+                popup.classList.add("hidden");
             }
         });
     </script>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile</title>
+    <link rel="stylesheet" href="./pfp.css">
+</head>
+<body>
+    <h2>Profile Information</h2>
+    <img id="profilePicture" src="default-pfp.png" alt="Profile Picture">
+    <input type="file" id="uploadProfilePic" accept="image/*" hidden>
+    <button id="changePicButton">Change Profile Picture</button>
+    
+    <p><strong>Username:</strong> <span id="username">User123</span></p>
+    <p><strong>Email:</strong> <span id="email">user@example.com</span></p>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+        import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
+    
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
+            authDomain: "project-8042491080443698183.firebaseapp.com",
+            databaseURL: "https://project-8042491080443698183-default-rtdb.firebaseio.com",
+            projectId: "project-8042491080443698183",
+            storageBucket: "project-8042491080443698183.appspot.com",
+            messagingSenderId: "583304911847",
+            appId: "1:583304911847:web:8dfe3e5c016062dd457b42",
+            measurementId: "G-KQMXKEVNQ7"
+        };
+    
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+        const storage = getStorage(app);
+    
+        // DOM Elements
+        const usernameDisplay = document.getElementById("username");
+        const emailDisplay = document.getElementById("email");
+        const profilePicture = document.getElementById("profilePicture");
+        const changePicButton = document.getElementById("changePicButton");
+        const uploadInput = document.getElementById("uploadProfilePic");
+    
+        // Load user data
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                emailDisplay.textContent = user.email; // Show user email
+    
+                const userRef = ref(db, `users/${user.uid}`);
+                const snapshot = await get(userRef);
+    
+                if (snapshot.exists()) {
+                    const userData = snapshot.val();
+                    usernameDisplay.textContent = userData.username || "No username found";
+                    if (userData.profilePicture) {
+                        profilePicture.src = userData.profilePicture; // Load profile picture if exists
+                    }
+                } else {
+                    usernameDisplay.textContent = "Username not found";
+                }
+            } else {
+                console.error("No authenticated user found.");
+                emailDisplay.textContent = "Not logged in";
+                usernameDisplay.textContent = "Not logged in";
+            }
+        });
+    
+        // Open file picker when "Change Profile Picture" is clicked
+        changePicButton.addEventListener("click", () => {
+            uploadInput.click();
+        });
+    
+        // Handle file upload
+        uploadInput.addEventListener("change", async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+    
+            console.log("Selected file:", file.name); // Debugging
+    
+            const user = auth.currentUser;
+            if (!user) {
+                alert("You must be logged in to change your profile picture.");
+                return;
+            }
+    
+            const fileRef = storageRef(storage, `profilePictures/${user.uid}`);
+    
+            try {
+                await uploadBytes(fileRef, file);
+                const imageUrl = await getDownloadURL(fileRef);
+    
+                // Update profile picture in Firebase Database
+                await update(ref(db, `users/${user.uid}`), { profilePicture: imageUrl });
+    
+                // Update profile picture on the page
+                profilePicture.src = imageUrl;
+                alert("Profile picture updated successfully!");
+            } catch (error) {
+                console.error("Error uploading profile picture:", error);
+                alert("Failed to upload profile picture.");
+            }
+        });
+    </script>
+</body>
+</html>
