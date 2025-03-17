@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile</title>
+    <link rel="stylesheet" href="./pfp.css">
+</head>
+<body>
+    <h2>Profile Information</h2>
+    <img id="profilePicture" src="default-pfp.png" alt="Profile Picture">
+    <input type="file" id="uploadProfilePic" accept="image/*" hidden>
+    <button id="changePicButton">Change Profile Picture</button>
+    
+    <p><strong>Username:</strong> <span id="username">User123</span></p>
+    <p><strong>Email:</strong> <span id="email">user@example.com</span></p>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+    
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
+            authDomain: "project-8042491080443698183.firebaseapp.com",
+            databaseURL: "https://project-8042491080443698183-default-rtdb.firebaseio.com",
+            projectId: "project-8042491080443698183",
+            storageBucket: "project-8042491080443698183.appspot.com",
+            messagingSenderId: "583304911847",
+            appId: "1:583304911847:web:8dfe3e5c016062dd457b42",
+            measurementId: "G-KQMXKEVNQ7"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+    
+        // DOM Elements
+        const usernameDisplay = document.getElementById("username");
+        const emailDisplay = document.getElementById("email");
+        const profilePicture = document.getElementById("profilePicture");
+        const changePicButton = document.getElementById("changePicButton");
+        const uploadInput = document.getElementById("uploadProfilePic");
+
+        // Convert image to Base64
+        function convertToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // Load Profile Picture from Realtime Database
+        onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            const userRef = ref(db, `users/${user.uid}`);
+            const snapshot = await get(userRef);
+
+        if (snapshot.exists()) {
+            const userData = snapshot.val();
+            usernameDisplay.textContent = userData.username || "No username found";
+            emailDisplay.textContent = user.email; 
+
+            // Display Profile Picture if Exists
+            if (userData.profilePicture) {
+                profilePicture.src = userData.profilePicture;
+            }
+        } else {
+            usernameDisplay.textContent = "Username not found";
+        }
+        } else {
+        console.error("❌ No authenticated user found.");
+        emailDisplay.textContent = "Not logged in";
+        usernameDisplay.textContent = "Not logged in";
+        }
+});
+
+        // Open file picker when "Change Profile Picture" is clicked
+        changePicButton.addEventListener("click", () => {
+            uploadInput.click();
+        });
+
+        // Upload Profile Picture as Base64 to Firebase Realtime Database
+        uploadInput.addEventListener("change", async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const base64String = await convertToBase64(file);
+
+            const user = auth.currentUser;
+            if (!user) {
+                alert("User not authenticated");
+                return;
+            }
+
+            // Save Base64 string to Firebase Realtime Database
+            const userRef = ref(db, `users/${user.uid}`);
+            await update(userRef, { profilePicture: base64String });
+
+            // Update UI immediately
+            profilePicture.src = base64String;
+            console.log("✅ Profile picture updated successfully!");
+        });
+
+    </script>
+</body>
+</html>
