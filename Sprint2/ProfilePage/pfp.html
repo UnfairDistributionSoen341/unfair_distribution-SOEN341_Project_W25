@@ -19,7 +19,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
-        import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
     
         // Firebase Configuration
         const firebaseConfig = {
@@ -32,11 +31,10 @@
             appId: "1:583304911847:web:8dfe3e5c016062dd457b42",
             measurementId: "G-KQMXKEVNQ7"
         };
-    
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getDatabase(app);
-        const storage = getStorage(app);
     
         // DOM Elements
         const usernameDisplay = document.getElementById("username");
@@ -44,66 +42,69 @@
         const profilePicture = document.getElementById("profilePicture");
         const changePicButton = document.getElementById("changePicButton");
         const uploadInput = document.getElementById("uploadProfilePic");
-    
-        // Load user data
+
+        // Convert image to Base64
+        function convertToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // Load Profile Picture from Realtime Database
         onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                emailDisplay.textContent = user.email; // Show user email
-    
-                const userRef = ref(db, `users/${user.uid}`);
-                const snapshot = await get(userRef);
-    
-                if (snapshot.exists()) {
-                    const userData = snapshot.val();
-                    usernameDisplay.textContent = userData.username || "No username found";
-                    if (userData.profilePicture) {
-                        profilePicture.src = userData.profilePicture; // Load profile picture if exists
-                    }
-                } else {
-                    usernameDisplay.textContent = "Username not found";
-                }
-            } else {
-                console.error("No authenticated user found.");
-                emailDisplay.textContent = "Not logged in";
-                usernameDisplay.textContent = "Not logged in";
+        if (user) {
+            const userRef = ref(db, `users/${user.uid}`);
+            const snapshot = await get(userRef);
+
+        if (snapshot.exists()) {
+            const userData = snapshot.val();
+            usernameDisplay.textContent = userData.username || "No username found";
+            emailDisplay.textContent = user.email; 
+
+            // Display Profile Picture if Exists
+            if (userData.profilePicture) {
+                profilePicture.src = userData.profilePicture;
             }
-        });
-    
+        } else {
+            usernameDisplay.textContent = "Username not found";
+        }
+        } else {
+        console.error("❌ No authenticated user found.");
+        emailDisplay.textContent = "Not logged in";
+        usernameDisplay.textContent = "Not logged in";
+        }
+});
+
         // Open file picker when "Change Profile Picture" is clicked
         changePicButton.addEventListener("click", () => {
             uploadInput.click();
         });
-    
-        // Handle file upload
+
+        // Upload Profile Picture as Base64 to Firebase Realtime Database
         uploadInput.addEventListener("change", async (event) => {
             const file = event.target.files[0];
             if (!file) return;
-    
-            console.log("Selected file:", file.name); // Debugging
-    
+
+            const base64String = await convertToBase64(file);
+
             const user = auth.currentUser;
             if (!user) {
-                alert("You must be logged in to change your profile picture.");
+                alert("User not authenticated");
                 return;
             }
-    
-            const fileRef = storageRef(storage, `profilePictures/${user.uid}`);
-    
-            try {
-                await uploadBytes(fileRef, file);
-                const imageUrl = await getDownloadURL(fileRef);
-    
-                // Update profile picture in Firebase Database
-                await update(ref(db, `users/${user.uid}`), { profilePicture: imageUrl });
-    
-                // Update profile picture on the page
-                profilePicture.src = imageUrl;
-                alert("Profile picture updated successfully!");
-            } catch (error) {
-                console.error("Error uploading profile picture:", error);
-                alert("Failed to upload profile picture.");
-            }
+
+            // Save Base64 string to Firebase Realtime Database
+            const userRef = ref(db, `users/${user.uid}`);
+            await update(userRef, { profilePicture: base64String });
+
+            // Update UI immediately
+            profilePicture.src = base64String;
+            console.log("✅ Profile picture updated successfully!");
         });
+
     </script>
 </body>
 </html>
