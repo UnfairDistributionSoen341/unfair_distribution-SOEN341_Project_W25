@@ -54,6 +54,13 @@
            height: 100px;
            margin-bottom: 10px;
        }
+       /* for time stamp */
+        .message-timestamp {
+        font-size: 10px;
+        color: #888;
+        display: block;
+        margin-top: 3px;
+    }
        </style>
 </head>
 <body>
@@ -325,6 +332,18 @@
                     deleteButton.addEventListener("click", () => deleteMessage(snapshot.key));
                     messageElement.appendChild(deleteButton);
                 }
+                // Format timestamp
+                let timeString = messageData.timestamp
+                    ? new Date(messageData.timestamp).toLocaleTimeString()
+                    : "";
+
+                // Create timestamp element
+                let timestampElement = document.createElement("div");
+                timestampElement.classList.add("message-timestamp");
+                timestampElement.innerText = timeString;
+
+                // Append timestamp below the message content
+                messageElement.appendChild(timestampElement);
 
                 messagesDiv.appendChild(messageElement);
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -443,10 +462,10 @@
 
             const chatRef = ref(db, `chats/${chatID}/messages`);
             push(chatRef, {
-                sender: currentUser.email,
-                text: messageText,
-                timestamp: Date.now()
-            });
+            sender: currentUser.email,
+            text: messageText,
+            timestamp: Date.now() // Store the timestamp when the message is sent
+        });
 
             messageInput.value = "";
         });
