@@ -303,52 +303,71 @@
         }
         
         function loadMessages() {
-            const messagesDiv = document.getElementById("messages");
-            messagesDiv.innerHTML = "";
-            const chatRef = ref(db, `chats/${chatID}/messages`);
+    const messagesDiv = document.getElementById("messages");
+    messagesDiv.innerHTML = "";
+    const chatRef = ref(db, `chats/${chatID}/messages`);
 
-            onChildAdded(chatRef, (snapshot) => {
-                let messageData = snapshot.val();
-                 // Skip rendering if the message is marked as deleted
-                 if (messageData.deleted) {
-                    return;               
-                }
-                let messageElement = document.createElement("div");
-                messageElement.classList.add("message");
-                messageElement.id = snapshot.key; // Set ID to the message's unique ID
+    onChildAdded(chatRef, (snapshot) => {
+        let messageData = snapshot.val();
+        if (messageData.deleted) return;
 
+        // Create wrapper for message and profile pic
+        let messageWrapper = document.createElement("div");
+        messageWrapper.classList.add("message-wrapper");
 
-                if (messageData.sender === currentUser.email) {
-                    messageElement.classList.add("sent");
-                } else {
-                    messageElement.classList.add("received");
-                }
+        // Create message container
+        let messageElement = document.createElement("div");
+        messageElement.classList.add("message");
+        messageElement.id = snapshot.key;
 
-                messageElement.innerText = `${messageData.sender}: ${messageData.text}`;
-                if (messageData.sender === currentUser.email) {
-                    let deleteButton = document.createElement("span");
-                    deleteButton.classList.add("delete-button");
-                    deleteButton.innerText = "Delete";
-                    deleteButton.addEventListener("click", () => deleteMessage(snapshot.key));
-                    messageElement.appendChild(deleteButton);
-                }
-                // Format timestamp
-                let timeString = messageData.timestamp
-                    ? new Date(messageData.timestamp).toLocaleTimeString()
-                    : "";
-
-                // Create timestamp element
-                let timestampElement = document.createElement("div");
-                timestampElement.classList.add("message-timestamp");
-                timestampElement.innerText = timeString;
-
-                // Append timestamp below the message content
-                messageElement.appendChild(timestampElement);
-
-                messagesDiv.appendChild(messageElement);
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            });
+        // Apply the correct styling for sent and received messages
+        if (messageData.sender === currentUser.email) {
+            messageElement.classList.add("sent");  // Sent = Blue bubble
+            messageWrapper.classList.add("sent-wrapper");
+        } else {
+            messageElement.classList.add("received");  // Received = White bubble
+            messageWrapper.classList.add("received-wrapper");
         }
+
+        // Profile Picture
+        let profileImg = document.createElement("img");
+        profileImg.src = messageData.profilePicture || "default-pfp.png"; 
+        profileImg.classList.add("message-profile");
+
+        // Sender name
+        let senderName = document.createElement("span");
+        senderName.classList.add("message-sender");
+        senderName.innerText = messageData.senderUsername + ": ";
+
+        // Message text
+        let messageText = document.createElement("span");
+        messageText.innerText = messageData.text;
+
+        // Timestamp
+        let timestampElement = document.createElement("div");
+        timestampElement.classList.add("message-timestamp");
+        timestampElement.innerText = new Date(messageData.timestamp).toLocaleTimeString();
+
+        // Append elements
+        messageElement.appendChild(senderName);
+        messageElement.appendChild(messageText);
+        messageElement.appendChild(timestampElement);
+
+        // Structure messages properly
+        if (messageData.sender === currentUser.email) {
+            // Sent messages: Message bubble on left, PFP on right
+            messageWrapper.appendChild(messageElement);
+            messageWrapper.appendChild(profileImg);
+        } else {
+            // Received messages: PFP on left, Message bubble on right
+            messageWrapper.appendChild(profileImg);
+            messageWrapper.appendChild(messageElement);
+        }
+
+        messagesDiv.appendChild(messageWrapper);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
+}
 
         function deleteMessage(messageId) {
             const messageRef = ref(db, `chats/${chatID}/messages/${messageId}`);
@@ -433,7 +452,7 @@
         
        
 
-        function sendMessage() {
+        async function sendMessage() {
     if (!selectedUser) {
         alert("Select a user first!");
         return;
@@ -441,38 +460,44 @@
 
     // Check if the selected user has blocked the current user
     const blockedBySelectedUserRef = ref(db, `blocked/${selectedUser.uid}/${currentUser.uid}`);
-    get(blockedBySelectedUserRef).then(snapshot => {
-        if (snapshot.exists()) {
-            alert(`🚫 You have been blocked by ${selectedUser.username}. You cannot send messages.`);
-            return; // Stop message sending
-        }
+    const blockedSnapshot = await get(blockedBySelectedUserRef);
 
-        // Check if the current user has blocked the selected user
-        const blockedByCurrentUserRef = ref(db, `blocked/${currentUser.uid}/${selectedUser.uid}`);
-        get(blockedByCurrentUserRef).then(snapshot => {
-            if (snapshot.exists()) {
-                alert("🚫 You have blocked this user. Unblock them to send messages.");
-                return; // Stop message sending
-            }
+    if (blockedSnapshot.exists()) {
+        alert(`🚫 You have been blocked by ${selectedUser.username}.`);
+        return; 
+    }
 
-            // If neither has blocked the other, proceed with sending the message
-            const messageInput = document.getElementById("messageInput");
-            const messageText = messageInput.value.trim();
-            if (messageText === "") return;
+    const blockedByCurrentUserRef = ref(db, `blocked/${currentUser.uid}/${selectedUser.uid}`);
+    const blockedByCurrentSnapshot = await get(blockedByCurrentUserRef);
 
-            const chatRef = ref(db, `chats/${chatID}/messages`);
-            push(chatRef, {
-            sender: currentUser.email,
-            text: messageText,
-            timestamp: Date.now() // Store the timestamp when the message is sent
-        });
+    if (blockedByCurrentSnapshot.exists()) {
+        alert("🚫 You have blocked this user. Unblock them to send messages.");
+        return; 
+    }
 
-            messageInput.value = "";
-        });
+    // Retrieve the current user's profile picture from the database
+    const userRef = ref(db, `users/${currentUser.uid}`);
+    const userSnapshot = await get(userRef);
+    let profilePicURL = "default-pfp.png"; // Default profile picture
 
-    }).catch(error => {
-        console.error("❌ Error checking block status:", error);
+    if (userSnapshot.exists()) {
+        profilePicURL = userSnapshot.val().profilePicture || profilePicURL;
+    }
+
+    const messageInput = document.getElementById("messageInput");
+    const messageText = messageInput.value.trim();
+    if (messageText === "") return;
+
+    const chatRef = ref(db, `chats/${chatID}/messages`);
+    push(chatRef, {
+        sender: currentUser.email,
+        senderUsername: currentUsername,  
+        profilePicture: profilePicURL,  // Store profile picture
+        text: messageText,
+        timestamp: Date.now()
     });
+
+    messageInput.value = "";
 }
 
         
