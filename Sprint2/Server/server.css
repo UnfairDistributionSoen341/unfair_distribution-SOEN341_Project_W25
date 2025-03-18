@@ -398,7 +398,7 @@
     color: white;
    }   
    
-   /* 🟢 NEW: Channel access styles */
+   /* NEW: Channel access styles */
 .channel-access-item {
     display: flex;
     justify-content: space-between;
@@ -444,3 +444,68 @@
     width: 450px;
     max-width: 95%;
   }
+/* Message Wrapper */
+.message-wrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+  max-width: 100%;
+}
+
+/* Profile Picture */
+.profile-pic {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 10px;
+}
+
+/* Message Content */
+.message-content {
+  display: flex;
+  flex-direction: column;
+  background-color: #f1f1f1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  max-width: 60%;
+  word-wrap: break-word;
+}
+
+.sent .message-content {
+  background-color: #dcf8c6;
+}
+
+.received .message-content {
+  background-color: #fff;
+  border: 1px solid #ddd;
+}
+
+/* Delete Button */
+.delete-btn {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  background-color: rgba(255, 0, 0, 0.1);
+  color: #ff0000;
+  border: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 14px;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+
+.message:hover .delete-btn {
+  display: flex;
+}
+
+.delete-btn:hover {
+  background-color: rgba(255, 0, 0, 0.2);
+}

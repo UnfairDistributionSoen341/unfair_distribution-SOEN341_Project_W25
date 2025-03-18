@@ -1137,6 +1137,28 @@ async function joinChannel(channel) {
  messageElement.className = `message ${message.senderId === currentUser.uid ? 'sent' : 'received'}`;
  messageElement.setAttribute("data-message-id", messageId);
  
+  // Create message wrapper (profile picture + content)
+  const messageWrapper = document.createElement("div");
+  messageWrapper.className = "message-wrapper";
+
+  // Create profile picture container
+  const profilePic = document.createElement("img");
+  profilePic.className = "profile-pic";
+  profilePic.src = "default-avatar.png"; // Placeholder before loading actual image
+  profilePic.alt = `${message.senderName}'s profile picture`;
+
+  // Fetch profile picture from Firebase
+  const userRef = ref(db, `users/${message.senderId}/profilePicture`);
+  get(userRef).then((snapshot) => {
+  if (snapshot.exists() && snapshot.val()) {
+      profilePic.src = snapshot.val(); // Set profile picture if found
+            }
+        });
+
+  // Create message content container
+  const contentDiv = document.createElement("div");
+  contentDiv.className = "message-content";
+
  // Create message header
  const headerDiv = document.createElement("div");
  headerDiv.className = "message-header";
@@ -1156,6 +1178,11 @@ async function joinChannel(channel) {
  messageElement.appendChild(headerDiv);
  messageElement.appendChild(textDiv);
  messageElement.appendChild(timeDiv);
+
+// Add profile picture and content to wrapper
+messageWrapper.appendChild(profilePic);
+messageWrapper.appendChild(contentDiv);
+messageElement.appendChild(messageWrapper);
  
  // Check if user can delete this message
  const canDeleteThisMessage = canDeleteAnyMessage || message.senderId === currentUser.uid;
