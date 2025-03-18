@@ -1,3 +1,4 @@
+Description of each tests:
 1. Authentication Tests
 These tests verify that your user authentication system works correctly:
 
@@ -52,3 +53,12 @@ Accessibility Compliance Tests: Check that the application meets standard access
 These ensure that UI changes don't break the existing design:
 
 Visual Appearance Tests: Compare screenshots of UI components against baseline images to detect visual changes.
+
+To note: 
+Some testes are skipped due to them bieng ressource intensive, the slowdown of automatic feedback and being costly time wise. 
+Hence if you want to run then you would need to manually trigger them from the GitHub UI:
+
+- Click on the "Actions" tab
+- Select the appropriate workflow from the list
+- Click on the "Run workflow" button
+
