@@ -11,28 +11,28 @@
            color: red;
            font-size: 12px;
            margin-left: 10px;
-       }
-       #contextMenu {
+        }
+        #contextMenu {
            display: none;
            position: absolute;
            background-color: white;
            border: 1px solid #ccc;
            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
            z-index: 1000;
-       }
-       #contextMenu ul {
+        }
+        #contextMenu ul {
            list-style: none;
            margin: 0;
            padding: 0;
-       }
-       #contextMenu li {
+        }
+        #contextMenu li {
            padding: 8px 12px;
            cursor: pointer;
-       }
-       #contextMenu li:hover {
+        }
+        #contextMenu li:hover {
            background-color: #f1f1f1;
-       }
-       .modal {
+        }
+        .modal {
            display: none;
            position: fixed;
            top: 0;
@@ -42,26 +42,35 @@
            background-color: rgba(0, 0, 0, 0.5);
            justify-content: center;
            align-items: center;
-       }
-       .modal-content {
+           z-index: 1001;
+        }
+        .modal-content {
            background-color: white;
            padding: 20px;
            border-radius: 5px;
            width: 300px;
-       }
-       .modal-content textarea {
+        }
+        .modal-content textarea {
            width: 100%;
            height: 100px;
            margin-bottom: 10px;
-       }
-       /* for time stamp */
-        .message-timestamp {
-        font-size: 10px;
-        color: #888;
-        display: block;
-        margin-top: 3px;
-    }
-       </style>
+        }
+        #logoutButton {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            padding: 10px 20px;
+            background-color: red;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+        }
+        #logoutButton:hover {
+            background-color: darkred;
+        }
+    </style>
 </head>
 <body>
     <div class="chat-container">
@@ -81,45 +90,27 @@
         </div>
     </div>
 
-
-
     <button id="logoutButton">Logout</button>
-    <style>
-        #logoutButton {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            padding: 10px 20px;
-            background-color: red;
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-            border-radius: 5px;
-        }
-        #logoutButton:hover {
-            background-color: darkred;
-        }
-    </style>
 
     <div id="contextMenu">
-         <ul>
+        <ul>
             <li id="reportOption">Report</li>
             <li id="blockOption">Block</li>
-         </ul>
+        </ul>
     </div>
+    
     <div id="reasonModal" class="modal">
         <div class="modal-content">
             <h3>Provide a reason</h3>
             <textarea id="reasonText" placeholder="Enter your reason here..."></textarea>
             <button id="submitReason">Submit</button>
+            <button id="cancelReason">Cancel</button>
         </div>
     </div>
 
     <script type="module">
-
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getDatabase, ref, push, onChildAdded, get, update } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+        import { getDatabase, ref, push, onChildAdded, onChildChanged, get, update, query, orderByChild } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         
         const firebaseConfig = {
@@ -143,6 +134,10 @@
         let selectedUsername = null;
         let chatID = null;
         let chatUsers = [];
+        let currentAction = null;
+        let actionUser = null;
+        let userCache = {}; // Cache user data to avoid repeated lookups
+        let usernameResolvers = {}; // Map of email addresses to usernames
         
         onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -153,78 +148,134 @@
                 get(usersRef).then((snapshot) => {
                     if (snapshot.exists()) {
                         currentUsername = snapshot.val().username;
-                        loadUsers();
-                        setupSearch();
+                        // Cache current user data
+                        userCache[currentUser.uid] = snapshot.val();
+                        // Cache email to username mapping
+                        usernameResolvers[currentUser.email] = currentUsername;
+                        
+                        // Start loading data
+                        preloadAllUserData().then(() => {
+                            loadUsers();
+                            setupSearch();
+                        });
                     } else {
                         console.error("❌ Current user data not found.");
                     }
                 });
-        
             } else {
                 window.location.href = "../LoginPage/user_login.html";
             }
         });
         
-        function loadUsers() {
-    const userList = document.getElementById("userList");
-    userList.innerHTML = "";
-
-    const chatsRef = ref(db, "chats");
-    const blockedRef = ref(db, `blocked/${currentUser.uid}`);
-
-    get(blockedRef).then((blockedSnapshot) => {
-        let blockedUsers = new Set();
-        if (blockedSnapshot.exists()) {
-            blockedSnapshot.forEach(childSnapshot => {
-                blockedUsers.add(childSnapshot.key);
-            });
+        // Preload ALL user data to fix the "Unknown User" issues
+        async function preloadAllUserData() {
+            console.log("🔄 Loading all user data...");
+            const usersRef = ref(db, "users");
+            
+            try {
+                const snapshot = await get(usersRef);
+                if (snapshot.exists()) {
+                    // First build the UID to user data cache
+                    snapshot.forEach((childSnapshot) => {
+                        const userData = childSnapshot.val();
+                        if (userData.uid) {
+                            userCache[userData.uid] = userData;
+                            
+                            // Also map email to username and UID for quicker lookups
+                            if (userData.email && userData.username) {
+                                usernameResolvers[userData.email] = userData.username;
+                            }
+                        }
+                    });
+                    
+                    console.log(`✅ Preloaded data for ${Object.keys(userCache).length} users`);
+                }
+            } catch (error) {
+                console.error("❌ Error preloading user data:", error);
+            }
         }
+        
+        // Function to find username by email
+        function getUsernameByEmail(email) {
+            // First check our resolver cache
+            if (usernameResolvers[email]) {
+                return usernameResolvers[email];
+            }
+            
+            // If not found, check all users in userCache
+            for (const uid in userCache) {
+                const user = userCache[uid];
+                if (user.email === email) {
+                    // Cache this for future lookups
+                    usernameResolvers[email] = user.username;
+                    return user.username;
+                }
+            }
+            
+            return null;
+        }
+        
+        // Function to find user by email
+        function getUserByEmail(email) {
+            for (const uid in userCache) {
+                const user = userCache[uid];
+                if (user.email === email) {
+                    return user;
+                }
+            }
+            return null;
+        }
+        
+        function loadUsers() {
+            const userList = document.getElementById("userList");
+            userList.innerHTML = "";
 
-        get(chatsRef).then((snapshot) => {
-            if (snapshot.exists()) {
-                let chatUserIDs = new Set();
+            const chatsRef = ref(db, "chats");
+            const blockedRef = ref(db, `blocked/${currentUser.uid}`);
 
-                snapshot.forEach((chatSnapshot) => {
-                    const [userA, userB] = chatSnapshot.key.split("_");
-                    if (userA === currentUser.uid && !blockedUsers.has(userB)) {
-                        chatUserIDs.add(userB);
-                    } else if (userB === currentUser.uid && !blockedUsers.has(userA)) {
-                        chatUserIDs.add(userA);
-                    }
-                });
-
-                if (chatUserIDs.size === 0) {
-                    userList.innerHTML = "<p>No conversations yet.</p>";
-                    return;
+            get(blockedRef).then((blockedSnapshot) => {
+                let blockedUsers = new Set();
+                if (blockedSnapshot.exists()) {
+                    blockedSnapshot.forEach(childSnapshot => {
+                        blockedUsers.add(childSnapshot.key);
+                    });
                 }
 
-                const usersRef = ref(db, "users");
-                get(usersRef).then((userSnapshot) => {
-                    if (userSnapshot.exists()) {
-                        chatUsers = [];
+                get(chatsRef).then((snapshot) => {
+                    if (snapshot.exists()) {
+                        let chatUserIDs = new Set();
 
-                        userSnapshot.forEach((childSnapshot) => {
-                            let user = childSnapshot.val();
-                            if (chatUserIDs.has(user.uid)) {
-                                chatUsers.push(user);
+                        snapshot.forEach((chatSnapshot) => {
+                            const [userA, userB] = chatSnapshot.key.split("_");
+                            if (userA === currentUser.uid && !blockedUsers.has(userB)) {
+                                chatUserIDs.add(userB);
+                            } else if (userB === currentUser.uid && !blockedUsers.has(userA)) {
+                                chatUserIDs.add(userA);
+                            }
+                        });
+
+                        if (chatUserIDs.size === 0) {
+                            userList.innerHTML = "<p>No conversations yet.</p>";
+                            return;
+                        }
+
+                        chatUsers = [];
+                        chatUserIDs.forEach(uid => {
+                            if (userCache[uid]) {
+                                chatUsers.push(userCache[uid]);
                             }
                         });
 
                         displayUsers(chatUsers);
                     } else {
-                        userList.innerHTML = "<p>No users found.</p>";
+                        userList.innerHTML = "<p>No conversations found.</p>";
                     }
+                }).catch(error => {
+                    console.error("❌ Error loading conversations:", error);
+                    userList.innerHTML = "<p>Error loading conversations.</p>";
                 });
-            } else {
-                userList.innerHTML = "<p>No conversations found.</p>";
-            }
-        }).catch(error => {
-            console.error("❌ Error loading conversations:", error);
-            userList.innerHTML = "<p>Error loading conversations.</p>";
-        });
-    });
-}
-
+            });
+        }
         
         function setupSearch() {
             const searchInput = document.getElementById("searchUser");
@@ -241,31 +292,15 @@
         
         function searchAllUsers(searchValue) {
             const userList = document.getElementById("userList");
-            const usersRef = ref(db, "users");
-        
-            get(usersRef).then((snapshot) => {
-                if (snapshot.exists()) {
-                    let filteredUsers = [];
-        
-                    snapshot.forEach((childSnapshot) => {
-                        let user = childSnapshot.val();
-                        if (
-                            user.uid !== currentUser.uid &&
-                            user.username.toLowerCase().includes(searchValue)
-                        ) {
-                            filteredUsers.push(user);
-                        }
-                    });
-        
-                    displayUsers(filteredUsers);
-        
-                } else {
-                    userList.innerHTML = "<p>No users found.</p>";
-                }
-            }).catch(error => {
-                console.error("❌ Error searching users:", error);
-                userList.innerHTML = "<p>Error searching users.</p>";
-            });
+            
+            // Search in userCache
+            let filteredUsers = Object.values(userCache).filter(user => 
+                user.uid !== currentUser.uid && 
+                user.username && 
+                user.username.toLowerCase().includes(searchValue)
+            );
+            
+            displayUsers(filteredUsers);
         }
         
         function displayUsers(users) {
@@ -303,101 +338,243 @@
         }
         
         function loadMessages() {
-    const messagesDiv = document.getElementById("messages");
-    messagesDiv.innerHTML = "";
-    const chatRef = ref(db, `chats/${chatID}/messages`);
-
-    onChildAdded(chatRef, async (snapshot) => {
-        let messageData = snapshot.val();
-
-        // Skip rendering if the message is marked as deleted
-        if (messageData.deleted) {
-            return;
+            const messagesDiv = document.getElementById("messages");
+            messagesDiv.innerHTML = "";
+            const chatRef = ref(db, `chats/${chatID}/messages`);
+            
+            // Keep track of messages we've already rendered
+            const renderedMessageIds = new Set();
+            
+            // First, get all messages at once and sort them
+            get(chatRef).then((snapshot) => {
+                if (snapshot.exists()) {
+                    let messages = [];
+                    
+                    snapshot.forEach(childSnapshot => {
+                        const message = childSnapshot.val();
+                        if (!message.deleted) {
+                            messages.push({
+                                id: childSnapshot.key,
+                                ...message
+                            });
+                        }
+                        // Add to our tracking set
+                        renderedMessageIds.add(childSnapshot.key);
+                    });
+                    
+                    // Sort messages by timestamp (oldest first)
+                    messages.sort((a, b) => a.timestamp - b.timestamp);
+                    
+                    // Process each message in order
+                    const processMessages = async () => {
+                        for (const message of messages) {
+                            await renderMessage(message, message.id);
+                        }
+                        // Scroll to the bottom after all messages are rendered
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    };
+                    
+                    processMessages();
+                }
+            }).then(() => {
+                // Only after initial load is complete, listen for new messages
+                onChildAdded(chatRef, async (snapshot) => {
+                    const messageData = snapshot.val();
+                    const messageId = snapshot.key;
+                    
+                    // Skip deleted messages and messages we've already rendered
+                    if (messageData.deleted || renderedMessageIds.has(messageId)) {
+                        return;
+                    }
+                    
+                    // Add to our tracking set
+                    renderedMessageIds.add(messageId);
+                    
+                    await renderMessage(messageData, messageId);
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                });
+                
+                // Listen for changes to existing messages (for real-time deletion)
+                onChildChanged(chatRef, (snapshot) => {
+                    const messageData = snapshot.val();
+                    const messageId = snapshot.key;
+                    
+                    // If the message is marked as deleted, hide it
+                    if (messageData.deleted) {
+                        const messageElement = document.getElementById(messageId);
+                        if (messageElement) {
+                            messageElement.style.display = "none";
+                            console.log(`🗑️ Message ${messageId} was deleted by another user.`);
+                        }
+                    }
+                });
+            });
         }
-
-        // Create the message container
-        let messageElement = document.createElement("div");
-        messageElement.classList.add("message");
-        messageElement.id = snapshot.key;
-
-        // Assign sent or received class
-        if (messageData.sender === currentUser.email) {
-            messageElement.classList.add("sent");
-        } else {
-            messageElement.classList.add("received");
-        }
-
-        // Retrieve the user's profile picture from the database
-        let profilePicURL = "default-pfp.png"; // Default profile picture
-
-        if (messageData.profilePicture) {
-            profilePicURL = messageData.profilePicture;
-        } else {
-            // Fetch from the database in case it's not included in message data
-            const userRef = ref(db, `users/${messageData.senderUID}`);
-            const userSnapshot = await get(userRef);
-            if (userSnapshot.exists() && userSnapshot.val().profilePicture) {
-                profilePicURL = userSnapshot.val().profilePicture;
+        
+        async function resolveUsername(uid) {
+            // First check cache
+            if (userCache[uid] && userCache[uid].username) {
+                return userCache[uid].username;
             }
+            
+            // If not in cache, fetch from database
+            try {
+                const userRef = ref(db, `users/${uid}`);
+                const snapshot = await get(userRef);
+                if (snapshot.exists()) {
+                    const userData = snapshot.val();
+                    // Update cache
+                    userCache[uid] = userData;
+                    return userData.username;
+                }
+            } catch (error) {
+                console.error("Error fetching username:", error);
+            }
+            
+            return "Unknown User";
+        }
+        
+        async function resolveProfilePic(uid, defaultPic = "default-pfp.png") {
+            // First check cache
+            if (userCache[uid] && userCache[uid].profilePicture) {
+                return userCache[uid].profilePicture;
+            }
+            
+            // If not in cache, fetch from database
+            try {
+                const userRef = ref(db, `users/${uid}`);
+                const snapshot = await get(userRef);
+                if (snapshot.exists()) {
+                    const userData = snapshot.val();
+                    // Update cache
+                    userCache[uid] = userData;
+                    return userData.profilePicture || defaultPic;
+                }
+            } catch (error) {
+                console.error("Error fetching profile picture:", error);
+            }
+            
+            return defaultPic;
         }
 
-        // Create profile picture element
-        let profileImg = document.createElement("img");
-        profileImg.src = profilePicURL;
-        profileImg.classList.add("message-profile");
+        async function renderMessage(messageData, messageId) {
+            const messagesDiv = document.getElementById("messages");
+            
+            // Create the message container
+            let messageElement = document.createElement("div");
+            messageElement.classList.add("message");
+            messageElement.id = messageId;
 
-        // Create sender username element
-        let senderName = document.createElement("span");
-        senderName.classList.add("message-username");
-        senderName.innerText = messageData.senderUsername || "Unknown User";
+            // Assign sent or received class
+            if (messageData.sender === currentUser.email) {
+                messageElement.classList.add("sent");
+            } else {
+                messageElement.classList.add("received");
+            }
 
-        // Create message text element
-        let textElement = document.createElement("p");
-        textElement.classList.add("message-text");
-        textElement.innerText = messageData.text;
+            // Ensure we have the sender's username and profile picture
+            let senderUsername = messageData.senderUsername;
+            let profilePicURL = messageData.profilePicture;
+            let senderUID = messageData.senderUID;
+            
+            // Try to get username in multiple ways - for older messages that might not have all data
+            if (!senderUsername || senderUsername === "Unknown User") {
+                // First try to get username from senderUID
+                if (senderUID) {
+                    senderUsername = await resolveUsername(senderUID);
+                }
+                
+                // If still unknown, try getting from email
+                if ((!senderUsername || senderUsername === "Unknown User") && messageData.sender) {
+                    const usernameFromEmail = getUsernameByEmail(messageData.sender);
+                    if (usernameFromEmail) {
+                        senderUsername = usernameFromEmail;
+                        
+                        // Get the sender's UID if we don't have it yet
+                        if (!senderUID) {
+                            const user = getUserByEmail(messageData.sender);
+                            if (user) {
+                                senderUID = user.uid;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // If profile picture is missing, try to resolve it
+            if (!profilePicURL && senderUID) {
+                profilePicURL = await resolveProfilePic(senderUID);
+            } else if (!profilePicURL && messageData.sender) {
+                // Try to get profile picture from email
+                const user = getUserByEmail(messageData.sender);
+                if (user && user.profilePicture) {
+                    profilePicURL = user.profilePicture;
+                } else {
+                    profilePicURL = "default-pfp.png";
+                }
+            } else if (!profilePicURL) {
+                profilePicURL = "default-pfp.png";
+            }
 
-        // Format timestamp
-        let timeString = messageData.timestamp
-            ? new Date(messageData.timestamp).toLocaleTimeString()
-            : "";
+            // Create profile picture element
+            let profileImg = document.createElement("img");
+            profileImg.src = profilePicURL;
+            profileImg.classList.add("message-profile");
 
-        // Create timestamp element
-        let timestampElement = document.createElement("div");
-        timestampElement.classList.add("message-timestamp");
-        timestampElement.innerText = timeString;
+            // Create sender username element
+            let senderName = document.createElement("span");
+            senderName.classList.add("message-username");
+            senderName.innerText = senderUsername || "Unknown User";
 
-        // Append delete button only for the sender's messages
-        if (messageData.sender === currentUser.email) {
-            let deleteButton = document.createElement("span");
-            deleteButton.classList.add("delete-button");
-            deleteButton.innerText = "Delete";
-            deleteButton.addEventListener("click", () => deleteMessage(snapshot.key));
-            messageElement.appendChild(deleteButton);
+            // Create message text element
+            let textElement = document.createElement("p");
+            textElement.classList.add("message-text");
+            textElement.innerText = messageData.text;
+
+            // Format timestamp
+            let timeString = messageData.timestamp
+                ? new Date(messageData.timestamp).toLocaleTimeString()
+                : "";
+
+            // Create timestamp element
+            let timestampElement = document.createElement("div");
+            timestampElement.classList.add("message-timestamp");
+            timestampElement.innerText = timeString;
+
+            // Append delete button only for the sender's messages
+            if (messageData.sender === currentUser.email) {
+                let deleteButton = document.createElement("span");
+                deleteButton.classList.add("delete-button");
+                deleteButton.innerText = "Delete";
+                deleteButton.addEventListener("click", () => deleteMessage(messageId));
+                messageElement.appendChild(deleteButton);
+            }
+
+            // Append elements to message container
+            let messageWrapper = document.createElement("div");
+            messageWrapper.style.display = "flex";
+            messageWrapper.style.alignItems = "center";
+
+            messageWrapper.appendChild(profileImg); // Profile Picture
+            let messageContent = document.createElement("div");
+            messageContent.appendChild(senderName); // Username
+            messageContent.appendChild(textElement); // Message Text
+            messageContent.appendChild(timestampElement); // Timestamp
+
+            messageWrapper.appendChild(messageContent);
+            messageElement.appendChild(messageWrapper);
+
+            // Append message to messages container
+            messagesDiv.appendChild(messageElement);
         }
-
-        // Append elements to message container
-        let messageWrapper = document.createElement("div");
-        messageWrapper.style.display = "flex";
-        messageWrapper.style.alignItems = "center";
-
-        messageWrapper.appendChild(profileImg); // Profile Picture
-        let messageContent = document.createElement("div");
-        messageContent.appendChild(senderName); // Username
-        messageContent.appendChild(textElement); // Message Text
-        messageContent.appendChild(timestampElement); // Timestamp
-
-        messageWrapper.appendChild(messageContent);
-        messageElement.appendChild(messageWrapper);
-
-        // Append message to messages container
-        messagesDiv.appendChild(messageElement);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    });
-}
 
         function deleteMessage(messageId) {
             const messageRef = ref(db, `chats/${chatID}/messages/${messageId}`);
-            update(messageRef, { deleted: true }).then(() => {
+            update(messageRef, { 
+                deleted: true,
+                deletedAt: Date.now(),
+                deletedBy: currentUser.uid
+            }).then(() => {
                 const messageElement = document.getElementById(messageId);
                 if (messageElement) {
                     messageElement.style.display = "none";
@@ -415,57 +592,71 @@
             contextMenu.style.left = `${event.pageX}px`;
             contextMenu.style.top = `${event.pageY}px`;
 
-           document.getElementById("reportOption").onclick = () => reportUser(user);
+            document.getElementById("reportOption").onclick = () => reportUser(user);
             document.getElementById("blockOption").onclick = () => blockUser(user);
         }
 
         function reportUser(user) {
-            showReasonModal("report", user);
+            currentAction = "report";
+            actionUser = user;
+            showReasonModal();
         }
 
         function blockUser(user) {
-    showReasonModal("block", user);
-    
-    const submitButton = document.getElementById("submitReason");
-    submitButton.onclick = () => {
-        const reason = document.getElementById("reasonText").value.trim();
-        if (reason) {
-            const blockedRef = ref(db, `blocked/${currentUser.uid}/${user.uid}`);
-            update(blockedRef, { blocked: true, reason: reason }).then(() => {
-                alert(`🚫 You have blocked ${user.username}.`);
-                document.getElementById("reasonModal").style.display = "none";
-                loadUsers(); // Refresh the user list
-            }).catch(error => {
-                console.error("❌ Error blocking user:", error);
-            });
+            currentAction = "block";
+            actionUser = user;
+            showReasonModal();
         }
-    };
-}
 
-
-        function showReasonModal(action, user) {
+        function showReasonModal() {
             const reasonModal = document.getElementById("reasonModal");
             const reasonText = document.getElementById("reasonText");
-            const submitButton = document.getElementById("submitReason");
-
+            reasonText.value = "";
             reasonModal.style.display = "flex";
-            submitButton.onclick = () => {
-                const reason = reasonText.value.trim();
-                if (reason) {
-                    alert(`${action.charAt(0).toUpperCase() + action.slice(1)} action taken against ${user.username}. Reason: ${reason}`);
-                    reasonModal.style.display = "none";
-                }
-            };
         }
+
+        document.getElementById("submitReason").addEventListener("click", function() {
+            const reason = document.getElementById("reasonText").value.trim();
+            if (!reason) {
+                alert("Please provide a reason.");
+                return;
+            }
+
+            if (currentAction === "block" && actionUser) {
+                const blockedRef = ref(db, `blocked/${currentUser.uid}/${actionUser.uid}`);
+                update(blockedRef, { blocked: true, reason: reason }).then(() => {
+                    alert(`🚫 You have blocked ${actionUser.username}.`);
+                    document.getElementById("reasonModal").style.display = "none";
+                    loadUsers(); // Refresh the user list
+                }).catch(error => {
+                    console.error("❌ Error blocking user:", error);
+                });
+            } else if (currentAction === "report" && actionUser) {
+                const reportsRef = ref(db, `reports/${actionUser.uid}`);
+                push(reportsRef, {
+                    reportedBy: currentUser.uid,
+                    reason: reason,
+                    timestamp: Date.now()
+                }).then(() => {
+                    alert(`🚩 You have reported ${actionUser.username}.`);
+                    document.getElementById("reasonModal").style.display = "none";
+                }).catch(error => {
+                    console.error("❌ Error reporting user:", error);
+                });
+            }
+        });
+
+        document.getElementById("cancelReason").addEventListener("click", function() {
+            document.getElementById("reasonModal").style.display = "none";
+        });
 
         // Close context menu if clicked outside
         document.addEventListener("click", (event) => {
             const contextMenu = document.getElementById("contextMenu");
-            if (!contextMenu.contains(event.target)) {
+            if (contextMenu.style.display === "block" && !contextMenu.contains(event.target)) {
                 contextMenu.style.display = "none";
             }
         });
-
         
         document.getElementById("messageInput").addEventListener("keypress", function (event) {
             if (event.key === "Enter") {
@@ -476,67 +667,65 @@
         
         document.getElementById("sendMessage").addEventListener("click", sendMessage);
         
-       
-
         async function sendMessage() {
-    if (!selectedUser) {
-        alert("Select a user first!");
-        return;
-    }
+            if (!selectedUser) {
+                alert("Select a user first!");
+                return;
+            }
 
-    // Check if the selected user has blocked the current user
-    const blockedBySelectedUserRef = ref(db, `blocked/${selectedUser.uid}/${currentUser.uid}`);
-    const blockedSnapshot = await get(blockedBySelectedUserRef);
+            // Check if the selected user has blocked the current user
+            const blockedBySelectedUserRef = ref(db, `blocked/${selectedUser.uid}/${currentUser.uid}`);
+            const blockedSnapshot = await get(blockedBySelectedUserRef);
 
-    if (blockedSnapshot.exists()) {
-        alert(`🚫 You have been blocked by ${selectedUser.username}.`);
-        return; 
-    }
+            if (blockedSnapshot.exists()) {
+                alert(`🚫 You have been blocked by ${selectedUser.username}.`);
+                return; 
+            }
 
-    const blockedByCurrentUserRef = ref(db, `blocked/${currentUser.uid}/${selectedUser.uid}`);
-    const blockedByCurrentSnapshot = await get(blockedByCurrentUserRef);
+            const blockedByCurrentUserRef = ref(db, `blocked/${currentUser.uid}/${selectedUser.uid}`);
+            const blockedByCurrentSnapshot = await get(blockedByCurrentUserRef);
 
-    if (blockedByCurrentSnapshot.exists()) {
-        alert("🚫 You have blocked this user. Unblock them to send messages.");
-        return; 
-    }
+            if (blockedByCurrentSnapshot.exists()) {
+                alert("🚫 You have blocked this user. Unblock them to send messages.");
+                return; 
+            }
 
-    // Retrieve the current user's profile picture from the database
-    const userRef = ref(db, `users/${currentUser.uid}`);
-    const userSnapshot = await get(userRef);
-    let profilePicURL = "default-pfp.png"; // Default profile picture
+            // Retrieve the current user's profile picture from the database
+            let profilePicURL = "default-pfp.png"; // Default profile picture
 
-    if (userSnapshot.exists()) {
-        profilePicURL = userSnapshot.val().profilePicture || profilePicURL;
-    }
+            if (userCache[currentUser.uid] && userCache[currentUser.uid].profilePicture) {
+                profilePicURL = userCache[currentUser.uid].profilePicture;
+            } else {
+                profilePicURL = await resolveProfilePic(currentUser.uid);
+            }
 
-    const messageInput = document.getElementById("messageInput");
-    const messageText = messageInput.value.trim();
-    if (messageText === "") return;
+            const messageInput = document.getElementById("messageInput");
+            const messageText = messageInput.value.trim();
+            if (messageText === "") return;
 
-    const chatRef = ref(db, `chats/${chatID}/messages`);
-    push(chatRef, {
-        sender: currentUser.email,
-        senderUID: currentUser.uid,  // Store sender's UID
-        senderUsername: currentUsername,  
-        profilePicture: profilePicURL,  // Store profile picture
-        text: messageText,
-        timestamp: Date.now()
-    });
+            const chatRef = ref(db, `chats/${chatID}/messages`);
+            push(chatRef, {
+                sender: currentUser.email,
+                senderUID: currentUser.uid,
+                senderUsername: currentUsername,
+                profilePicture: profilePicURL,
+                text: messageText,
+                timestamp: Date.now()
+            });
 
-    messageInput.value = "";
-}
-
+            messageInput.value = "";
+        }
         
         document.getElementById("logoutButton").addEventListener("click", function () {
             console.log("🚀 Logout button clicked!");
         
             signOut(auth).then(() => {
                 console.log("✅ User logged out. Redirecting...");
-                window.top.location.href = "../../Sprint1/LoginPage/user_login.html";
-            }).catch((error) => {
+                window.location.href = "../LoginPage/user_login.html";
+            }).catch(error => {
                 console.error("❌ Logout failed:", error);
             });
         });
-        
-        </script>
+    </script>
+</body>
+</html>
