@@ -444,3 +444,31 @@
     width: 450px;
     max-width: 95%;
   }
+/* Ensure messages have a proper layout with profile pictures */
+.message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  max-width: 70%;
+  word-break: break-word;
+  font-size: 14px;
+  position: relative;
+  margin: 5px;
+}
+
+/* Profile picture styling */
+.message-profile {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Keep username visible above the message */
+.message-username {
+  font-weight: bold;
+  font-size: 12px;
+  display: block;
+}
