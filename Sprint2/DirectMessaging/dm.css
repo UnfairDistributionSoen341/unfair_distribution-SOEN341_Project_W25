@@ -1,4 +1,3 @@
-
 * {
     padding: 0;
     margin: 0;
@@ -81,30 +80,86 @@ body {
     gap: 10px;
 }
 
-.message {
-    padding: 10px 15px;
-    margin: 5px;
-    border-radius: 8px;
-    max-width: 70%;
-    word-break: break-word;
-    font-size: 14px;
-    position: relative;
+/* Message Wrapper */
+.message-wrapper {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    max-width: 80%;
 }
 
+/* Align sent messages to the right */
+.sent-wrapper {
+    justify-content: flex-end;
+}
+
+/* Align received messages to the left */
+.received-wrapper {
+    justify-content: flex-start;
+}
+
+/* Message Bubble */
+.message {
+    padding: 10px 15px;
+    border-radius: 15px;
+    max-width: 60%;
+    word-wrap: break-word;
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Sent Message (Blue) */
 .sent {
     background-color: #007bff;
     color: white;
-    align-self: flex-end;
-    text-align: right;
-}
-
-.received {
-    background-color: #f1f1f1;
-    color: black;
-    align-self: flex-start;
     text-align: left;
 }
 
+/* Received Message (White) */
+.received {
+    background-color: white;
+    color: black;
+    text-align: left;
+    border: 1px solid #ddd;
+}
+
+/* Profile Picture */
+.message-profile {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+
+/* Align Profile Pictures */
+.sent-wrapper .message-profile {
+    margin-left: 10px;
+    order: 2;
+}
+
+.received-wrapper .message-profile {
+    margin-right: 10px;
+    order: -1;
+}
+
+/* Username */
+.message-username {
+    font-weight: bold;
+    font-size: 13px;
+    color: #333;
+    margin-bottom: 3px;
+}
+
+/* Timestamp */
+.message-timestamp {
+    font-size: 10px;
+    color: #888;
+    text-align: right;
+    margin-top: 3px;
+}
+
+/* Input Area */
 .message-input {
     display: flex;
     padding: 15px;
@@ -133,66 +188,83 @@ body {
 .message-input button:hover {
     background: #0056b3;
 }
-
-#contextMenu {
-    display: none;
-    position: absolute;
-    background-color: #fff;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    z-index: 1000;
-}
-
-#contextMenu ul {
-    list-style-type: none;
-    padding: 0;
-    margin: 0;
-}
-
-#contextMenu ul li {
-    padding: 10px;
-    cursor: pointer;
-}
-
-#contextMenu ul li:hover {
-    background-color: #f0f0f0;
-}
-
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    justify-content: center;
+/* Ensure message container layout */
+.message {
+    display: flex;
     align-items: center;
-}
-
-.modal-content {
-    background-color: white;
-    padding: 20px;
-    border-radius: 5px;
-    width: 400px;
-}
-
-.modal-content textarea {
-    width: 100%;
-    height: 100px;
-    margin-bottom: 10px;
-}
-
-.modal-content button {
+    gap: 10px;
     padding: 10px;
-    background-color: red;
-    color: white;
-    border: none;
-    cursor: pointer;
-    border-radius: 5px;
+    border-radius: 8px;
+    max-width: 70%;
+    word-break: break-word;
+    font-size: 14px;
+    position: relative;
+    margin: 5px;
 }
 
-.modal-content button:hover {
-    background-color: darkred;
+/* Ensure profile image displays correctly */
+.message-profile {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 10px;
+}
+
+/* Style for username */
+.message-username {
+    font-weight: bold;
+    font-size: 12px;
+    display: block;
+}
+
+/* Style for timestamp */
+.message-timestamp {
+    font-size: 10px;
+    color: #888;
+    margin-left: 5px;
+    align-self: flex-end;
+}
+
+/* Sent messages (align right with blue) */
+.sent {
+    background-color: #007bff;
+    color: white;
+    align-self: flex-end;
+    text-align: left;
+    padding: 10px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    max-width: 60%;
+}
+
+/* Received messages (align left with white background) */
+.received {
+    background-color: #ffffff;
+    color: black;
+    align-self: flex-start;
+    text-align: left;
+    padding: 10px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    max-width: 60%;
+    border: 1px solid #ddd;
+}
+
+/* Ensure text inside message is correctly formatted */
+.message-text {
+    display: inline-block;
+    word-wrap: break-word;
+    max-width: 100%;
+}
+
+/* Delete button */
+.delete-button {
+    cursor: pointer;
+    color: red;
+    font-size: 12px;
+    margin-left: 5px;
+    align-self: flex-end;
 }
