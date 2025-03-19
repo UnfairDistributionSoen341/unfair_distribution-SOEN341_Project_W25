@@ -1,779 +1,1032 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatHaven - Direct Messages</title>
-    <link rel="stylesheet" href="./dm.css">
-    <style>
-        .message .delete-button {
-           cursor: pointer;
-           color: red;
-           font-size: 12px;
-           margin-left: 10px;
-       }
-       #contextMenu {
-           display: none;
-           position: absolute;
-           background-color: white;
-           border: 1px solid #ccc;
-           box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
-           z-index: 1000;
-       }
-       #contextMenu ul {
-           list-style: none;
-           margin: 0;
-           padding: 0;
-       }
-       #contextMenu li {
-           padding: 8px 12px;
-           cursor: pointer;
-       }
-       #contextMenu li:hover {
-           background-color: #f1f1f1;
-       }
-       .modal {
-           display: none;
-           position: fixed;
-           top: 0;
-           left: 0;
-           width: 100%;
-           height: 100%;
-           background-color: rgba(0, 0, 0, 0.5);
-           justify-content: center;
-           align-items: center;
-       }
-       .modal-content {
-           background-color: white;
-           padding: 20px;
-           border-radius: 5px;
-           width: 300px;
-       }
-       .modal-content textarea {
-           width: 100%;
-           height: 100px;
-           margin-bottom: 10px;
-       }
-       
-
-#emojiPicker {
-    position: absolute;
-    bottom: 50px;
-    right: 10px;
-    display: none;
-    background-color: #fff;
-    border: 1px solid #ddd;
-    padding: 10px;
-    border-radius: 5px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    width: 300px;
-    z-index: 1000;
-}
-
-.emoji-tabs {
-    display: flex;
-    border-bottom: 1px solid #eee;
-    margin-bottom: 10px;
-    overflow-x: auto;
-}
-
-.emoji-tab {
-    background: none;
-    border: none;
-    padding: 5px 10px;
-    cursor: pointer;
-    font-size: 18px;
-    margin-right: 5px;
-    border-radius: 5px 5px 0 0;
-}
-
-.emoji-tab.active {
-    background-color: #f0f0f0;
-    border-bottom: 2px solid #007bff;
-}
-
-.emoji-content {
-    max-height: 200px;
-    overflow-y: auto;
-}
-
-.emoji-category {
-    display: none;
-    flex-wrap: wrap;
-}
-
-.emoji-category.active {
-    display: flex;
-}
-
-.emoji {
-    font-size: 24px;
-    margin: 5px;
-    cursor: pointer;
-    transition: transform 0.1s ease;
-}
-
-.emoji:hover {
-    background-color: #f0f0f0;
-    border-radius: 3px;
-    transform: scale(1.2);
-}
-
-/* Add a scrollbar style for the emoji content */
-.emoji-content::-webkit-scrollbar {
-    width: 8px;
-}
-
-.emoji-content::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
-
-.emoji-content::-webkit-scrollbar-thumb {
-    background: #ddd;
-    border-radius: 4px;
-}
-
-.emoji-content::-webkit-scrollbar-thumb:hover {
-    background: #ccc;
-}
-       </style>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>ChatHaven - Direct Messages</title>
+ <link rel="stylesheet" href="./dm.css">
+ <style>
+ .message .delete-button {
+ cursor: pointer;
+ color: red;
+ font-size: 12px;
+ margin-left: 10px;
+ }
+ #contextMenu {
+ display: none;
+ position: absolute;
+ background-color: white;
+ border: 1px solid #ccc;
+ box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+ z-index: 1000;
+ }
+ #contextMenu ul {
+ list-style: none;
+ margin: 0;
+ padding: 0;
+ }
+ #contextMenu li {
+ padding: 8px 12px;
+ cursor: pointer;
+ }
+ #contextMenu li:hover {
+ background-color: #f1f1f1;
+ }
+ .modal {
+ display: none;
+ position: fixed;
+ top: 0;
+ left: 0;
+ width: 100%;
+ height: 100%;
+ background-color: rgba(0, 0, 0, 0.5);
+ justify-content: center;
+ align-items: center;
+ z-index: 1001;
+ }
+ .modal-content {
+ background-color: white;
+ padding: 20px;
+ border-radius: 5px;
+ width: 300px;
+ }
+ .modal-content textarea {
+ width: 100%;
+ height: 100px;
+ margin-bottom: 10px;
+ }
+ #logoutButton {
+ position: fixed;
+ bottom: 20px;
+ left: 20px;
+ padding: 10px 20px;
+ background-color: red;
+ color: white;
+ border: none;
+ cursor: pointer;
+ font-size: 16px;
+ border-radius: 5px;
+ }
+ #logoutButton:hover {
+ background-color: darkred;
+ }
+ 
+ /* Emoji Picker Styles */
+ .emoji-container {
+ position: relative;
+ margin-right: 10px;
+ }
+ 
+ #emojiButton {
+ cursor: pointer;
+ background: none;
+ border: none;
+ font-size: 20px;
+ padding: 10px;
+ border-radius: 5px;
+ transition: background 0.3s;
+ }
+ 
+ #emojiButton:hover {
+ background-color: #f1f1f1;
+ }
+ 
+ #emojiPicker {
+ position: absolute;
+ bottom: 50px;
+ left: 0;
+ width: 300px;
+ background: white;
+ border: 1px solid #ddd;
+ border-radius: 5px;
+ box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+ z-index: 1000;
+ }
+ 
+ .emoji-tabs {
+ display: flex;
+ border-bottom: 1px solid #ddd;
+ }
+ 
+ .emoji-tab {
+ flex: 1;
+ padding: 10px;
+ text-align: center;
+ background: none;
+ border: none;
+ cursor: pointer;
+ }
+ 
+ .emoji-tab.active {
+ background-color: #f1f1f1;
+ }
+ 
+ .emoji-content {
+ max-height: 200px;
+ overflow-y: auto;
+ padding: 10px;
+ }
+ 
+ .emoji-category {
+ display: none;
+ flex-wrap: wrap;
+ gap: 5px;
+ }
+ 
+ .emoji-category.active {
+ display: flex;
+ }
+ 
+ .emoji {
+ font-size: 20px;
+ cursor: pointer;
+ padding: 5px;
+ border-radius: 5px;
+ }
+ 
+ .emoji:hover {
+ background-color: #f1f1f1;
+ }
+ </style>
 </head>
 <body>
-    <div class="chat-container">
-        <div class="sidebar">
-            <h2>Direct Messages</h2>
-            <input type="text" id="searchUser" placeholder="Search for a user...">
-            <div id="userList"></div>
-        </div>
+ <div class="chat-container">
+ <div class="sidebar">
+ <h2>Direct Messages</h2>
+ <input type="text" id="searchUser" placeholder="Search for a user...">
+ <div id="userList"></div>
+ </div>
 
-        <div class="chat-box">
-            <h2 id="chatUserName">Select a user to chat</h2>
-            <div id="messages"></div>
-            <div class="message-input">
-                <div class="emoji-container">
-                  <!-- Replace the existing emoji picker HTML with this enhanced version -->
-<div class="emoji-container">
-    <button id="emojiButton">😊</button>
-    <div id="emojiPicker" style="display: none;">
-        <div class="emoji-tabs">
-            <button class="emoji-tab active" data-category="smileys">😀</button>
-            <button class="emoji-tab" data-category="animals">🐱</button>
-            <button class="emoji-tab" data-category="food">🍔</button>
-            <button class="emoji-tab" data-category="symbols">❤️</button>
-        </div>
-        <div class="emoji-content">
-            <div class="emoji-category active" id="smileys">
-                <span class="emoji" data-emoji="😀">😀</span>
-                <span class="emoji" data-emoji="😃">😃</span>
-                <span class="emoji" data-emoji="😄">😄</span>
-                <span class="emoji" data-emoji="😁">😁</span>
-                <span class="emoji" data-emoji="😆">😆</span>
-                <span class="emoji" data-emoji="😅">😅</span>
-                <span class="emoji" data-emoji="🤣">🤣</span>
-                <span class="emoji" data-emoji="😂">😂</span>
-                <span class="emoji" data-emoji="🙂">🙂</span>
-                <span class="emoji" data-emoji="🙃">🙃</span>
-                <span class="emoji" data-emoji="😉">😉</span>
-                <span class="emoji" data-emoji="😊">😊</span>
-                <span class="emoji" data-emoji="😇">😇</span>
-                <span class="emoji" data-emoji="🥰">🥰</span>
-                <span class="emoji" data-emoji="😍">😍</span>
-                <span class="emoji" data-emoji="🤩">🤩</span>
-                <span class="emoji" data-emoji="😘">😘</span>
-                <span class="emoji" data-emoji="😗">😗</span>
-                <span class="emoji" data-emoji="😚">😚</span>
-                <span class="emoji" data-emoji="😙">😙</span>
-                <span class="emoji" data-emoji="🥲">🥲</span>
-                <span class="emoji" data-emoji="😋">😋</span>
-                <span class="emoji" data-emoji="😛">😛</span>
-                <span class="emoji" data-emoji="😜">😜</span>
-                <span class="emoji" data-emoji="🤪">🤪</span>
-                <span class="emoji" data-emoji="😝">😝</span>
-                <span class="emoji" data-emoji="🤑">🤑</span>
-                <span class="emoji" data-emoji="🤗">🤗</span>
-                <span class="emoji" data-emoji="🤭">🤭</span>
-                <span class="emoji" data-emoji="🤫">🤫</span>
-                <span class="emoji" data-emoji="🤔">🤔</span>
-                <span class="emoji" data-emoji="🤤">🤤</span>
-                <span class="emoji" data-emoji="🤐">🤐</span>
-                <span class="emoji" data-emoji="🥴">🥴</span>
-                <span class="emoji" data-emoji="😴">😴</span>
-                <span class="emoji" data-emoji="🥱">🥱</span>
-                <span class="emoji" data-emoji="😷">😷</span>
-            </div>
-            <div class="emoji-category" id="animals">
-                <span class="emoji" data-emoji="🐶">🐶</span>
-                <span class="emoji" data-emoji="🐱">🐱</span>
-                <span class="emoji" data-emoji="🐭">🐭</span>
-                <span class="emoji" data-emoji="🐹">🐹</span>
-                <span class="emoji" data-emoji="🐰">🐰</span>
-                <span class="emoji" data-emoji="🦊">🦊</span>
-                <span class="emoji" data-emoji="🐻">🐻</span>
-                <span class="emoji" data-emoji="🐼">🐼</span>
-                <span class="emoji" data-emoji="🐨">🐨</span>
-                <span class="emoji" data-emoji="🐯">🐯</span>
-                <span class="emoji" data-emoji="🦁">🦁</span>
-                <span class="emoji" data-emoji="🐮">🐮</span>
-                <span class="emoji" data-emoji="🐷">🐷</span>
-                <span class="emoji" data-emoji="🐸">🐸</span>
-                <span class="emoji" data-emoji="🐵">🐵</span>
-                <span class="emoji" data-emoji="🐔">🐔</span>
-                <span class="emoji" data-emoji="🐧">🐧</span>
-                <span class="emoji" data-emoji="🐦">🐦</span>
-                <span class="emoji" data-emoji="🦄">🦄</span>
-                <span class="emoji" data-emoji="🦇">🦇</span>
-                <span class="emoji" data-emoji="🦉">🦉</span>
-                <span class="emoji" data-emoji="🦋">🦋</span>
-                <span class="emoji" data-emoji="🐝">🐝</span>
-                <span class="emoji" data-emoji="🐢">🐢</span>
-                <span class="emoji" data-emoji="🐙">🐙</span>
-                <span class="emoji" data-emoji="🦑">🦑</span>
-                <span class="emoji" data-emoji="🦞">🦞</span>
-                <span class="emoji" data-emoji="🦀">🦀</span>
-                <span class="emoji" data-emoji="🐬">🐬</span>
-                <span class="emoji" data-emoji="🐳">🐳</span>
-            </div>
-            <div class="emoji-category" id="food">
-                <span class="emoji" data-emoji="🍎">🍎</span>
-                <span class="emoji" data-emoji="🍐">🍐</span>
-                <span class="emoji" data-emoji="🍊">🍊</span>
-                <span class="emoji" data-emoji="🍋">🍋</span>
-                <span class="emoji" data-emoji="🍌">🍌</span>
-                <span class="emoji" data-emoji="🍉">🍉</span>
-                <span class="emoji" data-emoji="🍇">🍇</span>
-                <span class="emoji" data-emoji="🍓">🍓</span>
-                <span class="emoji" data-emoji="🍈">🍈</span>
-                <span class="emoji" data-emoji="🍒">🍒</span>
-                <span class="emoji" data-emoji="🍑">🍑</span>
-                <span class="emoji" data-emoji="🥭">🥭</span>
-                <span class="emoji" data-emoji="🍍">🍍</span>
-                <span class="emoji" data-emoji="🥥">🥥</span>
-                <span class="emoji" data-emoji="🥝">🥝</span>
-                <span class="emoji" data-emoji="🍅">🍅</span>
-                <span class="emoji" data-emoji="🍆">🍆</span>
-                <span class="emoji" data-emoji="🥑">🥑</span>
-                <span class="emoji" data-emoji="🥦">🥦</span>
-                <span class="emoji" data-emoji="🥬">🥬</span>
-                <span class="emoji" data-emoji="🥕">🥕</span>
-                <span class="emoji" data-emoji="🌽">🌽</span>
-                <span class="emoji" data-emoji="🌶️">🌶️</span>
-                <span class="emoji" data-emoji="🥐">🥐</span>
-                <span class="emoji" data-emoji="🍞">🍞</span>
-                <span class="emoji" data-emoji="🥨">🥨</span>
-                <span class="emoji" data-emoji="🍔">🍔</span>
-                <span class="emoji" data-emoji="🍟">🍟</span>
-                <span class="emoji" data-emoji="🍕">🍕</span>
-                <span class="emoji" data-emoji="🌭">🌭</span>
-                <span class="emoji" data-emoji="🍿">🍿</span>
-                <span class="emoji" data-emoji="🧁">🧁</span>
-                <span class="emoji" data-emoji="🍰">🍰</span>
-                <span class="emoji" data-emoji="🍫">🍫</span>
-                <span class="emoji" data-emoji="🍬">🍬</span>
-            </div>
-        
-            <div class="emoji-category" id="symbols">
-                <span class="emoji" data-emoji="❤️">❤️</span>
-                <span class="emoji" data-emoji="🧡">🧡</span>
-                <span class="emoji" data-emoji="💛">💛</span>
-                <span class="emoji" data-emoji="💚">💚</span>
-                <span class="emoji" data-emoji="💙">💙</span>
-                <span class="emoji" data-emoji="💜">💜</span>
-                <span class="emoji" data-emoji="🖤">🖤</span>
-                <span class="emoji" data-emoji="🤍">🤍</span>
-                <span class="emoji" data-emoji="🤎">🤎</span>
-                <span class="emoji" data-emoji="💔">💔</span>
-                <span class="emoji" data-emoji="❣️">❣️</span>
-                <span class="emoji" data-emoji="💕">💕</span>
-                <span class="emoji" data-emoji="💞">💞</span>
-                <span class="emoji" data-emoji="💓">💓</span>
-                <span class="emoji" data-emoji="💗">💗</span>
-                <span class="emoji" data-emoji="💖">💖</span>
-                <span class="emoji" data-emoji="💘">💘</span>
-                <span class="emoji" data-emoji="💝">💝</span>
-                <span class="emoji" data-emoji="⭐">⭐</span>
-                <span class="emoji" data-emoji="🌟">🌟</span>
-                <span class="emoji" data-emoji="✨">✨</span>
-                <span class="emoji" data-emoji="⚡">⚡</span>
-                <span class="emoji" data-emoji="💥">💥</span>
-                <span class="emoji" data-emoji="💫">💫</span>
-                <span class="emoji" data-emoji="🔥">🔥</span>
-                <span class="emoji" data-emoji="🌈">🌈</span>
-                <span class="emoji" data-emoji="☀️">☀️</span>
-                <span class="emoji" data-emoji="🌤️">🌤️</span>
-                <span class="emoji" data-emoji="☁️">☁️</span>
-                <span class="emoji" data-emoji="🌙">🌙</span>
-            </div>
-        </div>
-    </div>
+ <div class="chat-box">
+ <h2 id="chatUserName">Select a user to chat</h2>
+ <div id="messages"></div>
+ <div class="message-input">
+ <div class="emoji-container">
+ <button id="emojiButton">😊</button>
+ <div id="emojiPicker" style="display: none;">
+ <div class="emoji-tabs">
+ <button class="emoji-tab active" data-category="smileys">😀</button>
+ <button class="emoji-tab" data-category="animals">🐱</button>
+ <button class="emoji-tab" data-category="food">🍔</button>
+ <button class="emoji-tab" data-category="symbols">❤️</button>
+ </div>
+ <div class="emoji-content">
+ <div class="emoji-category active" id="smileys">
+ <span class="emoji" data-emoji="😀">😀</span>
+ <span class="emoji" data-emoji="😃">😃</span>
+ <span class="emoji" data-emoji="😄">😄</span>
+ <span class="emoji" data-emoji="😁">😁</span>
+ <span class="emoji" data-emoji="😆">😆</span>
+ <span class="emoji" data-emoji="😅">😅</span>
+ <span class="emoji" data-emoji="🤣">🤣</span>
+ <span class="emoji" data-emoji="😂">😂</span>
+ <span class="emoji" data-emoji="🙂">🙂</span>
+ <span class="emoji" data-emoji="🙃">🙃</span>
+ <span class="emoji" data-emoji="😉">😉</span>
+ <span class="emoji" data-emoji="😊">😊</span>
+ <span class="emoji" data-emoji="😇">😇</span>
+ <span class="emoji" data-emoji="🥰">🥰</span>
+ <span class="emoji" data-emoji="😍">😍</span>
+ <span class="emoji" data-emoji="🤩">🤩</span>
+ <span class="emoji" data-emoji="😘">😘</span>
+ <span class="emoji" data-emoji="😗">😗</span>
+ <span class="emoji" data-emoji="😚">😚</span>
+ <span class="emoji" data-emoji="😙">😙</span>
+ <span class="emoji" data-emoji="🥲">🥲</span>
+ <span class="emoji" data-emoji="😋">😋</span>
+ <span class="emoji" data-emoji="😛">😛</span>
+ <span class="emoji" data-emoji="😜">😜</span>
+ <span class="emoji" data-emoji="🤪">🤪</span>
+ <span class="emoji" data-emoji="😝">😝</span>
+ <span class="emoji" data-emoji="🤑">🤑</span>
+ <span class="emoji" data-emoji="🤗">🤗</span>
+ <span class="emoji" data-emoji="🤭">🤭</span>
+ <span class="emoji" data-emoji="🤫">🤫</span>
+ <span class="emoji" data-emoji="🤔">🤔</span>
+ <span class="emoji" data-emoji="🤤">🤤</span>
+ <span class="emoji" data-emoji="🤐">🤐</span>
+ <span class="emoji" data-emoji="🥴">🥴</span>
+ <span class="emoji" data-emoji="😴">😴</span>
+ <span class="emoji" data-emoji="🥱">🥱</span>
+ <span class="emoji" data-emoji="😷">😷</span>
+ <span class="emoji" data-emoji="🖕">🖕</span>
+ <span class="emoji" data-emoji="💀">💀</span>
+ <span class="emoji" data-emoji="💩">💩</span>
+ <span class="emoji" data-emoji="🤢">🤢</span>
 </div>
-                    </div>                    
-                </div>
-                <input type="text" id="messageInput" placeholder="Type a message...">
-                <button id="sendMessage">Send</button>
-            </div>
-        </div>
-    </div>
+ <div class="emoji-category" id="animals">
+ <span class="emoji" data-emoji="🐶">🐶</span>
+ <span class="emoji" data-emoji="🐱">🐱</span>
+ <span class="emoji" data-emoji="🐭">🐭</span>
+ <span class="emoji" data-emoji="🐹">🐹</span>
+ <span class="emoji" data-emoji="🐰">🐰</span>
+ <span class="emoji" data-emoji="🦊">🦊</span>
+ <span class="emoji" data-emoji="🐻">🐻</span>
+ <span class="emoji" data-emoji="🐼">🐼</span>
+ <span class="emoji" data-emoji="🐨">🐨</span>
+ <span class="emoji" data-emoji="🐯">🐯</span>
+ <span class="emoji" data-emoji="🦁">🦁</span>
+ <span class="emoji" data-emoji="🐮">🐮</span>
+ <span class="emoji" data-emoji="🐷">🐷</span>
+ <span class="emoji" data-emoji="🐸">🐸</span>
+ <span class="emoji" data-emoji="🐵">🐵</span>
+ <span class="emoji" data-emoji="🐔">🐔</span>
+ <span class="emoji" data-emoji="🐧">🐧</span>
+ <span class="emoji" data-emoji="🐦">🐦</span>
+ <span class="emoji" data-emoji="🦄">🦄</span>
+ <span class="emoji" data-emoji="🦇">🦇</span>
+ <span class="emoji" data-emoji="🦉">🦉</span>
+ <span class="emoji" data-emoji="🦋">🦋</span>
+ <span class="emoji" data-emoji="🐝">🐝</span>
+ <span class="emoji" data-emoji="🐢">🐢</span>
+ <span class="emoji" data-emoji="🐙">🐙</span>
+ <span class="emoji" data-emoji="🦑">🦑</span>
+ <span class="emoji" data-emoji="🦞">🦞</span>
+ <span class="emoji" data-emoji="🦀">🦀</span>
+ <span class="emoji" data-emoji="🐬">🐬</span>
+ <span class="emoji" data-emoji="🐳">🐳</span>
+ </div>
+ <div class="emoji-category" id="food">
+ <span class="emoji" data-emoji="🍎">🍎</span>
+ <span class="emoji" data-emoji="🍐">🍐</span>
+ <span class="emoji" data-emoji="🍊">🍊</span>
+ <span class="emoji" data-emoji="🍋">🍋</span>
+ <span class="emoji" data-emoji="🍌">🍌</span>
+ <span class="emoji" data-emoji="🍉">🍉</span>
+ <span class="emoji" data-emoji="🍇">🍇</span>
+ <span class="emoji" data-emoji="🍓">🍓</span>
+ <span class="emoji" data-emoji="🍈">🍈</span>
+ <span class="emoji" data-emoji="🍒">🍒</span>
+ <span class="emoji" data-emoji="🍑">🍑</span>
+ <span class="emoji" data-emoji="🥭">🥭</span>
+ <span class="emoji" data-emoji="🍍">🍍</span>
+ <span class="emoji" data-emoji="🥥">🥥</span>
+ <span class="emoji" data-emoji="🥝">🥝</span>
+ <span class="emoji" data-emoji="🍅">🍅</span>
+ <span class="emoji" data-emoji="🍆">🍆</span>
+ <span class="emoji" data-emoji="🥑">🥑</span>
+ <span class="emoji" data-emoji="🥦">🥦</span>
+ <span class="emoji" data-emoji="🥬">🥬</span>
+ <span class="emoji" data-emoji="🥕">🥕</span>
+ <span class="emoji" data-emoji="🌽">🌽</span>
+ <span class="emoji" data-emoji="🌶️">🌶️</span>
+ <span class="emoji" data-emoji="🥐">🥐</span>
+ <span class="emoji" data-emoji="🍞">🍞</span>
+ <span class="emoji" data-emoji="🥨">🥨</span>
+ <span class="emoji" data-emoji="🍔">🍔</span>
+ <span class="emoji" data-emoji="🍟">🍟</span>
+ <span class="emoji" data-emoji="🍕">🍕</span>
+ <span class="emoji" data-emoji="🌭">🌭</span>
+ <span class="emoji" data-emoji="🍿">🍿</span>
+ <span class="emoji" data-emoji="🧁">🧁</span>
+ <span class="emoji" data-emoji="🍰">🍰</span>
+ <span class="emoji" data-emoji="🍫">🍫</span>
+ <span class="emoji" data-emoji="🍬">🍬</span>
+ </div>
+ <div class="emoji-category" id="symbols">
+ <span class="emoji" data-emoji="❤️">❤️</span>
+ <span class="emoji" data-emoji="🧡">🧡</span>
+ <span class="emoji" data-emoji="💛">💛</span>
+ <span class="emoji" data-emoji="💚">💚</span>
+ <span class="emoji" data-emoji="💙">💙</span>
+ <span class="emoji" data-emoji="💜">💜</span>
+ <span class="emoji" data-emoji="🖤">🖤</span>
+ <span class="emoji" data-emoji="🤍">🤍</span>
+ <span class="emoji" data-emoji="🤎">🤎</span>
+ <span class="emoji" data-emoji="💔">💔</span>
+ <span class="emoji" data-emoji="❣️">❣️</span>
+ <span class="emoji" data-emoji="💕">💕</span>
+ <span class="emoji" data-emoji="💞">💞</span>
+ <span class="emoji" data-emoji="💓">💓</span>
+ <span class="emoji" data-emoji="💗">💗</span>
+ <span class="emoji" data-emoji="💖">💖</span>
+ <span class="emoji" data-emoji="💘">💘</span>
+ <span class="emoji" data-emoji="💝">💝</span>
+ <span class="emoji" data-emoji="⭐">⭐</span>
+ <span class="emoji" data-emoji="🌟">🌟</span>
+ <span class="emoji" data-emoji="✨">✨</span>
+ <span class="emoji" data-emoji="⚡">⚡</span>
+ <span class="emoji" data-emoji="💥">💥</span>
+ <span class="emoji" data-emoji="💫">💫</span>
+ <span class="emoji" data-emoji="🔥">🔥</span>
+ <span class="emoji" data-emoji="🌈">🌈</span>
+ <span class="emoji" data-emoji="☀️">☀️</span>
+ <span class="emoji" data-emoji="🌤️">🌤️</span>
+ <span class="emoji" data-emoji="☁️">☁️</span>
+ <span class="emoji" data-emoji="🌙">🌙</span>
+ </div>
+ </div>
+ </div>
+ </div>
+ <input type="text" id="messageInput" placeholder="Type a message...">
+ <button id="sendMessage">Send</button>
+ </div>
+ </div>
+ </div>
 
-    <button id="logoutButton">Logout</button>
-    <style>
-        #logoutButton {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            padding: 10px 20px;
-            background-color: red;
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-            border-radius: 5px;
-        }
-        #logoutButton:hover {
-            background-color: darkred;
-        }
+ <button id="logoutButton">Logout</button>
 
-        #emojiPicker {
-    position: absolute;
-    bottom: 50px;
-    right: 10px;
-    display: none;
-    background-color: #fff;
-    border: 1px solid #ddd;
-    padding: 10px;
-    border-radius: 5px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
+ <div id="contextMenu">
+ <ul>
+ <li id="reportOption">Report</li>
+ <li id="blockOption">Block</li>
+ </ul>
+ </div>
+ 
+ <div id="reasonModal" class="modal">
+ <div class="modal-content">
+ <h3>Provide a reason</h3>
+ <textarea id="reasonText" placeholder="Enter your reason here..."></textarea>
+ <button id="submitReason">Submit</button>
+ <button id="cancelReason">Cancel</button>
+ </div>
+ </div>
 
-    .emoji {
-    font-size: 24px;
-    margin: 5px;
-    cursor: pointer;
-    }
+ <script type="module">
+ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+ import { getDatabase, ref, push, onChildAdded, onChildChanged, get, update, query, orderByChild } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+ import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+ 
+ const firebaseConfig = {
+ apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
+ authDomain: "project-8042491080443698183.firebaseapp.com",
+ databaseURL: "https://project-8042491080443698183-default-rtdb.firebaseio.com",
+ projectId: "project-8042491080443698183",
+ storageBucket: "project-8042491080443698183.firebasestorage.app",
+ messagingSenderId: "583304911847",
+ appId: "1:583304911847:web:8dfe3e5c016062dd457b42",
+ measurementId: "G-KQMXKEVNQ7"
+ };
+ 
+ const app = initializeApp(firebaseConfig);
+ const db = getDatabase(app);
+ const auth = getAuth(app);
+ 
+ let currentUser = null;
+ let currentUsername = null;
+ let selectedUser = null;
+ let selectedUsername = null;
+ let chatID = null;
+ let chatUsers = [];
+ let currentAction = null;
+ let actionUser = null;
+ let userCache = {}; // Cache user data to avoid repeated lookups
+ let usernameResolvers = {}; // Map of email addresses to usernames
+ 
+ // Emoji picker functionality
+ const emojiButton = document.getElementById("emojiButton");
+ const emojiPicker = document.getElementById("emojiPicker");
+ const emojiTabs = document.querySelectorAll(".emoji-tab");
+ const emojis = document.querySelectorAll(".emoji");
+ const messageInput = document.getElementById("messageInput");
+ 
+ // Toggle emoji picker
+ emojiButton.addEventListener("click", function() {
+ emojiPicker.style.display = emojiPicker.style.display === "none" ? "block" : "none";
+ });
+ 
+ // Tab switching
+ emojiTabs.forEach(tab => {
+ tab.addEventListener("click", function() {
+ // Remove active class from all tabs
+ emojiTabs.forEach(t => t.classList.remove("active"));
+ 
+ // Add active class to clicked tab
+ this.classList.add("active");
+ 
+ // Hide all categories
+ document.querySelectorAll(".emoji-category").forEach(category => {
+ category.classList.remove("active");
+ });
+ 
+ // Show selected category
+ const categoryId = this.getAttribute("data-category");
+ document.getElementById(categoryId).classList.add("active");
+ 
+ // Log for debugging
+ console.log(`Showing emoji category: ${categoryId}`);
+ });
+ });
+ 
+ // Initialize emoji tabs - ensure first tab is active by default
+ document.querySelector(".emoji-tab[data-category='smileys']").click();
+ 
+ // Emoji selection
+ emojis.forEach(emoji => {
+ emoji.addEventListener("click", function() {
+ const emojiChar = this.getAttribute("data-emoji");
+ 
+ // Insert emoji at cursor position
+ const cursorPosition = messageInput.selectionStart;
+ const textBefore = messageInput.value.substring(0, cursorPosition);
+ const textAfter = messageInput.value.substring(cursorPosition);
+ 
+ messageInput.value = textBefore + emojiChar + textAfter;
+ 
+ // Set cursor position after inserted emoji
+ messageInput.focus();
+ messageInput.selectionStart = cursorPosition + emojiChar.length;
+ messageInput.selectionEnd = cursorPosition + emojiChar.length;
+ 
+ // Hide emoji picker after selection
+ emojiPicker.style.display = "none";
+ });
+ });
+ 
+ // Close emoji picker if clicked outside
+ document.addEventListener("click", function(event) {
+ if (!emojiPicker.contains(event.target) && event.target !== emojiButton) {
+ emojiPicker.style.display = "none";
+ }
+ });
+ 
+ onAuthStateChanged(auth, (user) => {
+ if (user) {
+ currentUser = user;
+ console.log("✅ Logged in as:", currentUser.email);
+ 
+ const usersRef = ref(db, `users/${currentUser.uid}`);
+ get(usersRef).then((snapshot) => {
+ if (snapshot.exists()) {
+ currentUsername = snapshot.val().username;
+ // Cache current user data
+ userCache[currentUser.uid] = snapshot.val();
+ // Cache email to username mapping
+ usernameResolvers[currentUser.email] = currentUsername;
+ 
+ // Start loading data
+ preloadAllUserData().then(() => {
+ loadUsers();
+ setupSearch();
+ });
+ } else {
+ console.error("❌ Current user data not found.");
+ }
+ });
+ } else {
+ window.location.href = "../LoginPage/user_login.html";
+ }
+ });
+ 
+ // Preload ALL user data to fix the "Unknown User" issues
+ async function preloadAllUserData() {
+ console.log("🔄 Loading all user data...");
+ const usersRef = ref(db, "users");
+ 
+ try {
+ const snapshot = await get(usersRef);
+ if (snapshot.exists()) {
+ // First build the UID to user data cache
+ snapshot.forEach((childSnapshot) => {
+ const userData = childSnapshot.val();
+ if (userData.uid) {
+ userCache[userData.uid] = userData;
+ 
+ // Also map email to username and UID for quicker lookups
+ if (userData.email && userData.username) {
+ usernameResolvers[userData.email] = userData.username;
+ }
+ }
+ });
+ 
+ console.log(`✅ Preloaded data for ${Object.keys(userCache).length} users`);
+ }
+ } catch (error) {
+ console.error("❌ Error preloading user data:", error);
+ }
+ }
+ 
+ // Function to find username by email
+ function getUsernameByEmail(email) {
+ // First check our resolver cache
+ if (usernameResolvers[email]) {
+ return usernameResolvers[email];
+ }
+ 
+ // If not found, check all users in userCache
+ for (const uid in userCache) {
+ const user = userCache[uid];
+ if (user.email === email) {
+ // Cache this for future lookups
+ usernameResolvers[email] = user.username;
+ return user.username;
+ }
+ }
+ 
+ return null;
+ }
+ 
+ // Function to find user by email
+ function getUserByEmail(email) {
+ for (const uid in userCache) {
+ const user = userCache[uid];
+ if (user.email === email) {
+ return user;
+ }
+ }
+ return null;
+ }
+ 
+ function loadUsers() {
+ const userList = document.getElementById("userList");
+ userList.innerHTML = "";
 
-    .emoji:hover {
-    background-color: #f0f0f0;
-    border-radius: 3px;
-    }
-</style>
+ const chatsRef = ref(db, "chats");
+ const blockedRef = ref(db, `blocked/${currentUser.uid}`);
 
-    <div id="contextMenu">
-         <ul>
-            <li id="reportOption">Report</li>
-            <li id="blockOption">Block</li>
-         </ul>
-    </div>
-    <div id="reasonModal" class="modal">
-        <div class="modal-content">
-            <h3>Provide a reason</h3>
-            <textarea id="reasonText" placeholder="Enter your reason here..."></textarea>
-            <button id="submitReason">Submit</button>
-        </div>
-    </div>
+ get(blockedRef).then((blockedSnapshot) => {
+ let blockedUsers = new Set();
+ if (blockedSnapshot.exists()) {
+ blockedSnapshot.forEach(childSnapshot => {
+ blockedUsers.add(childSnapshot.key);
+ });
+ }
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getDatabase, ref, push, onChildAdded, get, update } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-        
-        const firebaseConfig = {
-            apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
-            authDomain: "project-8042491080443698183.firebaseapp.com",
-            databaseURL: "https://project-8042491080443698183-default-rtdb.firebaseio.com",
-            projectId: "project-8042491080443698183",
-            storageBucket: "project-8042491080443698183.firebasestorage.app",
-            messagingSenderId: "583304911847",
-            appId: "1:583304911847:web:8dfe3e5c016062dd457b42",
-            measurementId: "G-KQMXKEVNQ7"
-        };
-        
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        const auth = getAuth(app);
-        
-        let currentUser = null;
-        let currentUsername = null;
-        let selectedUser = null;
-        let selectedUsername = null;
-        let chatID = null;
-        let chatUsers = [];
-        let picker = null;
-        
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUser = user;
-                console.log("✅ Logged in as:", currentUser.email);
-        
-                const usersRef = ref(db, `users/${currentUser.uid}`);
-                get(usersRef).then((snapshot) => {
-                    if (snapshot.exists()) {
-                        currentUsername = snapshot.val().username;
-                        loadUsers();
-                        setupSearch();
-                        setupEmojiPicker();
-                    } else {
-                        console.error("❌ Current user data not found.");
-                    }
-                });
-        
-            } else {
-                window.location.href = "../LoginPage/user_login.html";
-            }
-        });
-        
-        function setupEmojiPicker() {
-    const emojiButton = document.getElementById("emojiButton");
-    const emojiPicker = document.getElementById("emojiPicker");
-    const emojiTabs = document.querySelectorAll(".emoji-tab");
-    const emojiCategories = document.querySelectorAll(".emoji-category");
-    const emojis = document.querySelectorAll(".emoji");
-    const messageInput = document.getElementById("messageInput");
-    
-    // Toggle emoji picker visibility
-    emojiButton.addEventListener("click", function() {
-        emojiPicker.style.display = emojiPicker.style.display === "none" ? "block" : "none";
-    });
-    
-    // Switch between emoji categories
-    emojiTabs.forEach(tab => {
-        tab.addEventListener("click", function() {
-            // Remove active class from all tabs and categories
-            emojiTabs.forEach(t => t.classList.remove("active"));
-            emojiCategories.forEach(c => c.classList.remove("active"));
-            
-            // Add active class to clicked tab
-            this.classList.add("active");
-            
-            // Show corresponding category
-            const categoryId = this.getAttribute("data-category");
-            document.getElementById(categoryId).classList.add("active");
-        });
-    });
-    
-    // Add emoji to message input when clicked
-    emojis.forEach(emoji => {
-        emoji.addEventListener("click", function() {
-            const emojiChar = this.getAttribute("data-emoji");
-            messageInput.value += emojiChar;
-            messageInput.focus();
-        });
-    });
-    
-    // Close emoji picker when clicking outside
-    document.addEventListener("click", function(event) {
-        if (!emojiButton.contains(event.target) && !emojiPicker.contains(event.target)) {
-            emojiPicker.style.display = "none";
-        }
-    });
-    
-    // Prevent emoji picker from closing when clicking inside it
-    emojiPicker.addEventListener("click", function(event) {
-        event.stopPropagation();
-    });
-}
-        function loadUsers() {
-            const userList = document.getElementById("userList");
-            userList.innerHTML = "";
+ get(chatsRef).then((snapshot) => {
+ if (snapshot.exists()) {
+ let chatUserIDs = new Set();
 
-            const chatsRef = ref(db, "chats");
-            const blockedRef = ref(db, `blocked/${currentUser.uid}`);
+ snapshot.forEach((chatSnapshot) => {
+ const [userA, userB] = chatSnapshot.key.split("_");
+ if (userA === currentUser.uid && !blockedUsers.has(userB)) {
+ chatUserIDs.add(userB);
+ } else if (userB === currentUser.uid && !blockedUsers.has(userA)) {
+ chatUserIDs.add(userA);
+ }
+ });
 
-            get(blockedRef).then((blockedSnapshot) => {
-                let blockedUsers = new Set();
-                if (blockedSnapshot.exists()) {
-                    blockedSnapshot.forEach(childSnapshot => {
-                        blockedUsers.add(childSnapshot.key);
-                    });
-                }
+ if (chatUserIDs.size === 0) {
+ userList.innerHTML = "<p>No conversations yet.</p>";
+ return;
+ }
 
-                get(chatsRef).then((snapshot) => {
-                    if (snapshot.exists()) {
-                        let chatUserIDs = new Set();
+ chatUsers = [];
+ chatUserIDs.forEach(uid => {
+ if (userCache[uid]) {
+ chatUsers.push(userCache[uid]);
+ }
+ });
 
-                        snapshot.forEach((chatSnapshot) => {
-                            const [userA, userB] = chatSnapshot.key.split("_");
-                            if (userA === currentUser.uid && !blockedUsers.has(userB)) {
-                                chatUserIDs.add(userB);
-                            } else if (userB === currentUser.uid && !blockedUsers.has(userA)) {
-                                chatUserIDs.add(userA);
-                            }
-                        });
+ displayUsers(chatUsers);
+ } else {
+ userList.innerHTML = "<p>No conversations found.</p>";
+ }
+ }).catch(error => {
+ console.error("❌ Error loading conversations:", error);
+ userList.innerHTML = "<p>Error loading conversations.</p>";
+ });
+ });
+ }
+ 
+ function setupSearch() {
+ const searchInput = document.getElementById("searchUser");
+ searchInput.addEventListener("input", () => {
+ const searchValue = searchInput.value.trim().toLowerCase();
+ 
+ if (searchValue === "") {
+ displayUsers(chatUsers); // Show previous chats again
+ } else {
+ searchAllUsers(searchValue); // Search all users
+ }
+ });
+ }
+ 
+ function searchAllUsers(searchValue) {
+ const userList = document.getElementById("userList");
+ 
+ // Search in userCache
+ let filteredUsers = Object.values(userCache).filter(user => 
+ user.uid !== currentUser.uid && 
+ user.username && 
+ user.username.toLowerCase().includes(searchValue)
+ );
+ 
+ displayUsers(filteredUsers);
+ }
+ 
+ function displayUsers(users) {
+ const userList = document.getElementById("userList");
+ userList.innerHTML = "";
+ 
+ if (users.length === 0) {
+ userList.innerHTML = "<p>No users found.</p>";
+ } else {
+ users.forEach(user => {
+ let userDiv = document.createElement("div");
+ userDiv.classList.add("user");
+ userDiv.innerText = user.username;
+ userDiv.addEventListener("click", () => startChat(user));
+ userDiv.addEventListener("contextmenu", (event) => {
+ event.preventDefault();
+ showContextMenu(event, user);
+ });
+ userList.appendChild(userDiv);
+ });
+ }
+ }
+ 
+ function startChat(user) {
+ selectedUser = user;
+ selectedUsername = user.username;
+ document.getElementById("chatUserName").innerText = `Chat with ${selectedUsername}`;
+ chatID = generateChatID(currentUser.uid, selectedUser.uid);
+ console.log(`📩 Chat started with ${selectedUsername} (Chat ID: ${chatID})`);
+ loadMessages();
+ }
+ 
+ function generateChatID(userA, userB) {
+ return userA < userB ? `${userA}_${userB}` : `${userB}_${userA}`;
+ }
+ 
+ function loadMessages() {
+ const messagesDiv = document.getElementById("messages");
+ messagesDiv.innerHTML = "";
+ const chatRef = ref(db, `chats/${chatID}/messages`);
+ 
+ // Keep track of messages we've already rendered
+ const renderedMessageIds = new Set();
+ 
+ // First, get all messages at once and sort them
+ get(chatRef).then((snapshot) => {
+ if (snapshot.exists()) {
+ let messages = [];
+ 
+ snapshot.forEach(childSnapshot => {
+ const message = childSnapshot.val();
+ if (!message.deleted) {
+ messages.push({
+ id: childSnapshot.key,
+ ...message
+ });
+ }
+ // Add to our tracking set
+ renderedMessageIds.add(childSnapshot.key);
+ });
+ 
+ // Sort messages by timestamp (oldest first)
+ messages.sort((a, b) => a.timestamp - b.timestamp);
+ 
+ // Process each message in order
+ const processMessages = async () => {
+ for (const message of messages) {
+ await renderMessage(message, message.id);
+ }
+ // Scroll to the bottom after all messages are rendered
+ messagesDiv.scrollTop = messagesDiv.scrollHeight;
+ };
+ 
+ processMessages();
+ }
+ }).then(() => {
+ // Only after initial load is complete, listen for new messages
+ onChildAdded(chatRef, async (snapshot) => {
+ const messageData = snapshot.val();
+ const messageId = snapshot.key;
+ 
+ // Skip deleted messages and messages we've already rendered
+ if (messageData.deleted || renderedMessageIds.has(messageId)) {
+ return;
+ }
+ 
+ // Add to our tracking set
+ renderedMessageIds.add(messageId);
+ 
+ await renderMessage(messageData, messageId);
+ messagesDiv.scrollTop = messagesDiv.scrollHeight;
+ });
+ 
+ // Listen for changes to existing messages (for real-time deletion)
+ onChildChanged(chatRef, (snapshot) => {
+ const messageData = snapshot.val();
+ const messageId = snapshot.key;
+ 
+ // If the message is marked as deleted, hide it
+ if (messageData.deleted) {
+ const messageElement = document.getElementById(messageId);
+ if (messageElement) {
+ messageElement.style.display = "none";
+ console.log(`🗑️ Message ${messageId} was deleted by another user.`);
+ }
+ }
+ });
+ });
+ }
+ 
+ async function resolveUsername(uid) {
+ // First check cache
+ if (userCache[uid] && userCache[uid].username) {
+ return userCache[uid].username;
+ }
+ 
+ // If not in cache, fetch from database
+ try {
+ const userRef = ref(db, `users/${uid}`);
+ const snapshot = await get(userRef);
+ if (snapshot.exists()) {
+ const userData = snapshot.val();
+ // Update cache
+ userCache[uid] = userData;
+ return userData.username;
+ }
+ } catch (error) {
+ console.error("Error fetching username:", error);
+ }
+ 
+ return "Unknown User";
+ }
+ 
+ async function resolveProfilePic(uid, defaultPic = "default-pfp.png") {
+ // First check cache
+ if (userCache[uid] && userCache[uid].profilePicture) {
+ return userCache[uid].profilePicture;
+ }
+ 
+ // If not in cache, fetch from database
+ try {
+ const userRef = ref(db, `users/${uid}`);
+ const snapshot = await get(userRef);
+ if (snapshot.exists()) {
+ const userData = snapshot.val();
+ // Update cache
+ userCache[uid] = userData;
+ return userData.profilePicture || defaultPic;
+ }
+ } catch (error) {
+ console.error("Error fetching profile picture:", error);
+ }
+ 
+ return defaultPic;
+ }
 
-                        if (chatUserIDs.size === 0) {
-                            userList.innerHTML = "<p>No conversations yet.</p>";
-                            return;
-                        }
+ async function renderMessage(messageData, messageId) {
+ const messagesDiv = document.getElementById("messages");
+ 
+ // Create the message container
+ let messageElement = document.createElement("div");
+ messageElement.classList.add("message");
+ messageElement.id = messageId;
 
-                        const usersRef = ref(db, "users");
-                        get(usersRef).then((userSnapshot) => {
-                            if (userSnapshot.exists()) {
-                                chatUsers = [];
+ // Assign sent or received class
+ if (messageData.sender === currentUser.email) {
+ messageElement.classList.add("sent");
+ } else {
+ messageElement.classList.add("received");
+ }
 
-                                userSnapshot.forEach((childSnapshot) => {
-                                    let user = childSnapshot.val();
-                                    if (chatUserIDs.has(user.uid)) {
-                                        chatUsers.push(user);
-                                    }
-                                });
+ // Ensure we have the sender's username and profile picture
+ let senderUsername = messageData.senderUsername;
+ let profilePicURL = messageData.profilePicture;
+ let senderUID = messageData.senderUID;
+ 
+ // Try to get username in multiple ways - for older messages that might not have all data
+ if (!senderUsername || senderUsername === "Unknown User") {
+ // First try to get username from senderUID
+ if (senderUID) {
+ senderUsername = await resolveUsername(senderUID);
+ }
+ 
+ // If still unknown, try getting from email
+ if ((!senderUsername || senderUsername === "Unknown User") && messageData.sender) {
+ const usernameFromEmail = getUsernameByEmail(messageData.sender);
+ if (usernameFromEmail) {
+ senderUsername = usernameFromEmail;
+ 
+ // Get the sender's UID if we don't have it yet
+ if (!senderUID) {
+ const user = getUserByEmail(messageData.sender);
+ if (user) {
+ senderUID = user.uid;
+ }
+ }
+ }
+ }
+ }
+ 
+ // If profile picture is missing, try to resolve it
+ if (!profilePicURL && senderUID) {
+ profilePicURL = await resolveProfilePic(senderUID);
+ } else if (!profilePicURL && messageData.sender) {
+ // Try to get profile picture from email
+ const user = getUserByEmail(messageData.sender);
+ if (user && user.profilePicture) {
+ profilePicURL = user.profilePicture;
+ } else {
+ profilePicURL = "default-pfp.png";
+ }
+ } else if (!profilePicURL) {
+ profilePicURL = "default-pfp.png";
+ }
 
-                                displayUsers(chatUsers);
-                            } else {
-                                userList.innerHTML = "<p>No users found.</p>";
-                            }
-                        });
-                    } else {
-                        userList.innerHTML = "<p>No conversations found.</p>";
-                    }
-                }).catch(error => {
-                    console.error("❌ Error loading conversations:", error);
-                    userList.innerHTML = "<p>Error loading conversations.</p>";
-                });
-            });
-        }
-        
-        function setupSearch() {
-            const searchInput = document.getElementById("searchUser");
-            searchInput.addEventListener("input", () => {
-                const searchValue = searchInput.value.trim().toLowerCase();
-        
-                if (searchValue === "") {
-                    displayUsers(chatUsers); // Show previous chats again
-                } else {
-                    searchAllUsers(searchValue); // Search all users
-                }
-            });
-        }
-        
-        function searchAllUsers(searchValue) {
-            const userList = document.getElementById("userList");
-            const usersRef = ref(db, "users");
-        
-            get(usersRef).then((snapshot) => {
-                if (snapshot.exists()) {
-                    let filteredUsers = [];
-        
-                    snapshot.forEach((childSnapshot) => {
-                        let user = childSnapshot.val();
-                        if (
-                            user.uid !== currentUser.uid &&
-                            user.username.toLowerCase().includes(searchValue)
-                        ) {
-                            filteredUsers.push(user);
-                        }
-                    });
-        
-                    displayUsers(filteredUsers);
-        
-                } else {
-                    userList.innerHTML = "<p>No users found.</p>";
-                }
-            }).catch(error => {
-                console.error("❌ Error searching users:", error);
-                userList.innerHTML = "<p>Error searching users.</p>";
-            });
-        }
-        
-        function displayUsers(users) {
-            const userList = document.getElementById("userList");
-            userList.innerHTML = "";
-        
-            if (users.length === 0) {
-                userList.innerHTML = "<p>No users found.</p>";
-            } else {
-                users.forEach(user => {
-                    let userDiv = document.createElement("div");
-                    userDiv.classList.add("user");
-                    userDiv.innerText = user.username;
-                    userDiv.addEventListener("click", () => startChat(user));
-                    userDiv.addEventListener("contextmenu", (event) => {
-                        event.preventDefault();
-                        showContextMenu(event, user);
-                    });
-                    userList.appendChild(userDiv);
-                });
-            }
-        }
-        
-        function startChat(user) {
-            selectedUser = user;
-            selectedUsername = user.username;
-            document.getElementById("chatUserName").innerText = `Chat with ${selectedUsername}`;
-            chatID = generateChatID(currentUser.uid, selectedUser.uid);
-            console.log(`📩 Chat started with ${selectedUsername} (Chat ID: ${chatID})`);
-            loadMessages();
-        }
-        
-        function generateChatID(userA, userB) {
-            return userA < userB ? `${userA}_${userB}` : `${userB}_${userA}`;
-        }
-        
-        function loadMessages() {
-            const messagesDiv = document.getElementById("messages");
-            messagesDiv.innerHTML = "";
-            const chatRef = ref(db, `chats/${chatID}/messages`);
+ // Create profile picture element
+ let profileImg = document.createElement("img");
+ profileImg.src = profilePicURL;
+ profileImg.classList.add("message-profile");
 
-            onChildAdded(chatRef, (snapshot) => {
-                let messageData = snapshot.val();
-                 // Skip rendering if the message is marked as deleted
-                 if (messageData.deleted) {
-                    return;               
-                }
-                let messageElement = document.createElement("div");
-                messageElement.classList.add("message");
-                messageElement.id = snapshot.key; // Set ID to the message's unique ID
+ // Create sender username element
+ let senderName = document.createElement("span");
+ senderName.classList.add("message-username");
+ senderName.innerText = senderUsername || "Unknown User";
 
-                if (messageData.sender === currentUser.email) {
-                    messageElement.classList.add("sent");
-                } else {
-                    messageElement.classList.add("received");
-                }
+ // Create message text element
+ let textElement = document.createElement("p");
+ textElement.classList.add("message-text");
+ textElement.innerText = messageData.text;
 
-                messageElement.innerText = `${messageData.sender}: ${messageData.text}`;
-                if (messageData.sender === currentUser.email) {
-                    let deleteButton = document.createElement("span");
-                    deleteButton.classList.add("delete-button");
-                    deleteButton.innerText = "Delete";
-                    deleteButton.addEventListener("click", () => deleteMessage(snapshot.key));
-                    messageElement.appendChild(deleteButton);
-                }
+ // Format timestamp
+ let timeString = messageData.timestamp
+ ? new Date(messageData.timestamp).toLocaleTimeString()
+ : "";
 
-                messagesDiv.appendChild(messageElement);
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            });
-        }
+ // Create timestamp element
+ let timestampElement = document.createElement("div");
+ timestampElement.classList.add("message-timestamp");
+ timestampElement.innerText = timeString;
 
-        function deleteMessage(messageId) {
-            const messageRef = ref(db, `chats/${chatID}/messages/${messageId}`);
-            update(messageRef, { deleted: true }).then(() => {
-                const messageElement = document.getElementById(messageId);
-                if (messageElement) {
-                    messageElement.style.display = "none";
-                }
-                console.log(`🗑️ Message ${messageId} marked as deleted.`);
-            }).catch(error => {
-                console.error("❌ Error deleting message:", error);
-            });
-        }
+ // Append delete button only for the sender's messages
+ if (messageData.sender === currentUser.email) {
+ let deleteButton = document.createElement("span");
+ deleteButton.classList.add("delete-button");
+ deleteButton.innerText = "Delete";
+ deleteButton.addEventListener("click", () => deleteMessage(messageId));
+ messageElement.appendChild(deleteButton);
+ }
 
-        // Context menu functions
-        function showContextMenu(event, user) {
-            const contextMenu = document.getElementById("contextMenu");
-            contextMenu.style.display = "block";
-            contextMenu.style.left = `${event.pageX}px`;
-            contextMenu.style.top = `${event.pageY}px`;
+ // Append elements to message container
+ let messageWrapper = document.createElement("div");
+ messageWrapper.style.display = "flex";
+ messageWrapper.style.alignItems = "center";
 
-           document.getElementById("reportOption").onclick = () => reportUser(user);
-           document.getElementById("reportOption").onclick = () => reportUser(user);
-           document.getElementById("blockOption").onclick = () => blockUser(user);
-        }
+ messageWrapper.appendChild(profileImg); // Profile Picture
+ let messageContent = document.createElement("div");
+ messageContent.appendChild(senderName); // Username
+ messageContent.appendChild(textElement); // Message Text
+ messageContent.appendChild(timestampElement); // Timestamp
 
-        function reportUser(user) {
-            showReasonModal("report", user);
-        }
+ messageWrapper.appendChild(messageContent);
+ messageElement.appendChild(messageWrapper);
 
-        function blockUser(user) {
-            showReasonModal("block", user);
-            
-            const submitButton = document.getElementById("submitReason");
-            submitButton.onclick = () => {
-                const reason = document.getElementById("reasonText").value.trim();
-                if (reason) {
-                    const blockedRef = ref(db, `blocked/${currentUser.uid}/${user.uid}`);
-                    update(blockedRef, { blocked: true, reason: reason }).then(() => {
-                        alert(`🚫 You have blocked ${user.username}.`);
-                        document.getElementById("reasonModal").style.display = "none";
-                        loadUsers(); // Refresh the user list
-                    }).catch(error => {
-                        console.error("❌ Error blocking user:", error);
-                    });
-                }
-            };
-        }
+ // Append message to messages container
+ messagesDiv.appendChild(messageElement);
+ }
 
-        function showReasonModal(action, user) {
-            const reasonModal = document.getElementById("reasonModal");
-            const reasonText = document.getElementById("reasonText");
-            const submitButton = document.getElementById("submitReason");
+ function deleteMessage(messageId) {
+ const messageRef = ref(db, `chats/${chatID}/messages/${messageId}`);
+ update(messageRef, { 
+ deleted: true,
+ deletedAt: Date.now(),
+ deletedBy: currentUser.uid
+ }).then(() => {
+ const messageElement = document.getElementById(messageId);
+ if (messageElement) {
+ messageElement.style.display = "none";
+ }
+ console.log(`🗑️ Message ${messageId} marked as deleted.`);
+ }).catch(error => {
+ console.error("❌ Error deleting message:", error);
+ });
+ }
 
-            reasonModal.style.display = "flex";
-            submitButton.onclick = () => {
-                const reason = reasonText.value.trim();
-                if (reason) {
-                    alert(`${action.charAt(0).toUpperCase() + action.slice(1)} action taken against ${user.username}. Reason: ${reason}`);
-                    reasonModal.style.display = "none";
-                }
-            };
-        }
+ // Context menu functions
+ function showContextMenu(event, user) {
+ const contextMenu = document.getElementById("contextMenu");
+ contextMenu.style.display = "block";
+ contextMenu.style.left = `${event.pageX}px`;
+ contextMenu.style.top = `${event.pageY}px`;
 
-        // Close context menu if clicked outside
-        document.addEventListener("click", (event) => {
-            const contextMenu = document.getElementById("contextMenu");
-            if (contextMenu && !contextMenu.contains(event.target)) {
-                contextMenu.style.display = "none";
-            }
-        });
-        
-        document.getElementById("messageInput").addEventListener("keypress", function (event) {
-            if (event.key === "Enter") {
-                event.preventDefault();
-                sendMessage();
-            }
-        });
-        
-        document.getElementById("sendMessage").addEventListener("click", sendMessage);
-        
-        function sendMessage() {
-            if (!selectedUser) {
-                alert("Select a user first!");
-                return;
-            }
+ document.getElementById("reportOption").onclick = () => reportUser(user);
+ document.getElementById("blockOption").onclick = () => blockUser(user);
+ }
 
-            // Check if the selected user has blocked the current user
-            const blockedBySelectedUserRef = ref(db, `blocked/${selectedUser.uid}/${currentUser.uid}`);
-            get(blockedBySelectedUserRef).then(snapshot => {
-                if (snapshot.exists()) {
-                    alert(`🚫 You have been blocked by ${selectedUser.username}. You cannot send messages.`);
-                    return; // Stop message sending
-                }
+ function reportUser(user) {
+ currentAction = "report";
+ actionUser = user;
+ showReasonModal();
+ }
 
-                // Check if the current user has blocked the selected user
-                const blockedByCurrentUserRef = ref(db, `blocked/${currentUser.uid}/${selectedUser.uid}`);
-                get(blockedByCurrentUserRef).then(snapshot => {
-                    if (snapshot.exists()) {
-                        alert("🚫 You have blocked this user. Unblock them to send messages.");
-                        return; // Stop message sending
-                    }
+ function blockUser(user) {
+ currentAction = "block";
+ actionUser = user;
+ showReasonModal();
+ }
 
-                    // If neither has blocked the other, proceed with sending the message
-                    const messageInput = document.getElementById("messageInput");
-                    const messageText = messageInput.value.trim();
-                    if (messageText === "") return;
+ function showReasonModal() {
+ const reasonModal = document.getElementById("reasonModal");
+ const reasonText = document.getElementById("reasonText");
+ reasonText.value = "";
+ reasonModal.style.display = "flex";
+ }
 
-                    const chatRef = ref(db, `chats/${chatID}/messages`);
-                    push(chatRef, {
-                        sender: currentUser.email,
-                        text: messageText,
-                        timestamp: Date.now()
-                    });
+ document.getElementById("submitReason").addEventListener("click", function() {
+ const reason = document.getElementById("reasonText").value.trim();
+ if (!reason) {
+ alert("Please provide a reason.");
+ return;
+ }
 
-                    messageInput.value = "";
-                });
+ if (currentAction === "block" && actionUser) {
+ const blockedRef = ref(db, `blocked/${currentUser.uid}/${actionUser.uid}`);
+ update(blockedRef, { blocked: true, reason: reason }).then(() => {
+ alert(`🚫 You have blocked ${actionUser.username}.`);
+ document.getElementById("reasonModal").style.display = "none";
+ loadUsers(); // Refresh the user list
+ }).catch(error => {
+ console.error("❌ Error blocking user:", error);
+ });
+ } else if (currentAction === "report" && actionUser) {
+ const reportsRef = ref(db, `reports/${actionUser.uid}`);
+ push(reportsRef, {
+ reportedBy: currentUser.uid,
+ reason: reason,
+ timestamp: Date.now()
+ }).then(() => {
+ alert(`🚩 You have reported ${actionUser.username}.`);
+ document.getElementById("reasonModal").style.display = "none";
+ }).catch(error => {
+ console.error("❌ Error reporting user:", error);
+ });
+ }
+ });
 
-            }).catch(error => {
-                console.error("❌ Error checking block status:", error);
-            });
-        }
-        
-        document.getElementById("logoutButton").addEventListener("click", function () {
-            console.log("🚀 Logout button clicked!");
-        
-            signOut(auth).then(() => {
-                console.log("✅ User logged out. Redirecting...");
-                window.top.location.href = "../../Sprint1/LoginPage/user_login.html";
-            }).catch((error) => {
-                console.error("❌ Logout failed:", error);
-            });
-        });
-    </script>
+ document.getElementById("cancelReason").addEventListener("click", function() {
+ document.getElementById("reasonModal").style.display = "none";
+ });
+
+ // Close context menu if clicked outside
+ document.addEventListener("click", (event) => {
+ const contextMenu = document.getElementById("contextMenu");
+ if (contextMenu.style.display === "block" && !contextMenu.contains(event.target)) {
+ contextMenu.style.display = "none";
+ }
+ });
+ 
+ document.getElementById("messageInput").addEventListener("keypress", function (event) {
+ if (event.key === "Enter") {
+ event.preventDefault();
+ sendMessage();
+ }
+ });
+ 
+ document.getElementById("sendMessage").addEventListener("click", sendMessage);
+ 
+ async function sendMessage() {
+ if (!selectedUser) {
+ alert("Select a user first!");
+ return;
+ }
+
+ // Check if the selected user has blocked the current user
+ const blockedBySelectedUserRef = ref(db, `blocked/${selectedUser.uid}/${currentUser.uid}`);
+ const blockedSnapshot = await get(blockedBySelectedUserRef);
+
+ if (blockedSnapshot.exists()) {
+ alert(`🚫 You have been blocked by ${selectedUser.username}.`);
+ return; 
+ }
+
+ const blockedByCurrentUserRef = ref(db, `blocked/${currentUser.uid}/${selectedUser.uid}`);
+ const blockedByCurrentSnapshot = await get(blockedByCurrentUserRef);
+
+ if (blockedByCurrentSnapshot.exists()) {
+ alert("🚫 You have blocked this user. Unblock them to send messages.");
+ return; 
+ }
+
+ // Retrieve the current user's profile picture from the database
+ let profilePicURL = "default-pfp.png"; // Default profile picture
+
+ if (userCache[currentUser.uid] && userCache[currentUser.uid].profilePicture) {
+ profilePicURL = userCache[currentUser.uid].profilePicture;
+ } else {
+ profilePicURL = await resolveProfilePic(currentUser.uid);
+ }
+
+ const messageInput = document.getElementById("messageInput");
+ const messageText = messageInput.value.trim();
+ if (messageText === "") return;
+
+ const chatRef = ref(db, `chats/${chatID}/messages`);
+ push(chatRef, {
+ sender: currentUser.email,
+ senderUID: currentUser.uid,
+ senderUsername: currentUsername,
+ profilePicture: profilePicURL,
+ text: messageText,
+ timestamp: Date.now()
+ });
+
+ messageInput.value = "";
+ }
+ 
+ document.getElementById("logoutButton").addEventListener("click", function () {
+ console.log("🚀 Logout button clicked!");
+ 
+ signOut(auth).then(() => {
+ console.log("✅ User logged out. Redirecting...");
+ window.location.href = "../LoginPage/user_login.html";
+ }).catch(error => {
+ console.error("❌ Logout failed:", error);
+ });
+ });
+ </script>
 </body>
 </html>
