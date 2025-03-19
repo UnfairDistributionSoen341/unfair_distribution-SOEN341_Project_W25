@@ -137,7 +137,12 @@
     max-width: 70%;
     word-break: break-word;
    }
-   
+   .messageWrapper {
+    display: flex;
+    align-items: center; /* Aligns profile picture and text */
+    gap: 10px; /* Adds space between profile pic and message */
+    max-width: 80%; /* Ensures message doesn't stretch too wide */
+  }
    .sent {
     background: #007bff;
     color: white;
@@ -524,8 +529,9 @@
 
   /* Profile Picture */
 .profile-pic {
-  width: 40px;
-  height: 40px;
+  width: 35px;
+  height: 35px;
   border-radius: 50%;
+  margin-right: 10px;
   object-fit: cover;
 }
