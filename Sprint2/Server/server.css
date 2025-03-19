@@ -114,7 +114,7 @@
    }
    
    .chat-box {
-    width: 70%;
+    width: 90%;
     display: flex;
     flex-direction: column;
    }
@@ -134,27 +134,26 @@
     position: relative;
     padding: 12px;
     border-radius: 8px;
-    max-width: 70%;
+    max-width: 90%;
     word-break: break-word;
    }
    .messageWrapper {
     display: flex;
     align-items: center; /* Aligns profile picture and text */
     gap: 10px; /* Adds space between profile pic and message */
-    max-width: 80%; /* Ensures message doesn't stretch too wide */
+    max-width: 95%; /* Ensures message doesn't stretch too wide */
   }
    .sent {
-    background: #007bff;
+    background-color: #007bff;
     color: white;
     align-self: flex-end;
-    text-align: right;
    }
    
    .received {
-    background: #f1f1f1;
+    background-color: white;
     color: black;
     align-self: flex-start;
-    text-align: left;
+    border: 1px solid #ddd;
    }
    
    .message-header {
@@ -168,9 +167,10 @@
    }
    
    .message-time {
-    font-size: 0.75em;
-    opacity: 0.8;
+    font-size: 10px;
+    color: rgba(136, 136, 136, 0.8);
     text-align: right;
+    margin-top: 3px;
    }
    
    /* Delete message button styles */
@@ -403,7 +403,7 @@
     color: white;
    }   
    
-   /* 🟢 NEW: Channel access styles */
+   /*Channel access styles */
 .channel-access-item {
     display: flex;
     justify-content: space-between;
@@ -449,6 +449,14 @@
     width: 450px;
     max-width: 95%;
   }
+    /* Profile Picture */
+.profile-pic {
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  margin-right: 10px;
+  object-fit: cover;
+}
 
 /* Emoji Picker Styles */
 .emoji-container {
@@ -527,11 +535,4 @@
   background-color: #f1f1f1;
   }
 
-  /* Profile Picture */
-.profile-pic {
-  width: 35px;
-  height: 35px;
-  border-radius: 50%;
-  margin-right: 10px;
-  object-fit: cover;
-}
+
