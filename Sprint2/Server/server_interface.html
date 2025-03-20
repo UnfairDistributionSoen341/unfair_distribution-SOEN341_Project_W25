@@ -865,7 +865,12 @@ const emojiButton = document.getElementById("emojiButton");
       members.forEach(member => {
         const memberItem = document.createElement("div");
         memberItem.className = "member-item";
-        
+        memberItem.id = `user-${member.id}`;
+
+        const statusIndicator = document.createElement("span");
+        statusIndicator.className = "status-indicator";
+        statusIndicator.textContent = "⚪️";
+
         const memberName = document.createElement("span");
         memberName.className = "member-name";
         memberName.textContent = member.username;
@@ -874,9 +879,12 @@ const emojiButton = document.getElementById("emojiButton");
         memberRole.className = `member-role role-${member.role}`;
         memberRole.textContent = member.role;
         
+        memberItem.appendChild(statusIndicator);
         memberItem.appendChild(memberName);
         memberItem.appendChild(memberRole);
         membersList.appendChild(memberItem);
+
+        listenUserStatus(member.id); //user status
       });
     });
   } catch (error) {
@@ -913,7 +921,27 @@ const emojiButton = document.getElementById("emojiButton");
  console.error("❌ Error loading servers:", error);
  }
  }
- 
+
+ function listenUserStatus(userId) {
+  const userDiv = document.getElementById(`user-${userId}`);
+  if (!userDiv) return;
+
+  const statusRef = ref(db, `users/${userId}/status`);
+
+  onValue(statusRef, (snapshot) => {
+    const status = snapshot.val();
+    const indicator = userDiv.querySelector('.status-indicator');
+
+    // setstutus
+    if (status === "online") {
+      indicator.textContent = "🟢";
+    } else {
+      indicator.textContent = "⚪️";
+    }
+  });
+}
+
+
  // Display servers in the server list
  function displayServers(servers) {
  const serverList = document.getElementById("serverList");
