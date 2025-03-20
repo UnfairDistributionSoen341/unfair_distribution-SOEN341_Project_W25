@@ -926,7 +926,14 @@ async function renderMessage(messageData, messageId) {
     } else {
         messageElement.classList.add("received");
     }
-
+    //add reply button
+    let replyButton = document.createElement("button");
+  replyButton.classList.add("reply-button");
+  replyButton.innerText = "Reply";
+  replyButton.addEventListener("click", function() {
+    replyToMessage(messageData);
+  });
+  messageElement.appendChild(replyButton);
     // Ensure we have the sender's username and profile picture
     let senderUsername = messageData.senderUsername;
     let profilePicURL = messageData.profilePicture;
@@ -989,6 +996,45 @@ async function renderMessage(messageData, messageId) {
     messagesDiv.appendChild(messageElement);
 }
 
+function replyToMessage(messageData) {
+  console.log("Reply button clicked!"); 
+  console.log("Message data:", messageData); 
+  
+
+  const chatInput = document.getElementById("messageInput");  
+
+  if (!chatInput) {
+    console.error("messageInput element not found");
+    return; 
+  }
+  console.log("chatInput found:", chatInput);
+
+  
+  const replyText = `${messageData.senderUsername}: "${messageData.text}"`;
+  console.log("Reply text:", replyText);
+
+ 
+  const quoteText = `quote[${replyText}]`;  
+  chatInput.value = `${quoteText}\n\n${chatInput.value}`; 
+  chatInput.style.fontSize = "14px";  
+  chatInput.style.color = "black";  
+
+  
+  chatInput.focus();
+  chatInput.setSelectionRange(chatInput.value.length, chatInput.value.length);
+
+ 
+  chatInput.addEventListener('focus', () => {
+    chatInput.style.color = "black"; 
+  });
+
+  
+  const quotedText = chatInput.value.split("\n")[0]; 
+  const greyedText = `quote[${replyText}]`;  
+
+
+  console.log("Updated chatInput value:", chatInput.value);
+}
  function deleteMessage(messageId) {
  const messageRef = ref(db, `chats/${chatID}/messages/${messageId}`);
  update(messageRef, { 
