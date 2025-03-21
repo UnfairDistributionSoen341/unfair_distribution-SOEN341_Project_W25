@@ -1083,12 +1083,12 @@ async function displayChannels(channels) {
     // Check if user has access to this channel
     const hasAccess = await canAccessChannel(selectedServer.id, channel.id, currentUser.uid);
     
-    // If channel is public OR user has access, allow normal joining
-    if (channel.type === "public" || hasAccess) {
+    // If user has access, allow normal joining
+    if (hasAccess) {
       channelDiv.addEventListener("click", () => joinChannel(channel));
     } 
-    // Only for private channels without access, show request access button
-    else if (channel.type === "private" && !hasAccess) {
+    // For any channel without access, show request access button
+    else {
       // Check if user already has a pending request
       const pendingRequestRef = ref(db, `accessRequests/${selectedServer.id}/${channel.id}/${currentUser.uid}`);
       const pendingRequestSnapshot = await get(pendingRequestRef);
@@ -1098,9 +1098,22 @@ async function displayChannels(channels) {
       requestAccessBtn.className = "request-access-btn";
       
       if (hasPendingRequest) {
-        requestAccessBtn.textContent = "Request Pending";
-        requestAccessBtn.style.backgroundColor = "#9e9e9e";
-        requestAccessBtn.disabled = true;
+        const requestStatus = pendingRequestSnapshot.val().status;
+        if (requestStatus === "pending") {
+          requestAccessBtn.textContent = "Request Pending";
+          requestAccessBtn.style.backgroundColor = "#9e9e9e";
+        } else if (requestStatus === "denied") {
+          requestAccessBtn.textContent = "Request Denied";
+          requestAccessBtn.style.backgroundColor = "#f44336";
+        } else {
+          // Should never happen as approved requests would grant access
+          requestAccessBtn.textContent = "Request Again";
+          requestAccessBtn.style.backgroundColor = "#2196F3";
+        }
+        
+        if (requestStatus === "pending" || requestStatus === "denied") {
+          requestAccessBtn.disabled = true;
+        }
       } else {
         requestAccessBtn.textContent = "Request Access";
       }
@@ -1108,7 +1121,7 @@ async function displayChannels(channels) {
       requestAccessBtn.addEventListener("click", (event) => {
         event.stopPropagation(); // Prevent channel selection when clicking the button
         
-        if (!hasPendingRequest) {
+        if (!hasPendingRequest || pendingRequestSnapshot.val().status !== "pending") {
           requestChannelAccess(selectedServer.id, channel.id, channel.name);
         }
       });
@@ -1121,12 +1134,22 @@ async function displayChannels(channels) {
         document.getElementById("chatChannelName").textContent = `#${channel.name} (${selectedServer.name})`;
         document.getElementById("messageInput").disabled = true;
         
-        messagesDiv.innerHTML = `
-          <div style="text-align: center; padding: 20px; color: #ff0000;">
-            <h3>You don't have access to this channel</h3>
-            <p>This is a private channel. Please request access or ask a server admin to grant you access.</p>
-          </div>
-        `;
+        // Different message for private vs public channels
+        if (channel.type === "private") {
+          messagesDiv.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: #ff0000;">
+              <h3>You don't have access to this private channel</h3>
+              <p>Please request access or ask a server admin to grant you access.</p>
+            </div>
+          `;
+        } else {
+          messagesDiv.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: #ff0000;">
+              <h3>You don't have access to this channel</h3>
+              <p>Please request access or ask a server admin to grant you access.</p>
+            </div>
+          `;
+        }
       });
     }
     
@@ -1184,135 +1207,225 @@ async function canAccessChannel(serverId, channelId, userId) {
 
  // Request access to a channel
  async function requestChannelAccess(serverId, channelId, channelName) {
-   try {
-     const requestRef = ref(db, `accessRequests/${serverId}/${channelId}/${currentUser.uid}`);
-     await set(requestRef, {
-       username: currentUser.username,
-       requestedAt: Date.now(),
-       status: "pending"
-     });
-     
-     alert(`✅ Access request sent for #${channelName}`);
-     
-     // Refresh channel list to update the button
-     loadChannels(serverId);
-   } catch (error) {
-     console.error("Error requesting access:", error);
-     alert("❌ Failed to request access. Please try again.");
-   }
- }
+  try {
+    // Get channel and server info for the notification
+    const serverRef = ref(db, `servers/${serverId}`);
+    const serverSnapshot = await get(serverRef);
+    const serverName = serverSnapshot.val().name;
+
+    const requestRef = ref(db, `accessRequests/${serverId}/${channelId}/${currentUser.uid}`);
+    await set(requestRef, {
+      username: currentUser.username,
+      requestedAt: Date.now(),
+      status: "pending",
+      serverName: serverName,  // Store server name for notifications
+      channelName: channelName // Store channel name for notifications
+    });
+    
+    alert(`✅ Access request sent for #${channelName}`);
+    
+    // Refresh channel list to update the button
+    loadChannels(serverId);
+  } catch (error) {
+    console.error("Error requesting access:", error);
+    alert("❌ Failed to request access. Please try again.");
+  }
+}
  
  // Listen for access requests if user is admin or owner
  function listenForAccessRequests() {
-   // Clear any existing notification elements
-   const existingNotifications = document.querySelectorAll('.access-request-notification');
-   existingNotifications.forEach(notification => notification.remove());
-   
-   auth.onAuthStateChanged(async user => {
-     if (!user) return;
-     
-     // Get all servers where the user is admin or owner
-     const serversRef = ref(db, 'servers');
-     const serversSnapshot = await get(serversRef);
-     
-     if (!serversSnapshot.exists()) return;
-     
-     serversSnapshot.forEach(async serverSnap => {
-       const serverId = serverSnap.key;
-       const server = serverSnap.val();
-       
-       // Check if user is admin or owner of this server
-       const userRole = await getCurrentUserRole(serverId, user.uid);
-       if (userRole !== 'admin' && userRole !== 'owner') return;
-       
-       // Listen for access requests for this server
-       const requestsRef = ref(db, `accessRequests/${serverId}`);
-       onValue(requestsRef, async snapshot => {
-         if (!snapshot.exists()) return;
-         
-         snapshot.forEach(channelSnap => {
-           const channelId = channelSnap.key;
-           
-           // Get channel name
-           get(ref(db, `servers/${serverId}/channels/${channelId}`)).then(channelDataSnap => {
-             if (!channelDataSnap.exists()) return;
-             
-             const channelName = channelDataSnap.val().name;
-             
-             // Process each request
-             channelSnap.forEach(requestSnap => {
-               const userId = requestSnap.key;
-               const request = requestSnap.val();
-               
-               // Only show pending requests
-               if (request.status === 'pending') {
-                 showAccessRequestNotification(serverId, channelId, userId, server.name, channelName, request.username);
-               }
-             });
-           });
-         });
-       });
-     });
-   });
- }
+  // Clear any existing notification elements
+  const existingNotifications = document.querySelectorAll('.access-request-notification');
+  existingNotifications.forEach(notification => notification.remove());
+  
+  auth.onAuthStateChanged(async user => {
+    if (!user) return;
+    
+    // Get all servers where the user is admin or owner
+    const serversRef = ref(db, 'servers');
+    const serversSnapshot = await get(serversRef);
+    
+    if (!serversSnapshot.exists()) return;
+    
+    serversSnapshot.forEach(async serverSnap => {
+      const serverId = serverSnap.key;
+      const server = serverSnap.val();
+      
+      // Check if user is admin or owner of this server
+      const userRole = await getCurrentUserRole(serverId, user.uid);
+      if (userRole !== 'admin' && userRole !== 'owner') return;
+      
+      // Listen for access requests for this server
+      const requestsRef = ref(db, `accessRequests/${serverId}`);
+      onValue(requestsRef, async snapshot => {
+        if (!snapshot.exists()) return;
+        
+        snapshot.forEach(channelSnap => {
+          const channelId = channelSnap.key;
+          
+          // Process each request
+          channelSnap.forEach(requestSnap => {
+            const userId = requestSnap.key;
+            const request = requestSnap.val();
+            
+            // Only show pending requests
+            if (request.status === 'pending') {
+              showAccessRequestNotification(
+                serverId, 
+                channelId, 
+                userId, 
+                request.serverName || server.name, 
+                request.channelName, 
+                request.username
+              );
+            }
+          });
+        });
+      });
+    });
+  });
+}
  
  // Show notification for access request
- function showAccessRequestNotification(serverId, channelId, userId, serverName, channelName, username) {
-   // Check if notification already exists for this request
-   const existingNotification = document.getElementById(`notification-${serverId}-${channelId}-${userId}`);
-   if (existingNotification) return;
-   
-   const notification = document.createElement('div');
-   notification.className = 'access-request-notification';
-   notification.id = `notification-${serverId}-${channelId}-${userId}`;
-   
-   notification.innerHTML = `
-     <div>
-       <strong>${username}</strong> requested access to <strong>#${channelName}</strong> in <strong>${serverName}</strong>
-     </div>
-     <div class="notification-buttons">
-       <button class="access-approve-btn">Approve</button>
-       <button class="access-deny-btn">Deny</button>
-     </div>
-   `;
-   
-   // Add event listeners
-   notification.querySelector('.access-approve-btn').addEventListener('click', async () => {
-     try {
-       // Grant access
-       await set(ref(db, `servers/${serverId}/channels/${channelId}/allowedMembers/${userId}`), true);
-       
-       // Update request status
-       await update(ref(db, `accessRequests/${serverId}/${channelId}/${userId}`), {
-         status: 'approved',
-         resolvedAt: Date.now()
-       });
-       
-       notification.remove();
-     } catch (error) {
-       console.error('Error approving access:', error);
-       alert('❌ Failed to approve access.');
-     }
-   });
-   
-   notification.querySelector('.access-deny-btn').addEventListener('click', async () => {
-     try {
-       // Update request status
-       await update(ref(db, `accessRequests/${serverId}/${channelId}/${userId}`), {
-         status: 'denied',
-         resolvedAt: Date.now()
-       });
-       
-       notification.remove();
-     } catch (error) {
-       console.error('Error denying access:', error);
-       alert('❌ Failed to deny access.');
-     }
-   });
-   
-   document.body.appendChild(notification);
- }
- 
+ // Improved notification display for access requests
+function showAccessRequestNotification(serverId, channelId, userId, serverName, channelName, username) {
+  // Check if notification already exists for this request
+  const existingNotification = document.getElementById(`notification-${serverId}-${channelId}-${userId}`);
+  if (existingNotification) return;
+  
+  const notification = document.createElement('div');
+  notification.className = 'access-request-notification';
+  notification.id = `notification-${serverId}-${channelId}-${userId}`;
+  
+  notification.innerHTML = `
+    <div>
+      <strong>${username}</strong> requested access to <strong>#${channelName}</strong> in <strong>${serverName}</strong>
+    </div>
+    <div class="notification-buttons">
+      <button class="access-approve-btn">Approve</button>
+      <button class="access-deny-btn">Deny</button>
+    </div>
+  `;
+  
+  // Add event listeners
+  notification.querySelector('.access-approve-btn').addEventListener('click', async () => {
+    try {
+      // Grant access by adding user to allowed members
+      await set(ref(db, `servers/${serverId}/channels/${channelId}/allowedMembers/${userId}`), true);
+      
+      // Update request status
+      await update(ref(db, `accessRequests/${serverId}/${channelId}/${userId}`), {
+        status: 'approved',
+        resolvedAt: Date.now(),
+        resolvedBy: currentUser.uid
+      });
+      
+      // Clear cache for this channel access
+      const cacheKey = `${serverId}-${channelId}-${userId}`;
+      delete channelAccessCache[cacheKey];
+      
+      notification.remove();
+    } catch (error) {
+      console.error('Error approving access:', error);
+      alert('❌ Failed to approve access.');
+    }
+  });
+  
+  notification.querySelector('.access-deny-btn').addEventListener('click', async () => {
+    try {
+      // Update request status
+      await update(ref(db, `accessRequests/${serverId}/${channelId}/${userId}`), {
+        status: 'denied',
+        resolvedAt: Date.now(),
+        resolvedBy: currentUser.uid
+      });
+      
+      notification.remove();
+    } catch (error) {
+      console.error('Error denying access:', error);
+      alert('❌ Failed to deny access.');
+    }
+  });
+  
+  document.body.appendChild(notification);
+}
+function addRequestNotificationStyles() {
+  const style = document.createElement('style');
+  style.textContent = `
+    .access-request-notification {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background-color: #333;
+      color: white;
+      padding: 15px;
+      border-radius: 5px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      max-width: 300px;
+      animation: slideIn 0.3s ease-out;
+      margin-bottom: 10px;
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    .notification-buttons {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 10px;
+      gap: 10px;
+    }
+    
+    .access-approve-btn {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    
+    .access-deny-btn {
+      background-color: #f44336;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    
+    .request-access-btn {
+      display: block;
+      width: 100%;
+      margin-top: 5px;
+      padding: 5px;
+      background-color: #2196F3;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 12px;
+      text-align: center;
+    }
+    
+    .request-access-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// Call this function when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+  addRequestNotificationStyles();
+});
+
  // Join a channel
 async function joinChannel(channel) {
   selectedChannel = channel;
