@@ -455,17 +455,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   
-  const manageAccessBtn = document.getElementById("manageChannelAccess");
-  if (manageAccessBtn) {
-    manageAccessBtn.addEventListener("click", () => {
-      if (window.selectedServer && window.selectedChannel) {
-        showChannelAccessModal(window.selectedServer.id, window.selectedChannel.id);
-      } else {
-        alert("❌ Please select a server and channel first.");
-      }
-    });
-  }
-  
   console.log("✅ Member management initialized!");
 });
 
