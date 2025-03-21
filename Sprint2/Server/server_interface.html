@@ -1529,6 +1529,17 @@ async function joinChannel(channel) {
     messageWrapper.appendChild(contentDiv);
     messageElement.appendChild(messageWrapper);
 
+    // Add reply button
+     let replyButton = document.createElement("button");
+    replyButton.classList.add("reply-button");
+    replyButton.innerText = "Reply";
+    replyButton.addEventListener("click", function() {
+    replyToMessage(message); // This function will handle the reply logic
+    });
+
+    // Append the reply button to message
+    messageElement.appendChild(replyButton);
+
     // Delete Button (if allowed)
     if (canDeleteAnyMessage || message.senderId === currentUser.uid) {
       const deleteBtn = document.createElement("button");
@@ -1575,6 +1586,32 @@ function clearChannelAccessCache(serverId, channelId, userId) {
   delete channelAccessCache[cacheKey];
 }
 
+function replyToMessage(messageData) {
+    // Ensure messageData has the necessary fields
+    if (!messageData || !messageData.text || !messageData.senderName) {
+        console.error("Invalid message data for reply:", messageData);
+        return;
+    }
+
+    const chatInput = document.getElementById("messageInput");
+    if (!chatInput) {
+        console.error("messageInput element not found");
+        return;
+    }
+
+    // Create the quoted text with sender's name
+    const replyText = `${messageData.senderName}: "${messageData.text}"`;
+    
+    // Format as quote
+    const quoteText = `> ${replyText}\n\n`;
+    
+    // Add to beginning of input
+    chatInput.value = `${quoteText}${chatInput.value}`;
+    
+    // Focus and place cursor at end
+    chatInput.focus();
+    chatInput.setSelectionRange(chatInput.value.length, chatInput.value.length);
+}
 //fix existing channel types
 async function fixChannelTypes(serverId) {
   try {
