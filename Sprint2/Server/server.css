@@ -508,3 +508,25 @@ button:hover {
   margin-right: 10px;
   object-fit: cover;
 }
+
+.reply-button {
+  position: absolute; 
+  bottom: -18px; 
+  right: 0px; 
+  background-color: transparent; 
+  color: #007bff; 
+  border: none; 
+  font-size: 12px; 
+  cursor: pointer; 
+  visibility: hidden;
+  padding: 5px 10px;
+  border-radius: 3px;
+}
+
+.message:hover .reply-button {
+  visibility: visible; 
+}
+
+.reply-button:hover {
+  background-color: rgba(0, 123, 255, 0.1); 
+}
