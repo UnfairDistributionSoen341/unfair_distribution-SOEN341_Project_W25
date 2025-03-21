@@ -2780,15 +2780,28 @@ if (deleteServerBtn) {
 
  // Logout
  document.getElementById("logoutButton").addEventListener("click", function () {
- console.log("🚀 Logout button clicked!");
-
- signOut(auth).then(() => {
- console.log("✅ User logged out. Redirecting...");
- window.top.location.href = "../../Sprint1/LoginPage/user_login.html";
- }).catch((error) => {
- console.error("❌ Logout failed:", error);
- });
- });
+  console.log("🚪 Logout button clicked from Server Interface!");
+  
+  signOut(auth).then(() => {
+    console.log("✅ User logged out successfully!");
+    
+    // Since Server is in Sprint2, we need to go to a parent folder first
+    window.location.href = "../LoginPage/user_login.html";
+    
+    // If that doesn't work, try the alternative path
+    setTimeout(() => {
+      window.location.href = "../../Sprint1/LoginPage/user_login.html";
+    }, 300);
+    
+    // If we're in an iframe (which is likely), try to navigate the parent window
+    if (window.self !== window.top) {
+      window.top.location.href = "../../Sprint1/LoginPage/user_login.html";
+    }
+  }).catch((error) => {
+    console.error("❌ Logout failed:", error);
+    alert("Logout failed. Please try again.");
+  });
+});
 
  // Make variables available globally
  window.selectedServer = selectedServer;

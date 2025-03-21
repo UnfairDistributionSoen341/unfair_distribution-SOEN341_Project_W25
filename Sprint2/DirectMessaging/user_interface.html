@@ -1084,17 +1084,28 @@ function replyToMessage(messageData) {
 
  messageInput.value = "";
  }
- 
+
  document.getElementById("logoutButton").addEventListener("click", function () {
  console.log("🚀 Logout button clicked!");
  
  signOut(auth).then(() => {
  console.log("✅ User logged out. Redirecting...");
- window.location.href = "../LoginPage/user_login.html";
+ 
+ // Try the approach that works for the server interface
+ window.location.replace("../../Sprint1/LoginPage/user_login.html");
+ 
+ // Fallback options if the above doesn't work
+ setTimeout(() => {
+   if (window.location.href.includes("DirectMessaging")) {
+     // If we're still here after a short delay, try another approach
+     window.top.location.href = "../../Sprint1/LoginPage/user_login.html";
+   }
+ }, 200);
  }).catch(error => {
  console.error("❌ Logout failed:", error);
  });
- });
+});
+
  </script>
 </body>
 </html>
