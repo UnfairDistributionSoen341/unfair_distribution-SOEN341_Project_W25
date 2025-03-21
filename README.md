@@ -19,6 +19,7 @@ ChatHaven is a real-time web-based chat application that allows users to interac
 - Real-time message exchange.
 - display profile picture
 - send emojis
+- show current member status
 
 ### Servers & Channels
 - Create servers to host group chats.
@@ -36,6 +37,7 @@ ChatHaven is a real-time web-based chat application that allows users to interac
 - Delete servers if needed.
 - display profile picture
 - send emojis
+- show current member status
 
 ### User Interface
 - Intuitive and simple design with a two-panel layout:
@@ -44,9 +46,10 @@ ChatHaven is a real-time web-based chat application that allows users to interac
 - Toggle easily between Direct Messages and Servers.
 - Persistent Logout button.
 
-###Profile Page
--option to choose/change profile picture
--displays username and email associated to username
+### Profile Page
+- option to choose/change profile picture
+  - if no picture is selected, a default one is given
+- displays username and email associated with username
 ---
 
 ## Team Members
