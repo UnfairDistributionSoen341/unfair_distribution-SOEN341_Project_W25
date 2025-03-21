@@ -1588,6 +1588,13 @@ async function grantPublicChannelAccess(serverId) {
 
  // Event listeners
  document.addEventListener("DOMContentLoaded", () => {
+ // Clone the manageChannelAccess button to remove any existing event listeners
+ const manageChannelAccessBtn = document.getElementById("manageChannelAccess");
+ if (manageChannelAccessBtn) {
+   const newBtn = manageChannelAccessBtn.cloneNode(true);
+   manageChannelAccessBtn.parentNode.replaceChild(newBtn, manageChannelAccessBtn);
+ }
+
  const sendMessageBtn = document.getElementById("sendMessage");
  const messageInput = document.getElementById("messageInput");
  const createServerBtn = document.getElementById("createServer");
@@ -1616,7 +1623,7 @@ async function grantPublicChannelAccess(serverId) {
       console.error("Error checking access:", error);
     }
   }
-});
+ });
  
  // Server popup elements
  const createServerPopUp = document.getElementById("createServerPopUp");
@@ -1638,16 +1645,16 @@ async function grantPublicChannelAccess(serverId) {
  
  // Back button
  backToServersBtn.addEventListener("click", () => {
- serverSectionView.style.display = "block";
- channelSectionView.style.display = "none";
- membersSidebar.style.display = "none";
- document.getElementById("messages").innerHTML = "";
- document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
- document.getElementById("messageInput").disabled = true;
- selectedServer = null;
- selectedChannel = null;
- window.selectedServer = null;
- window.selectedChannel = null;
+   serverSectionView.style.display = "block";
+   channelSectionView.style.display = "none";
+   membersSidebar.style.display = "none";
+   document.getElementById("messages").innerHTML = "";
+   document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
+   document.getElementById("messageInput").disabled = true;
+   selectedServer = null;
+   selectedChannel = null;
+   window.selectedServer = null;
+   window.selectedChannel = null;
  });
  
  // Send message
@@ -1683,36 +1690,36 @@ async function grantPublicChannelAccess(serverId) {
         console.error("❌ Error sending message:", error);
         alert("Failed to send message");
     }
-});
+ });
 
  // Create server
  createServerBtn.addEventListener("click", () => {
- createServerPopUp.style.display = "flex";
+   createServerPopUp.style.display = "flex";
  });
  
  closeCreateServerBtn.addEventListener("click", () => {
- createServerPopUp.style.display = "none";
+   createServerPopUp.style.display = "none";
  });
 
  // Create channel
  createChannelBtn.addEventListener("click", async () => {
- if (!selectedServer) {
- alert("❌ Please select a server first.");
- return;
- }
- 
- // Check user role
- const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
- if (userRole !== "admin" && userRole !== "owner") {
- alert("❌ Only admins and owners can create channels.");
- return;
- }
- 
- createChannelPopUp.style.display = "flex";
+   if (!selectedServer) {
+     alert("❌ Please select a server first.");
+     return;
+   }
+   
+   // Check user role
+   const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+   if (userRole !== "admin" && userRole !== "owner") {
+     alert("❌ Only admins and owners can create channels.");
+     return;
+   }
+   
+   createChannelPopUp.style.display = "flex";
  });
  
  closeCreateChannelBtn.addEventListener("click", () => {
- createChannelPopUp.style.display = "none";
+   createChannelPopUp.style.display = "none";
  });
  
  confirmCreateServerBtn.addEventListener("click", async () => {
@@ -1760,91 +1767,118 @@ async function grantPublicChannelAccess(serverId) {
         console.error("❌ Error creating server:", error);
         alert("Failed to create server.");
     }
-});
+ });
 
-// Delete channel
-deleteChannelBtn.addEventListener("click", async () => {
- if (!selectedServer || !selectedChannel) {
- alert("❌ Please select a server and channel first.");
- return;
- }
- 
- // Check user role
- const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
- if (userRole !== "admin" && userRole !== "owner") {
- alert("❌ Only admins and owners can delete channels.");
- return;
- }
- 
- const confirmDelete = confirm(`Are you sure you want to delete the channel "${selectedChannel.name}"?`);
- if (confirmDelete) {
- try {
- const channelRef = ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}`);
- await remove(channelRef);
- 
- alert(`✅ Channel "${selectedChannel.name}" deleted successfully!`);
- 
- // Reset view
- document.getElementById("messages").innerHTML = "";
- document.getElementById("chatChannelName").textContent = "Select a channel to chat";
- document.getElementById("messageInput").disabled = true;
- selectedChannel = null;
- window.selectedChannel = null;
- 
- // Reload channels
- loadChannels(selectedServer.id);
- } catch (error) {
- console.error("❌ Error deleting channel:", error);
- alert("Failed to delete channel.");
- }
- }
+ // Create channel confirmation
+ confirmCreateChannelBtn.addEventListener("click", async () => {
+    const channelName = document.getElementById("channelNameInput").value.trim();
+    if (!channelName) {
+        alert("Please enter a channel name.");
+        return;
+    }
+    
+    if (!selectedServer) {
+        alert("❌ No server selected.");
+        return;
+    }
+    
+    // Get the selected channel type (public or private)
+    const channelType = document.querySelector('input[name="channelType"]:checked').value;
+    
+    try {
+        const channelsRef = ref(db, `servers/${selectedServer.id}/channels`);
+        const newChannelRef = push(channelsRef);
+        const newChannelId = newChannelRef.key;
+        
+        await set(newChannelRef, {
+            name: channelName,
+            createdBy: currentUser.uid,
+            createdAt: Date.now(),
+            type: channelType, // Set the channel type
+            allowedMembers: {
+                [currentUser.uid]: true  // Creator always has access
+            }
+        });
+        
+        // If channel is public, grant access to all existing members
+        if (channelType === "public") {
+            const membersRef = ref(db, `servers/${selectedServer.id}/members`);
+            const membersSnapshot = await get(membersRef);
+            
+            if (membersSnapshot.exists()) {
+                const allowedMembersRef = ref(db, `servers/${selectedServer.id}/channels/${newChannelId}/allowedMembers`);
+                const allowedMembers = {};
+                
+                membersSnapshot.forEach((memberSnap) => {
+                    const memberId = memberSnap.key;
+                    allowedMembers[memberId] = true;
+                });
+                
+                await set(allowedMembersRef, allowedMembers);
+            }
+        }
+        
+        alert(`✅ Channel "${channelName}" created successfully!`);
+        createChannelPopUp.style.display = "none";
+        document.getElementById("channelNameInput").value = "";
+        loadChannels(selectedServer.id);
+    } catch (error) {
+        console.error("❌ Error creating channel:", error);
+        alert("Failed to create channel.");
+    }
+ });
+
+ // Delete channel
+ deleteChannelBtn.addEventListener("click", async () => {
+   if (!selectedServer || !selectedChannel) {
+     alert("❌ Please select a server and channel first.");
+     return;
+   }
+   
+   // Check user role
+   const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+   if (userRole !== "admin" && userRole !== "owner") {
+     alert("❌ Only admins and owners can delete channels.");
+     return;
+   }
+   
+   const confirmDelete = confirm(`Are you sure you want to delete the channel "${selectedChannel.name}"?`);
+   if (confirmDelete) {
+     try {
+       const channelRef = ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}`);
+       await remove(channelRef);
+       
+       alert(`✅ Channel "${selectedChannel.name}" deleted successfully!`);
+       
+       // Reset view
+       document.getElementById("messages").innerHTML = "";
+       document.getElementById("chatChannelName").textContent = "Select a channel to chat";
+       document.getElementById("messageInput").disabled = true;
+       selectedChannel = null;
+       window.selectedChannel = null;
+       
+       // Reload channels
+       loadChannels(selectedServer.id);
+     } catch (error) {
+       console.error("❌ Error deleting channel:", error);
+       alert("Failed to delete channel.");
+     }
+   }
  });
  
  // Add member
  addMemberBtn.addEventListener("click", async () => {
- if (!selectedServer) {
- alert("❌ Please select a server first.");
- return;
- }
- 
- addMemberPopUp.style.display = "flex";
+   if (!selectedServer) {
+     alert("❌ Please select a server first.");
+     return;
+   }
+   
+   addMemberPopUp.style.display = "flex";
  });
  
  closeAddMemberBtn.addEventListener("click", () => {
- addMemberPopUp.style.display = "none";
+   addMemberPopUp.style.display = "none";
  });
- 
- // Add member to server and grant access to public channels
- async function addMemberToServer(serverId, userId, username) {
-  try {
-    // Add member to server
-    await set(ref(db, `servers/${serverId}/members/${userId}`), {
-      username: username,
-      role: "member"
-    });
-    
-    // Get all channels in the server
-    const channelsRef = ref(db, `servers/${serverId}/channels`);
-    const channelsSnapshot = await get(channelsRef);
-    
-    if (channelsSnapshot.exists()) {
-      channelsSnapshot.forEach(async (channelSnap) => {
-        const channelId = channelSnap.key;
-        const channel = channelSnap.val();
-        
-        // Grant access to all public channels and general channel
-        if (channel.type === "public" || channel.name === "general") {
-          await set(ref(db, `servers/${serverId}/channels/${channelId}/allowedMembers/${userId}`), true);
-        }
-      });
-    }
-    
-    return true;
-  } catch (error) {
-    console.error("Error adding member to server:", error);
-    return false;
-  }
- }
  
  // Update the Add Member functionality to grant access to public channels
  confirmAddMemberBtn.addEventListener("click", async () => {
@@ -1892,6 +1926,7 @@ deleteChannelBtn.addEventListener("click", async () => {
     }
  });
 
+ // Manage channel access - this is the fixed event listener to prevent double popups
  document.getElementById("manageChannelAccess").addEventListener("click", async () => {
     if (!selectedServer || !selectedChannel) {
         alert("Please select a server and channel first.");
@@ -1999,32 +2034,38 @@ deleteChannelBtn.addEventListener("click", async () => {
         saveTypeButton.textContent = "Update Channel Type";
         
         saveTypeButton.addEventListener("click", async () => {
-            const newType = document.querySelector('input[name="channelTypeToggle"]:checked').value;
+    try {
+        const newType = document.querySelector('input[name="channelTypeToggle"]:checked').value;
+        console.log("Updating channel type to:", newType);
+        
+        // Use set instead of update to ensure type is set correctly
+        await set(ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/type`), newType);
+        
+        // If changing to public, add all members to allowedMembers
+        if (newType === "public") {
+            const allMembers = {};
+            membersSnapshot.forEach(memberSnap => {
+                allMembers[memberSnap.key] = true;
+            });
             
-            try {
-                // Update channel type
-                await update(ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}`), {
-                    type: newType
-                });
-                
-                // If changing to public, add all members
-                if (newType === "public") {
-                    const allMembers = {};
-                    membersSnapshot.forEach(memberSnap => {
-                        allMembers[memberSnap.key] = true;
-                    });
-                    
-                    await update(ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/allowedMembers`), allMembers);
-                }
-                
-                alert(`✅ Channel type updated to ${newType}`);
-                modal.remove();
-                document.getElementById("manageChannelAccess").click();
-            } catch (error) {
-                console.error("Error updating channel type:", error);
-                alert("Failed to update channel type");
-            }
-        });
+            await set(ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/allowedMembers`), allMembers);
+        }
+        
+        alert(`✅ Channel type updated to ${newType}`);
+        modal.remove();
+        
+        // Refresh channels to see the updated type
+        loadChannels(selectedServer.id);
+        
+        // Re-open the modal with the updated information
+        setTimeout(() => {
+            document.getElementById("manageChannelAccess").click();
+        }, 300);
+    } catch (error) {
+        console.error("Error updating channel type:", error);
+        alert("Failed to update channel type: " + error.message);
+    }
+});
         
         channelTypeDiv.appendChild(channelTypeLabel);
         channelTypeDiv.appendChild(channelTypeToggle);
@@ -2183,9 +2224,10 @@ deleteChannelBtn.addEventListener("click", async () => {
         console.error("Error managing channel access:", error);
         alert("Failed to load channel access management.");
     }
-});
-// Manage Members
-document.getElementById("manageMembers").addEventListener("click", async function() {
+ });
+ 
+ // Manage Members
+ document.getElementById("manageMembers").addEventListener("click", async function() {
     if (!window.selectedServer) {
         alert("❌ Please select a server first.");
         document.getElementById("settingsDropdown").style.display = "none";
@@ -2359,140 +2401,141 @@ document.getElementById("manageMembers").addEventListener("click", async functio
                     promoteBtn.style.fontSize = "12px";
                     
                     promoteBtn.onclick = async () => {
-                        try {
-                            // Store both username and role
-                            await set(ref(db, `servers/${serverId}/members/${memberId}`), {
-                                username: username,
-                                role: "admin"
-                            });
-                            
-                            alert(`✅ ${username} has been promoted to admin!`);
-                            document.body.removeChild(modal);
-                            // Re-open the modal to refresh
-                            document.getElementById("manageMembers").click();
-                        } catch (error) {
-                            console.error("Error promoting member:", error);
-                            alert("Failed to promote member. See console for details.");
-                        }
-                    };
-                    
-                    actionButtons.appendChild(promoteBtn);
-                }
-                
-                // Demote button (for admins)
-                if (role === "admin") {
-                    const demoteBtn = document.createElement("button");
-                    demoteBtn.textContent = "Demote";
-                    demoteBtn.style.backgroundColor = "#f44336";
-                    demoteBtn.style.color = "white";
-                    demoteBtn.style.border = "none";
-                    demoteBtn.style.padding = "5px 10px";
-                    demoteBtn.style.borderRadius = "3px";
-                    demoteBtn.style.cursor = "pointer";
-                    demoteBtn.style.fontSize = "12px";
-                    
-                    demoteBtn.onclick = async () => {
-                        try {
-                            // Store both username and role
-                            await set(ref(db, `servers/${serverId}/members/${memberId}`), {
-                                username: username,
-                                role: "member"
-                            });
-                            
-                            alert(`✅ ${username} has been demoted to member!`);
-                            document.body.removeChild(modal);
-                            // Re-open the modal to refresh
-                            document.getElementById("manageMembers").click();
-                        } catch (error) {
-                            console.error("Error demoting member:", error);
-                            alert("Failed to demote member. See console for details.");
-                        }
-                    };
-                    
-                    actionButtons.appendChild(demoteBtn);
-                }
-                
-                // Remove button (for all except owner)
-                if (role !== "owner") {
-                    const removeBtn = document.createElement("button");
-                    removeBtn.textContent = "Remove";
-                    removeBtn.style.backgroundColor = "#9e9e9e";
-                    removeBtn.style.color = "white";
-                    removeBtn.style.border = "none";
-                    removeBtn.style.padding = "5px 10px";
-                    removeBtn.style.borderRadius = "3px";
-                    removeBtn.style.cursor = "pointer";
-                    removeBtn.style.fontSize = "12px";
-                    
-                    removeBtn.onclick = async () => {
-                        try {
-                            if (confirm(`Are you sure you want to remove ${username} from the server?`)) {
-                                await remove(ref(db, `servers/${serverId}/members/${memberId}`));
-                                alert(`✅ ${username} has been removed from the server!`);
-                                document.body.removeChild(modal);
-                                // Re-open the modal to refresh
-                                document.getElementById("manageMembers").click();
-                            }
-                        } catch (error) {
-                            console.error("Error removing member:", error);
-                            alert("Failed to remove member. See console for details.");
-                        }
-                    };
-                    
-                    actionButtons.appendChild(removeBtn);
-                }
-            } 
-            // Admin can remove regular members, but not other admins or owner
-            else if (userRole === "admin" && role === "member" && memberId !== currentUserId) {
-                const removeBtn = document.createElement("button");
-                removeBtn.textContent = "Remove";
-                removeBtn.style.backgroundColor = "#9e9e9e";
-                removeBtn.style.color = "white";
-                removeBtn.style.border = "none";
-                removeBtn.style.padding = "5px 10px";
-                removeBtn.style.borderRadius = "3px";
-                removeBtn.style.cursor = "pointer";
-                removeBtn.style.fontSize = "12px";
-                
-                removeBtn.onclick = async () => {
-                    try {
-                        if (confirm(`Are you sure you want to remove ${username} from the server?`)) {
-                            await remove(ref(db, `servers/${serverId}/members/${memberId}`));
-                            alert(`✅ ${username} has been removed from the server!`);
-                            document.body.removeChild(modal);
-                            // Re-open the modal to refresh
-                            document.getElementById("manageMembers").click();
-                        }
-                    } catch (error) {
-                        console.error("Error removing member:", error);
-                        alert("Failed to remove member. See console for details.");
-                    }
-                };
-                
-                actionButtons.appendChild(removeBtn);
-            }
-            
-            memberItem.appendChild(memberInfo);
-            memberItem.appendChild(actionButtons);
-            membersList.appendChild(memberItem);
+    try {
+        // Store both username and role
+        await set(ref(db, `servers/${serverId}/members/${memberId}`), {
+            username: username,
+            role: "admin"
         });
         
-        // Assemble modal
-        modalContent.appendChild(closeButton);
-        modalContent.appendChild(title);
-        modalContent.appendChild(membersList);
-        modal.appendChild(modalContent);
-        
-        // Add to page
-        document.body.appendChild(modal);
-        
+        alert(`✅ ${username} has been promoted to admin!`);
+        document.body.removeChild(modal);
+        // Re-open the modal to refresh
+        document.getElementById("manageMembers").click();
     } catch (error) {
-        console.error("Error showing member management:", error);
-        alert("❌ Failed to load member management. See console for details.");
+        console.error("Error promoting member:", error);
+        alert("Failed to promote member. See console for details.");
     }
+};
+
+actionButtons.appendChild(promoteBtn);
+}
+
+// Demote button (for admins)
+if (role === "admin") {
+    const demoteBtn = document.createElement("button");
+    demoteBtn.textContent = "Demote";
+    demoteBtn.style.backgroundColor = "#f44336";
+    demoteBtn.style.color = "white";
+    demoteBtn.style.border = "none";
+    demoteBtn.style.padding = "5px 10px";
+    demoteBtn.style.borderRadius = "3px";
+    demoteBtn.style.cursor = "pointer";
+    demoteBtn.style.fontSize = "12px";
     
-    document.getElementById("settingsDropdown").style.display = "none";
+    demoteBtn.onclick = async () => {
+        try {
+            // Store both username and role
+            await set(ref(db, `servers/${serverId}/members/${memberId}`), {
+                username: username,
+                role: "member"
+            });
+            
+            alert(`✅ ${username} has been demoted to member!`);
+            document.body.removeChild(modal);
+            // Re-open the modal to refresh
+            document.getElementById("manageMembers").click();
+        } catch (error) {
+            console.error("Error demoting member:", error);
+            alert("Failed to demote member. See console for details.");
+        }
+    };
+    
+    actionButtons.appendChild(demoteBtn);
+}
+
+// Remove button (for all except owner)
+if (role !== "owner") {
+    const removeBtn = document.createElement("button");
+    removeBtn.textContent = "Remove";
+    removeBtn.style.backgroundColor = "#9e9e9e";
+    removeBtn.style.color = "white";
+    removeBtn.style.border = "none";
+    removeBtn.style.padding = "5px 10px";
+    removeBtn.style.borderRadius = "3px";
+    removeBtn.style.cursor = "pointer";
+    removeBtn.style.fontSize = "12px";
+    
+    removeBtn.onclick = async () => {
+        try {
+            if (confirm(`Are you sure you want to remove ${username} from the server?`)) {
+                await remove(ref(db, `servers/${serverId}/members/${memberId}`));
+                alert(`✅ ${username} has been removed from the server!`);
+                document.body.removeChild(modal);
+                // Re-open the modal to refresh
+                document.getElementById("manageMembers").click();
+            }
+        } catch (error) {
+            console.error("Error removing member:", error);
+            alert("Failed to remove member. See console for details.");
+        }
+    };
+    
+    actionButtons.appendChild(removeBtn);
+}
+} 
+// Admin can remove regular members, but not other admins or owner
+else if (userRole === "admin" && role === "member" && memberId !== currentUserId) {
+    const removeBtn = document.createElement("button");
+    removeBtn.textContent = "Remove";
+    removeBtn.style.backgroundColor = "#9e9e9e";
+    removeBtn.style.color = "white";
+    removeBtn.style.border = "none";
+    removeBtn.style.padding = "5px 10px";
+    removeBtn.style.borderRadius = "3px";
+    removeBtn.style.cursor = "pointer";
+    removeBtn.style.fontSize = "12px";
+    
+    removeBtn.onclick = async () => {
+        try {
+            if (confirm(`Are you sure you want to remove ${username} from the server?`)) {
+                await remove(ref(db, `servers/${serverId}/members/${memberId}`));
+                alert(`✅ ${username} has been removed from the server!`);
+                document.body.removeChild(modal);
+                // Re-open the modal to refresh
+                document.getElementById("manageMembers").click();
+            }
+        } catch (error) {
+            console.error("Error removing member:", error);
+            alert("Failed to remove member. See console for details.");
+        }
+    };
+    
+    actionButtons.appendChild(removeBtn);
+}
+
+memberItem.appendChild(memberInfo);
+memberItem.appendChild(actionButtons);
+membersList.appendChild(memberItem);
 });
+
+// Assemble modal
+modalContent.appendChild(closeButton);
+modalContent.appendChild(title);
+modalContent.appendChild(membersList);
+modal.appendChild(modalContent);
+
+// Add to page
+document.body.appendChild(modal);
+
+} catch (error) {
+    console.error("Error showing member management:", error);
+    alert("❌ Failed to load member management. See console for details.");
+}
+
+document.getElementById("settingsDropdown").style.display = "none";
+});
+
 // Leave server functionality
 leaveServerBtn.addEventListener("click", async function() {
     if (!window.selectedServer) {
@@ -2546,52 +2589,52 @@ leaveServerBtn.addEventListener("click", async function() {
     document.getElementById("settingsDropdown").style.display = "none";
 });
 
- // Delete server
- const deleteServerBtn = document.getElementById("deleteServer");
- if (deleteServerBtn) {
- deleteServerBtn.addEventListener("click", async () => {
- if (!selectedServer) {
- alert("❌ Please select a server first.");
- return;
- }
- 
- // Check if user is owner
- const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
- if (userRole !== "owner") {
- alert("❌ Only the server owner can delete the server.");
- return;
- }
- 
- const confirmDelete = confirm(`Are you sure you want to delete the server "${selectedServer.name}"? This action cannot be undone.`);
- if (confirmDelete) {
- try {
- const serverRef = ref(db, `servers/${selectedServer.id}`);
- await remove(serverRef);
- 
- alert(`✅ Server "${selectedServer.name}" deleted successfully!`);
- 
- // Reset view and go back to server list
- serverSectionView.style.display = "block";
- channelSectionView.style.display = "none";
- membersSidebar.style.display = "none";
- document.getElementById("messages").innerHTML = "";
- document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
- document.getElementById("messageInput").disabled = true;
- selectedServer = null;
- selectedChannel = null;
- window.selectedServer = null;
- window.selectedChannel = null;
- 
- // Reload servers
- loadServers();
- } catch (error) {
- console.error("❌ Error deleting server:", error);
- alert("Failed to delete server.");
- }
- }
- });
- }
- });
+// Delete server
+const deleteServerBtn = document.getElementById("deleteServer");
+if (deleteServerBtn) {
+    deleteServerBtn.addEventListener("click", async () => {
+        if (!selectedServer) {
+            alert("❌ Please select a server first.");
+            return;
+        }
+        
+        // Check if user is owner
+        const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
+        if (userRole !== "owner") {
+            alert("❌ Only the server owner can delete the server.");
+            return;
+        }
+        
+        const confirmDelete = confirm(`Are you sure you want to delete the server "${selectedServer.name}"? This action cannot be undone.`);
+        if (confirmDelete) {
+            try {
+                const serverRef = ref(db, `servers/${selectedServer.id}`);
+                await remove(serverRef);
+                
+                alert(`✅ Server "${selectedServer.name}" deleted successfully!`);
+                
+                // Reset view and go back to server list
+                serverSectionView.style.display = "block";
+                channelSectionView.style.display = "none";
+                membersSidebar.style.display = "none";
+                document.getElementById("messages").innerHTML = "";
+                document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
+                document.getElementById("messageInput").disabled = true;
+                selectedServer = null;
+                selectedChannel = null;
+                window.selectedServer = null;
+                window.selectedChannel = null;
+                
+                // Reload servers
+                loadServers();
+            } catch (error) {
+                console.error("❌ Error deleting server:", error);
+                alert("Failed to delete server.");
+            }
+        }
+    });
+}
+});
 
  // Logout
  document.getElementById("logoutButton").addEventListener("click", function () {
