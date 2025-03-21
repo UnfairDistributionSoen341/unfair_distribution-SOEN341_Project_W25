@@ -1,35 +1,41 @@
-
 * {
     padding: 0;
     margin: 0;
     box-sizing: border-box;
+    border-radius: 0 !important;
 }
 
 body {
     font-family: Arial, sans-serif;
     background-color: #f4f4f4;
+    height: 100vh;
+    width: 100vw;
+    margin: 0;
+    padding: 0;
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    overflow: hidden;
 }
 
 .chat-container {
     display: flex;
-    width: 80%;
-    height: 600px;
+    width: 100%;
+    height: 100%;
     background: white;
-    border-radius: 10px;
     overflow: hidden;
-    box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.2);
+    box-shadow: none;
+    margin: 0;
+    padding: 0;
 }
 
 /* Sidebar Styles */
 .sidebar {
-    width: 300px;
+    width: 250px;
+    min-width: 250px;
     background: #2C2F33;
     color: white;
-    padding: 20px;
+    padding: 15px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -39,7 +45,6 @@ body {
     width: 100%;
     padding: 10px;
     margin-bottom: 10px;
-    border-radius: 5px;
     border: none;
 }
 
@@ -54,7 +59,6 @@ body {
     background: #7289DA;
     margin-bottom: 5px;
     cursor: pointer;
-    border-radius: 5px;
     color: white;
     text-align: center;
     transition: background 0.3s;
@@ -69,25 +73,22 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 20px;
+    height: 100%;
 }
 
 #messages {
     flex: 1;
-    max-height: 400px;
+    padding: 15px;
     overflow-y: auto;
-    padding: 10px;
-    background: #F2F3F5;
     display: flex;
     flex-direction: column;
     gap: 10px;
+    background: #F2F3F5;
 }
 
 /* Message Styles */
 .message {
-    
     padding: 10px 15px;
-    border-radius: 15px;
     max-width: 60%;
     word-wrap: break-word;
     font-size: 14px;
@@ -111,6 +112,7 @@ body {
     align-self: flex-start;
     border: 1px solid #ddd;
 }
+
 .reply-button {
     position: absolute; 
     bottom: -10px; 
@@ -122,11 +124,13 @@ body {
     cursor: pointer; 
     visibility: hidden;
 }
+
 .message:hover .reply-button {
     visibility: visible; 
 }
+
 .reply-button:hover {
-    background-color:transparent; 
+    background-color: transparent; 
 }
 
 /* Profile Picture */
@@ -172,7 +176,6 @@ body {
     flex-grow: 1;
     padding: 12px;
     border: 1px solid #ddd;
-    border-radius: 5px;
     margin-right: 10px;
 }
 
@@ -181,7 +184,6 @@ body {
     background: #007bff;
     color: white;
     border: none;
-    border-radius: 5px;
     cursor: pointer;
     transition: background 0.3s;
 }
@@ -202,20 +204,158 @@ body {
 .message-container {
     display: flex;
     flex-direction: column;
-    align-items: center; /* Centers everything */
-    gap: 5px; /* Adds a small gap between elements */
+    align-items: center;
+    gap: 5px;
 }
+
 .user-wrapper {
     display: flex;
     flex-direction: column;
-    align-items: center; /* Centers profile pic and username */
+    align-items: center;
     text-align: center;
 }
-    
-/* .message-content {
-background: #f1f1f1;
-padding: 8px;
-border-radius: 10px;
-max-width: 60%;
-text-align: center;
-} */
+
+/* Emoji Picker Styles */
+.emoji-container {
+    position: relative;
+    margin-right: 10px;
+}
+
+#emojiButton {
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: 20px;
+    padding: 10px;
+    transition: background 0.3s;
+}
+
+#emojiButton:hover {
+    background-color: #f1f1f1;
+}
+
+#emojiPicker {
+    position: absolute;
+    bottom: 50px;
+    left: 0;
+    width: 300px;
+    background: white;
+    border: 1px solid #ddd;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    z-index: 1000;
+}
+
+.emoji-tabs {
+    display: flex;
+    border-bottom: 1px solid #ddd;
+}
+
+.emoji-tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.emoji-tab.active {
+    background-color: #f1f1f1;
+}
+
+.emoji-content {
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.emoji-category {
+    display: none;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.emoji-category.active {
+    display: flex;
+}
+
+.emoji {
+    font-size: 20px;
+    cursor: pointer;
+    padding: 5px;
+}
+
+.emoji:hover {
+    background-color: #f1f1f1;
+}
+
+/* Modals and Context Menu */
+#contextMenu {
+    display: none;
+    position: absolute;
+    background-color: white;
+    border: 1px solid #ccc;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+}
+
+#contextMenu ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+#contextMenu li {
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+#contextMenu li:hover {
+    background-color: #f1f1f1;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 1001;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 20px;
+    width: 300px;
+}
+
+.modal-content textarea {
+    width: 100%;
+    height: 100px;
+    margin-bottom: 10px;
+}
+
+#logoutButton {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    padding: 10px 20px;
+    background-color: red;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+#logoutButton:hover {
+    background-color: darkred;
+}
+
+/* Status indicator */
+.status-indicator {
+    margin-right: 5px;
+}
