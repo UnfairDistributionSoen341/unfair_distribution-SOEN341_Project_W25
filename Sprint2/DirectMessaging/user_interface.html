@@ -797,143 +797,31 @@
  
  return defaultPic;
  }
-/* the old/ bad version
+
  async function renderMessage(messageData, messageId) {
- const messagesDiv = document.getElementById("messages");
- 
- // Create the message container
- let messageElement = document.createElement("div");
- messageElement.classList.add("message");
- messageElement.id = messageId;
-
- // Assign sent or received class
- if (messageData.sender === currentUser.email) {
- messageElement.classList.add("sent");
- } else {
- messageElement.classList.add("received");
- }
-
- // Ensure we have the sender's username and profile picture
- let senderUsername = messageData.senderUsername;
- let profilePicURL = messageData.profilePicture;
- let senderUID = messageData.senderUID;
- 
- // Try to get username in multiple ways - for older messages that might not have all data
- if (!senderUsername || senderUsername === "Unknown User") {
- // First try to get username from senderUID
- if (senderUID) {
- senderUsername = await resolveUsername(senderUID);
- }
- 
- // If still unknown, try getting from email
- if ((!senderUsername || senderUsername === "Unknown User") && messageData.sender) {
- const usernameFromEmail = getUsernameByEmail(messageData.sender);
- if (usernameFromEmail) {
- senderUsername = usernameFromEmail;
- 
- // Get the sender's UID if we don't have it yet
- if (!senderUID) {
- const user = getUserByEmail(messageData.sender);
- if (user) {
- senderUID = user.uid;
- }
- }
- }
- }
- }
- 
- // If profile picture is missing, try to resolve it
- if (!profilePicURL && senderUID) {
- profilePicURL = await resolveProfilePic(senderUID);
- } else if (!profilePicURL && messageData.sender) {
- // Try to get profile picture from email
- const user = getUserByEmail(messageData.sender);
- if (user && user.profilePicture) {
- profilePicURL = user.profilePicture;
- } else {
- profilePicURL = "default-pfp.png";
- }
- } else if (!profilePicURL) {
- profilePicURL = "default-pfp.png";
- }
-
- // Create profile picture element
- let profileImg = document.createElement("img");
- profileImg.src = profilePicURL;
- profileImg.classList.add("message-profile");
-
- // Create sender username element
- let senderName = document.createElement("span");
- senderName.classList.add("message-username");
- senderName.innerText = senderUsername || "Unknown User";
-
- // Create message text element
- let textElement = document.createElement("p");
- textElement.classList.add("message-text");
- textElement.innerText = messageData.text;
-
- // Format timestamp
- let timeString = messageData.timestamp
- ? new Date(messageData.timestamp).toLocaleTimeString()
- : "";
-
- // Create timestamp element
- let timestampElement = document.createElement("div");
- timestampElement.classList.add("message-timestamp");
- timestampElement.innerText = timeString;
-
- // Append delete button only for the sender's messages
- if (messageData.sender === currentUser.email) {
- let deleteButton = document.createElement("span");
- deleteButton.classList.add("delete-button");
- deleteButton.innerText = "Delete";
- deleteButton.addEventListener("click", () => deleteMessage(messageId));
- messageElement.appendChild(deleteButton);
- }
-
- // Append elements to message container
- let messageWrapper = document.createElement("div");
-messageWrapper.style.display = "flex";
-messageWrapper.style.flexDirection = "column"; // Stack elements vertically
-messageWrapper.style.alignItems = "center"; // Center align
-
-let messageContent = document.createElement("div");
-messageContent.style.textAlign = "center"; // Ensure text is centered under the profile pic
-
-messageWrapper.appendChild(profileImg); // Profile Picture on top
-messageContent.appendChild(senderName); // Username below profile picture
-messageContent.appendChild(textElement); // Message text below username
-messageContent.appendChild(timestampElement); // Timestamp below text
-
-messageWrapper.appendChild(messageContent);
-messageElement.appendChild(messageWrapper);
-
- // Append message to messages container
- messagesDiv.appendChild(messageElement);
- }
-*/
-async function renderMessage(messageData, messageId) {
     const messagesDiv = document.getElementById("messages");
 
     // Create the message container
     let messageElement = document.createElement("div");
     messageElement.classList.add("message");
     messageElement.id = messageId;
-
+    
     // Assign sent or received class
     if (messageData.sender === currentUser.email) {
         messageElement.classList.add("sent");
     } else {
         messageElement.classList.add("received");
     }
+    
     //add reply button
     let replyButton = document.createElement("button");
-  replyButton.classList.add("reply-button");
-  replyButton.innerText = "Reply";
-  replyButton.addEventListener("click", function() {
-    replyToMessage(messageData);
-  });
-  messageElement.appendChild(replyButton);
+    replyButton.classList.add("reply-button");
+    replyButton.innerText = "Reply";
+    replyButton.addEventListener("click", function() {
+        replyToMessage(messageData);
+    });
+    messageElement.appendChild(replyButton);
+
     // Ensure we have the sender's username and profile picture
     let senderUsername = messageData.senderUsername;
     let profilePicURL = messageData.profilePicture;
@@ -947,7 +835,7 @@ async function renderMessage(messageData, messageId) {
 
     // Create profile picture element
     let profileImg = document.createElement("img");
-    profileImg.src = profilePicURL;
+    profileImg.src = profilePicURL || "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD..."; // Use default if missing
     profileImg.classList.add("message-profile");
 
     // Create sender username element
@@ -992,65 +880,79 @@ async function renderMessage(messageData, messageId) {
 
     messageElement.appendChild(messageContainer);
 
+
+    // Add delete button for sender's messages with server-style CSS
+    if (messageData.sender === currentUser.email) {
+        let deleteButton = document.createElement("button");
+        deleteButton.className = "delete-btn"; // Use the same class as in server
+        deleteButton.innerHTML = "&times;";
+        deleteButton.setAttribute("data-message-id", messageId);
+        
+        // Add click event to delete message
+        deleteButton.addEventListener("click", (event) => {
+            event.stopPropagation();
+            deleteMessage(messageId);
+        });
+        
+        messageElement.appendChild(deleteButton);
+    }
+
     // Append message to messages container
     messagesDiv.appendChild(messageElement);
 }
 
-function replyToMessage(messageData) {
-  console.log("Reply button clicked!"); 
-  console.log("Message data:", messageData); 
-  
-
-  const chatInput = document.getElementById("messageInput");  
-
-  if (!chatInput) {
-    console.error("messageInput element not found");
-    return; 
+function deleteMessage(messageId) {
+  if (!messageId || !chatID) {
+    console.error("❌ Missing messageId or chatID for deletion");
+    return;
   }
-  console.log("chatInput found:", chatInput);
 
+  // Reference to the specific message
+  const messageRef = ref(db, `chats/${chatID}/messages/${messageId}`);
   
-  const replyText = `${messageData.senderUsername}: "${messageData.text}"`;
-  console.log("Reply text:", replyText);
-
- 
-  const quoteText = `quote[${replyText}]`;  
-  chatInput.value = `${quoteText}\n\n${chatInput.value}`; 
-  chatInput.style.fontSize = "14px";  
-  chatInput.style.color = "black";  
-
-  
-  chatInput.focus();
-  chatInput.setSelectionRange(chatInput.value.length, chatInput.value.length);
-
- 
-  chatInput.addEventListener('focus', () => {
-    chatInput.style.color = "black"; 
+  // Mark the message as deleted instead of removing it completely
+  // This maintains conversation context while hiding the message
+  update(messageRef, {
+    deleted: true
+  }).then(() => {
+    // Hide the message element in the UI
+    const messageElement = document.getElementById(messageId);
+    if (messageElement) {
+      messageElement.style.display = "none";
+      console.log(`🗑️ Message ${messageId} deleted successfully.`);
+    }
+  }).catch(error => {
+    console.error("❌ Error deleting message:", error);
+    alert("Failed to delete message. Please try again.");
   });
-
-  
-  const quotedText = chatInput.value.split("\n")[0]; 
-  const greyedText = `quote[${replyText}]`;  
-
-
-  console.log("Updated chatInput value:", chatInput.value);
 }
- function deleteMessage(messageId) {
- const messageRef = ref(db, `chats/${chatID}/messages/${messageId}`);
- update(messageRef, { 
- deleted: true,
- deletedAt: Date.now(),
- deletedBy: currentUser.uid
- }).then(() => {
- const messageElement = document.getElementById(messageId);
- if (messageElement) {
- messageElement.style.display = "none";
- }
- console.log(`🗑️ Message ${messageId} marked as deleted.`);
- }).catch(error => {
- console.error("❌ Error deleting message:", error);
- });
- }
+
+function replyToMessage(messageData) {
+    // Make sure we have the message data
+    if (!messageData || !messageData.text || !messageData.senderUsername) {
+        console.error("Invalid message data for reply");
+        return;
+    }
+
+    const chatInput = document.getElementById("messageInput");
+    if (!chatInput) {
+        console.error("messageInput element not found");
+        return;
+    }
+
+    // Create the quoted text with sender's name
+    const replyText = `${messageData.senderUsername}: "${messageData.text}"`;
+    
+    // Format as quote
+    const quoteText = `> ${replyText}\n\n`;
+    
+    // Add to beginning of input
+    chatInput.value = `${quoteText}${chatInput.value}`;
+    
+    // Focus and place cursor at end
+    chatInput.focus();
+    chatInput.setSelectionRange(chatInput.value.length, chatInput.value.length);
+}
 
  // Context menu functions
  function showContextMenu(event, user) {
