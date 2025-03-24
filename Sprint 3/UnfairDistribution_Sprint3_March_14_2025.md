@@ -45,6 +45,6 @@
 
 | Point | Description                                                                                                                                             |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | Overview of the sprint division                                                                                                                         |
-| 2     | Determining a unique feature--> profile picture                                                                                                         |
+| 1     | Overview of the sprint 3 tasks abd division of issues based on prior assigned work                                                                      |
+| 2     | Determining a unique feature--> profile picture, block/unblock option                                                                                   |
 | 3     | Going over what should be prioritized and done first                                                                                                    |
