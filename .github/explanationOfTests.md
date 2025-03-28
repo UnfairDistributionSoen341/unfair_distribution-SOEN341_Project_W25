@@ -1,81 +1,137 @@
-# Description of each tests:
-## 1. Authentication Tests
-These tests verify that your user authentication system works correctly:
+# ChatHaven Testing Suite Explanation
 
-### Login Tests: 
-Verify that users can log in with correct credentials, that login fails with incorrect credentials, and that validation prevents submission of empty fields.
-### Sign Up Tests: 
-Ensure that new user registration works, that username validation prevents duplicate usernames, and that password security requirements are met.
-Forgot Password Tests: Test that password reset functionality sends reset emails correctly and validates email inputs.
+This document provides an overview of our testing strategy, divided by test type: Unit Tests, Integration Tests, and Acceptance Tests. Each section explains what tests are included and their purpose.
 
-## 2. Security Tests
-These verify that your application's security measures work as expected:
+## Test Count Summary
 
-### Password Hashing Tests: 
-Confirm that passwords are properly hashed (not stored in plaintext), that the hashing algorithm works correctly, and that password comparison functions work for both correct and incorrect passwords.
-### XSS Prevention Tests: 
-Check that user-generated content (like messages) is properly sanitized to prevent cross-site scripting attacks.
+| Test Type | Number of Tests |
+|-----------|----------------|
+| Unit Tests | 21 |
+| Integration Tests | 5 |
+| Acceptance Tests | 15 |
+| End-to-End Tests | 1 |
+| Performance Tests | 7 |
+| Accessibility Tests | 3 |
+| Visual Regression Tests | 2 |
+| **Total** | **54** |
 
-## 3. Messaging Tests
-These verify the core functionality of your chat application:
+## Unit Tests
 
-### Direct Messaging Tests: 
-Test sending and receiving direct messages, message display formatting, and handling empty messages.
-### Server Messaging Tests: 
-Check server/channel creation, displaying channels, and sending messages within channels.
+Unit tests focus on testing individual components or functions in isolation. These tests verify that each piece of code works correctly on its own.
 
-## 4. UI Component Tests
-These verify that the interface works as expected:
+### Authentication Unit Tests
+- **Login Tests**: Verify input validation, form submission handling, and authentication logic for the login component.
+- **Sign Up Tests**: Test validation logic, username availability checks, and user registration functionality.
+- **Forgot Password Tests**: Test email validation and password reset request handling.
 
-### Homepage Tests: 
-Verify tab switching between DM and Server sections, and test that the profile popup opens and closes correctly.
-### Profile Page Tests: 
-Test the profile information display and ability to update profile pictures.
+### Security Unit Tests
+- **Password Hashing Tests**: Verify that password hashing functions work correctly, including:
+  - Proper hashing of passwords (not stored as plaintext)
+  - Correct hash verification for valid passwords
+  - Failed verification for incorrect passwords
+  - Error handling in hash functions
+- **XSS Prevention Tests**: Check that user-generated content is properly sanitized to prevent cross-site scripting attacks.
 
-## 5. Integration Tests
-These test how different components work together:
+### Messaging Component Unit Tests
+- **Direct Messaging Tests**: Verify the functionality of message input, message display, and user selection.
+- **Server Messaging Tests**: Test server list display, channel list display, and settings popup functionality.
 
-### Authentication Flow Tests: 
-Test the entire flow from sign-up to login to password reset.
-### Messaging Flow Tests: 
-Test the flow from selecting a conversation to sending and receiving messages.
-### Server Management Flow Tests: 
-Test creating servers, channels, and managing members.
+### UI Component Unit Tests
+- **Homepage Tests**: Verify tab switching between DM and Server sections, and test profile popup toggle functionality.
+- **Profile Page Tests**: Test profile information display and the ability to update profile pictures.
 
-## 6. End-to-End Tests
-These test the complete user experience:
+## Integration Tests
 
-### Full User Journey Tests: 
-Test the entire application flow from registration to sending messages in both direct messages and server channels.
+Integration tests verify how different components work together, ensuring that the interfaces between components function correctly.
 
-## 7. Performance Tests
-These evaluate how your application performs under various conditions:
+### Authentication Flow Tests
+- Test the entire flow from sign-up to login to password reset, verifying that all components work together correctly.
+- Test error handling across authentication components.
 
-### Load Testing: 
-Tests how the app handles normal expected traffic.
-### Stress Testing: 
-Tests how the app handles peak loads beyond normal usage.
-### Browser Performance Testing: 
-Checks metrics like page load times, rendering performance, etc.
-### Firebase Database Performance Tests: 
-Tests the responsiveness of database operations like reads, writes, and queries.
+### Messaging Flow Tests
+- Test the flow from selecting a conversation to sending and receiving messages.
+- Verify message persistence between page reloads.
+- Test real-time message updates across clients.
 
-## 8. Accessibility Tests
-These verify that your application is usable by people with disabilities:
+### Server Management Flow Tests
+- Test creating servers, channels, and managing members.
+- Verify permission checks and role-based access.
+- Test server-wide notifications and updates.
 
-### Accessibility Compliance Tests: 
-Check that the application meets standard accessibility guidelines (WCAG).
+## Acceptance Tests
 
-## 9. Visual Regression Tests
-These ensure that UI changes don't break the existing design:
+Acceptance tests verify that the application meets the user requirements and works correctly from an end-user perspective.
 
-### Visual Appearance Tests: 
-Compare screenshots of UI components against baseline images to detect visual changes.
+### Authentication Acceptance Tests
+- **Login Page**: Verify that the login page renders correctly, shows validation messages for empty fields, and has links to Sign Up and Forgot Password pages.
+- **Sign Up Page**: Test that the sign-up page renders correctly, username validation works, and the form links back to the Login page.
+- **Forgot Password Page**: Confirm the page renders correctly, validates email input, and provides a way to return to the Login page.
 
-# To note: 
-Some tests are skipped due to them being ressource intensive costly time wise. 
-Hence if you want to run them you would need to manually trigger them from the GitHub UI:
+### Messaging Acceptance Tests
+- **Direct Messages UI**: Verify that the direct messaging interface renders correctly with all required elements (chat container, sidebar, messages area, input field).
+- **Server Interface**: Test that the server interface correctly displays all components (server list, channel view, message area).
 
-- Click on the "Actions" tab
-- Select the appropriate workflow from the list
-- Click on the "Run workflow" button
+### Navigation Acceptance Tests
+- **Homepage Navigation**: Test switching between DM and Server tabs, profile popup functionality, and overall layout.
+
+### User Profile Acceptance Tests
+- **Profile Management**: Verify the profile page shows correct user information and allows changing profile pictures.
+
+## End-to-End Tests
+
+End-to-end tests verify the complete user journey through the application.
+
+### Full User Journey Tests
+- Test the entire application flow from registration to sending messages in both direct messages and server channels.
+- Verify that a user can:
+  1. Register a new account
+  2. Log in successfully
+  3. Navigate the homepage
+  4. Create or join a server
+  5. Send messages in different contexts
+  6. Update profile information
+
+## Performance Tests
+
+Performance tests evaluate how your application performs under various conditions.
+
+### Load Testing
+- Tests how the app handles normal expected traffic (response times, throughput).
+
+### Stress Testing
+- Tests how the app handles peak loads beyond normal usage (breaking points, recovery).
+
+### Browser Performance Testing
+- Checks metrics like page load times, rendering performance, and memory usage.
+
+### Firebase Database Performance Tests
+- Tests the responsiveness of database operations like reads, writes, and queries.
+
+## Accessibility Tests
+
+Accessibility tests verify that your application is usable by people with disabilities.
+
+### Accessibility Compliance Tests
+- Check that the application meets standard accessibility guidelines (WCAG).
+
+## Visual Regression Tests
+
+Visual regression tests ensure that UI changes don't break the existing design.
+
+### Visual Appearance Tests
+- Compare screenshots of UI components against baseline images to detect visual changes.
+
+# Running Tests
+
+Some tests are skipped by default due to being resource-intensive or costly time-wise. To run these tests, you need to manually trigger them from the GitHub UI:
+
+1. Click on the "Actions" tab
+2. Select the appropriate workflow from the list
+3. Click on the "Run workflow" button
+
+## Available Workflows
+- Acceptance Tests
+- Integration Tests
+- Unit Tests
+- Performance Tests
+- Visual Regression Tests (manual trigger only)
