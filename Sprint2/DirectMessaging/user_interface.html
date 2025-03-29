@@ -434,7 +434,267 @@
    get, update, query, orderByChild, set, onDisconnect, onValue} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
  
- 
+// ===== IMPROVED STEVE AI CHATBOT CONFIGURATION =====
+const STEVE = {
+  uid: "steve-ai-chatbot-uid",
+  username: "Steve AI",
+  email: "steve-ai@chathaven.com",
+  status: "online",
+  profilePicture: "https://cdn.pixabay.com/photo/2016/11/18/23/38/child-1837375_1280.png", // Default robot/AI image
+  bio: "I'm Steve, your friendly AI assistant. Ask me anything!",
+  isBot: true
+};
+
+// Function to add Steve to the database if he doesn't exist
+function initializeSteve(db) {
+  console.log("Initializing Steve AI...");
+  const steveRef = ref(db, `users/${STEVE.uid}`);
+  
+  // Check if Steve already exists in the database
+  get(steveRef).then((snapshot) => {
+    if (!snapshot.exists()) {
+      // Add Steve to the database
+      set(steveRef, {
+        uid: STEVE.uid,
+        username: STEVE.username,
+        email: STEVE.email,
+        status: "online",
+        profilePicture: STEVE.profilePicture,
+        bio: STEVE.bio,
+        isBot: true,
+        createdAt: Date.now()
+      }).then(() => {
+        console.log("✅ Steve AI has been added to the database");
+      }).catch(error => {
+        console.error("❌ Error adding Steve AI to the database:", error);
+      });
+    } else {
+      console.log("✅ Steve AI already exists in the database");
+      // Update Steve's status to online
+      const statusRef = ref(db, `users/${STEVE.uid}/status`);
+      set(statusRef, "online");
+    }
+  }).catch(error => {
+    console.error("❌ Error checking if Steve exists:", error);
+  });
+}
+
+// Function to prevent multiple message sending - using debounce
+function debounce(func, wait) {
+  let timeout;
+  return function(...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), wait);
+  };
+}
+
+// Function to generate Steve's response with calculation capability
+async function generateSteveResponse(message) {
+  // Convert message to lowercase for easier checking
+  const lowerMessage = message.toLowerCase();
+  
+  // Check if it's a math problem
+  if (isMathProblem(lowerMessage)) {
+    try {
+      return solveCalculation(message);
+    } catch (error) {
+      return "I couldn't solve that calculation. Could you rephrase it?";
+    }
+  }
+  
+  // Basic response logic
+  const greetings = ['hi', 'hello', 'hey', 'howdy', 'hiya', 'greetings'];
+  const farewells = ['bye', 'goodbye', 'see ya', 'cya', 'farewell', 'gotta go'];
+  const questions = ['who are you', 'what are you', 'what can you do', 'help'];
+  
+  // Check for greetings
+  if (greetings.some(greeting => lowerMessage.includes(greeting))) {
+    return `Hello! I'm Steve, your AI assistant. How can I help you today?`;
+  }
+  
+  // Check for farewells
+  if (farewells.some(farewell => lowerMessage.includes(farewell))) {
+    return `Goodbye! Feel free to message me anytime if you have questions.`;
+  }
+  
+  // Check for questions about Steve
+  if (questions.some(question => lowerMessage.includes(question))) {
+    return `I'm Steve, an AI assistant integrated into ChatHaven. I can answer questions, provide information, perform calculations, or just chat. What would you like to talk about?`;
+  }
+  
+  // Check for weather questions
+  if (lowerMessage.includes('weather')) {
+    return `I don't have access to real-time weather data, but I'd be happy to chat about other topics!`;
+  }
+  
+  // Check for time questions
+  if (lowerMessage.includes('time') && (lowerMessage.includes('what') || lowerMessage.includes('current'))) {
+    const now = new Date();
+    return `My system shows the current time is ${now.toLocaleTimeString()}.`;
+  }
+  
+  // Check for joke requests
+  if (lowerMessage.includes('joke') || lowerMessage.includes('funny')) {
+    const jokes = [
+      "Why don't scientists trust atoms? Because they make up everything!",
+      "Why did the scarecrow win an award? Because he was outstanding in his field!",
+      "What do you call a fake noodle? An impasta!",
+      "How does a penguin build its house? Igloos it together!",
+      "Why don't eggs tell jokes? They'd crack each other up!",
+      "What's the best thing about Switzerland? I don't know, but the flag is a big plus!"
+    ];
+    return jokes[Math.floor(Math.random() * jokes.length)];
+  }
+
+  // Basic conversational responses
+  if (lowerMessage.includes('thank')) {
+    return "You're welcome! Is there anything else I can help with?";
+  }
+  
+  if (lowerMessage.includes('how are you')) {
+    return "I'm doing well, thanks for asking! How about you?";
+  }
+
+  // Default response for other inputs
+  const defaultResponses = [
+    "Interesting! Tell me more about that.",
+    "I'm here to chat about whatever's on your mind.",
+    "That's a good point. What else are you thinking about?",
+    "Thanks for sharing that with me. How can I help you today?",
+    "I appreciate you reaching out. What would you like to discuss?",
+    "I'm designed to be helpful - feel free to ask me anything!"
+  ];
+  
+  return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
+}
+
+// Helper function to detect if a message is a math problem
+function isMathProblem(message) {
+  // Basic regex to detect math expressions
+  const mathRegex = /[0-9+\-*/()\s.^%]+/;
+  
+  // Check if the message contains numbers and typical math operators
+  return (
+    (message.includes("+") || 
+     message.includes("-") || 
+     message.includes("*") || 
+     message.includes("/") || 
+     message.includes("×") || 
+     message.includes("÷") ||
+     message.includes("plus") ||
+     message.includes("minus") ||
+     message.includes("times") ||
+     message.includes("divided") ||
+     message.includes("calculate") ||
+     message.includes("compute") ||
+     message.includes("what is") ||
+     message.includes("solve")) &&
+    /\d/.test(message) && 
+    mathRegex.test(message)
+  );
+}
+
+// Helper function to solve calculations
+function solveCalculation(message) {
+  // Extract the calculation part
+  let expression = message;
+  
+  // Replace math words with symbols
+  expression = expression.replace(/plus/gi, '+');
+  expression = expression.replace(/minus/gi, '-');
+  expression = expression.replace(/times/gi, '*');
+  expression = expression.replace(/divided by/gi, '/');
+  expression = expression.replace(/×/g, '*');
+  expression = expression.replace(/÷/g, '/');
+  
+  // Extract numbers and math operators
+  const extractedMath = expression.match(/[0-9+\-*/()\s.^%]+/g);
+  if (extractedMath) {
+    expression = extractedMath.join('');
+  }
+  
+  // Clean up the expression
+  expression = expression.replace(/[^0-9+\-*/()\s.^%]/g, '');
+  
+  try {
+    // Safely evaluate the expression using Function instead of eval
+    const result = new Function('return ' + expression)();
+    
+    // Format response
+    if (Number.isInteger(result)) {
+      return `The result is: ${result}`;
+    } else {
+      return `The result is: ${parseFloat(result.toFixed(4))}`;
+    }
+  } catch (error) {
+    console.error("Calculation error:", error);
+    return "I'm having trouble solving that calculation. Could you rephrase it?";
+  }
+}
+
+// Function to handle messaging Steve with debouncing to prevent duplicate messages
+const sendMessageToSteve = debounce((db, currentUser, messageText) => {
+  console.log("Sending message to Steve:", messageText);
+  
+  // Make sure we have all required data for the message
+  if (!currentUser || !currentUser.uid) {
+    console.error("❌ Current user data is missing!");
+    return;
+  }
+  
+  // Make sure we have a username - use email as fallback
+  const senderUsername = currentUser.username || currentUser.email.split('@')[0] || "User";
+  
+  // Generate chat ID exactly the same way as your app does
+  const chatID = currentUser.uid < STEVE.uid 
+    ? `${currentUser.uid}_${STEVE.uid}` 
+    : `${STEVE.uid}_${currentUser.uid}`;
+    
+  console.log("Chat ID for Steve:", chatID);
+  const chatRef = ref(db, `chats/${chatID}/messages`);
+  
+  // Add user message to database
+  push(chatRef, {
+    sender: currentUser.email,
+    senderUID: currentUser.uid,
+    senderUsername: senderUsername,
+    profilePicture: currentUser.profilePicture || "",
+    text: messageText,
+    timestamp: Date.now(),
+    isProcessed: true // Flag to prevent duplicate processing
+  }).then((messageRef) => {
+    console.log("✅ Message sent to Steve AI with messageId:", messageRef.key);
+    
+    // Generate Steve's response
+    setTimeout(async () => {
+      const steveResponse = await generateSteveResponse(messageText);
+      
+      // Add Steve's response to database
+      push(chatRef, {
+        sender: STEVE.email,
+        senderUID: STEVE.uid,
+        senderUsername: STEVE.username,
+        profilePicture: STEVE.profilePicture,
+        text: steveResponse,
+        timestamp: Date.now(),
+        isProcessed: true
+      }).then(() => {
+        console.log("✅ Steve AI responded");
+      }).catch(error => {
+        console.error("❌ Error sending Steve's response to database:", error);
+      });
+    }, 1500); // Slight delay to simulate "thinking"
+  }).catch(error => {
+    console.error("❌ Error sending message to Steve AI:", error);
+  });
+}, 500); // 500ms debounce to prevent rapid multiple message sends
+
+// Function to check if a chat is with Steve
+function isSteveChat(selectedUserID) {
+  return selectedUserID === STEVE.uid;
+}
+// ===== END OF IMPROVED STEVE AI CONFIGURATION =====
+
  const firebaseConfig = {
    apiKey: "AIzaSyDFhghmxUfCJbnnOFsleHoatF7D-ubnLpU",
    authDomain: "project-8042491080443698183.firebaseapp.com",
@@ -529,36 +789,94 @@
  });
  
  onAuthStateChanged(auth, (user) => {
-   if (user) {
-     currentUser = user;
-     console.log("✅ Logged in as:", currentUser.email);
-     
-     const usersRef = ref(db, `users/${currentUser.uid}`);
-     get(usersRef).then((snapshot) => {
-       if (snapshot.exists()) {
-         currentUsername = snapshot.val().username;
-         // Cache current user data
-         userCache[currentUser.uid] = snapshot.val();
-         // Cache email to username mapping
-         usernameResolvers[currentUser.email] = currentUsername;
-         const userStatusRef = ref(db, `users/${currentUser.uid}/status`);
-         set(userStatusRef, "online");
-         onDisconnect(userStatusRef).set("offline");
+  if (user) {
+    currentUser = user;
+    console.log("✅ Logged in as:", currentUser.email);
+    
+    const usersRef = ref(db, `users/${currentUser.uid}`);
+    get(usersRef).then((snapshot) => {
+      if (snapshot.exists()) {
+        currentUsername = snapshot.val().username;
+        // Cache current user data
+        userCache[currentUser.uid] = snapshot.val();
+        // Cache email to username mapping
+        usernameResolvers[currentUser.email] = currentUsername;
+        const userStatusRef = ref(db, `users/${currentUser.uid}/status`);
+        set(userStatusRef, "online");
+        onDisconnect(userStatusRef).set("offline");
 
-         // Start loading data
-         preloadAllUserData().then(() => {
-           loadUsers();
-           setupSearch();
-         });
-       } else {
-         console.error("❌ Current user data not found.");
-       }
-     });
-   } else {
-     window.location.href = "../LoginPage/user_login.html";
-   }
- });
- 
+        // Start loading data
+        preloadAllUserData().then(() => {
+          loadUsers();
+          setupSearch();
+          setupSteve(); // Add this line to initialize Steve
+        });
+      } else {
+        console.error("❌ Current user data not found.");
+      }
+    });
+  } else {
+    window.location.href = "../LoginPage/user_login.html";
+  }
+});
+
+// Function to set up Steve AI in the user list
+function setupSteve() {
+  console.log("Setting up Steve...");
+  
+  // Refresh current user data first
+  refreshCurrentUserData().then(() => {
+    // Then initialize Steve
+    initializeSteve(db);
+    
+    // Add Steve to user list
+    setTimeout(() => {
+      const userList = document.getElementById("userList");
+      if (!userList) {
+        console.error("userList element not found!");
+        return;
+      }
+      
+      console.log("Adding Steve to user list");
+      
+      // Check if Steve is already in the list
+      if (!document.getElementById(`user-${STEVE.uid}`)) {
+        const steveDiv = document.createElement("div");
+        steveDiv.classList.add("user");
+        steveDiv.id = `user-${STEVE.uid}`;
+        
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = STEVE.username;
+        steveDiv.appendChild(nameSpan);
+        
+        const statusSpan = document.createElement("span");
+        statusSpan.classList.add("status-indicator");
+        statusSpan.textContent = "🟢 Online";  // Steve is always online
+        steveDiv.appendChild(statusSpan);
+        
+        // Add Steve at the beginning of the user list
+        if (userList.firstChild) {
+          userList.insertBefore(steveDiv, userList.firstChild);
+        } else {
+          userList.appendChild(steveDiv);
+        }
+        
+        // Add click event listener to start chat with Steve
+        steveDiv.addEventListener("click", function() {
+          console.log("Steve clicked! Starting chat...");
+          startChat(STEVE);
+        });
+        
+        console.log("Steve added to user list");
+      } else {
+        console.log("Steve already exists in user list");
+      }
+    }, 2000); // Increased delay to ensure the user list is loaded
+  }).catch(error => {
+    console.error("Error setting up Steve:", error);
+  });
+}
+
  // Preload ALL user data to fix the "Unknown User" issues
  async function preloadAllUserData() {
    console.log("🔄 Loading all user data...");
@@ -734,13 +1052,84 @@
  }
  
  function startChat(user) {
-   selectedUser = user;
-   selectedUsername = user.username;
-   document.getElementById("chatUserName").innerText = `Chat with ${selectedUsername}`;
-   chatID = generateChatID(currentUser.uid, selectedUser.uid);
-   console.log(`📩 Chat started with ${selectedUsername} (Chat ID: ${chatID})`);
-   loadMessages();
- }
+  selectedUser = user;
+  selectedUsername = user.username;
+  
+  // Debug information
+  console.log("Starting chat with:", user);
+  console.log("Username:", selectedUsername);
+  console.log("UID:", user.uid);
+  
+  document.getElementById("chatUserName").innerText = `Chat with ${selectedUsername}`;
+  
+  // Generate proper chat ID
+  chatID = user.uid === STEVE.uid 
+    ? (currentUser.uid < STEVE.uid ? `${currentUser.uid}_${STEVE.uid}` : `${STEVE.uid}_${currentUser.uid}`)
+    : generateChatID(currentUser.uid, user.uid);
+    
+  console.log(`📩 Chat started with ${selectedUsername} (Chat ID: ${chatID})`);
+  
+  // Clear messages div
+  document.getElementById("messages").innerHTML = "";
+  
+  // If it's Steve, we need to ensure the current user data is fully loaded
+  if (user.uid === STEVE.uid) {
+    console.log("Starting chat with Steve AI");
+    
+    // Make sure we have current user data
+    const usersRef = ref(db, `users/${currentUser.uid}`);
+    get(usersRef).then((snapshot) => {
+      if (snapshot.exists()) {
+        // Update current user data
+        currentUsername = snapshot.val().username;
+        userCache[currentUser.uid] = snapshot.val();
+        console.log("Current user data refreshed:", currentUsername);
+      }
+      // Load messages anyway
+      loadMessages();
+    }).catch(error => {
+      console.error("Error refreshing user data:", error);
+      // Load messages anyway
+      loadMessages();
+    });
+  } else {
+    // Normal user chat
+    loadMessages();
+  }
+}
+
+function refreshCurrentUserData() {
+  if (!currentUser || !currentUser.uid) {
+    console.error("Cannot refresh user data: currentUser is not defined");
+    return Promise.reject("No current user");
+  }
+  
+  return new Promise((resolve, reject) => {
+    const userRef = ref(db, `users/${currentUser.uid}`);
+    get(userRef).then((snapshot) => {
+      if (snapshot.exists()) {
+        const userData = snapshot.val();
+        
+        // Update global variables with user data
+        currentUsername = userData.username;
+        currentUser.username = userData.username;
+        currentUser.profilePicture = userData.profilePicture;
+        
+        // Update cache
+        userCache[currentUser.uid] = userData;
+        
+        console.log("✅ Current user data refreshed:", currentUsername);
+        resolve(userData);
+      } else {
+        console.error("❌ User data not found");
+        reject("User data not found");
+      }
+    }).catch(error => {
+      console.error("❌ Error fetching user data:", error);
+      reject(error);
+    });
+  });
+}
  
  function generateChatID(userA, userB) {
    return userA < userB ? `${userA}_${userB}` : `${userB}_${userA}`;
@@ -1166,9 +1555,22 @@
    }
 
    // Get message text
-   const messageInput = document.getElementById("messageInput");
-   const messageText = messageInput.value.trim();
-   if (messageText === "") return;
+     // Get message text
+  const messageInput = document.getElementById("messageInput");
+  const messageText = messageInput.value.trim();
+  if (messageText === "") return;
+  
+  console.log("Sending message to:", selectedUser.username);
+  console.log("Selected user ID:", selectedUser.uid);
+  console.log("Is Steve?", isSteveChat(selectedUser.uid));
+  
+  // Check if this is a chat with Steve
+  if (selectedUser.uid === STEVE.uid) {
+    console.log("This is a chat with Steve!");
+    sendMessageToSteve(db, currentUser, messageText);
+    messageInput.value = "";
+    return;
+  }
 
    // Show sending indicator
    const tempId = "temp-" + Date.now();
