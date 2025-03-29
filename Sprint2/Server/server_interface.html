@@ -962,31 +962,43 @@ function listenUserStatus(userId) {
   });
 }
 
+// Store original servers to use for filtering
+let allServers = [];
+
 // Load servers from database
 async function loadServers() {
   const serverList = document.getElementById("serverList");
   serverList.innerHTML = "<p>Loading servers...</p>";
+  
   try {
     const serversRef = ref(db, "servers");
     const snapshot = await get(serversRef);
+    
+    // Reset the array
+    allServers = [];
+    
     if (snapshot.exists()) {
-      const servers = [];
       snapshot.forEach((childSnapshot) => {
         const server = {
           id: childSnapshot.key,
           ...childSnapshot.val()
         };
+        
         if (server.members && (server.members[currentUser.uid] || 
           (typeof server.members[currentUser.uid] === 'object' && 
           server.members[currentUser.uid].username))) {
-          servers.push(server);
+          allServers.push(server);
         }
       });
       
-      if (servers.length === 0) {
+      if (allServers.length === 0) {
         serverList.innerHTML = "<p>No servers found. Create one!</p>";
       } else {
-        displayServers(servers);
+        // Initial display of all servers
+        displayServers(allServers);
+        
+        // Set up search functionality
+        setupServerSearch();
       }
     } else {
       serverList.innerHTML = "<p>No servers found.</p>";
@@ -997,15 +1009,71 @@ async function loadServers() {
   }
 }
 
+// Function to set up server search
+function setupServerSearch() {
+  const searchInput = document.getElementById("searchServer");
+  
+  // Clear any existing event listeners using clone and replace technique
+  const newSearchInput = searchInput.cloneNode(true);
+  searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+  
+  // Add event listener to the new input
+  newSearchInput.addEventListener("input", function() {
+    const searchTerm = this.value.trim().toLowerCase();
+    
+    if (searchTerm === "") {
+      // If search is empty, show all servers
+      displayServers(allServers);
+    } else {
+      // Filter servers based on search term
+      const filteredServers = allServers.filter(server => 
+        server.name.toLowerCase().includes(searchTerm)
+      );
+      
+      // Display filtered results
+      displayServers(filteredServers);
+    }
+  });
+}
+
 // Display servers in the server list
 function displayServers(servers) {
   const serverList = document.getElementById("serverList");
+  
+  // Clear the list
   serverList.innerHTML = "";
   
+  // Check if any servers to display
+  if (servers.length === 0) {
+    const noResults = document.createElement("div");
+    noResults.className = "no-results";
+    noResults.style.textAlign = "center";
+    noResults.style.padding = "15px";
+    noResults.style.color = "var(--text-muted)";
+    noResults.style.fontStyle = "italic";
+    noResults.style.background = "rgba(255, 255, 255, 0.03)";
+    noResults.style.borderRadius = "var(--border-radius)";
+    noResults.style.margin = "10px 0";
+    
+    const searchTerm = document.getElementById("searchServer").value.trim();
+    if (searchTerm) {
+      noResults.innerHTML = `No servers found matching <strong>"${searchTerm}"</strong>.`;
+    } else {
+      noResults.innerHTML = "No servers available. Create one!";
+    }
+    
+    serverList.appendChild(noResults);
+    return;
+  }
+  
+  // Otherwise display the filtered servers
   servers.forEach(server => {
     const serverDiv = document.createElement("div");
     serverDiv.className = "server";
     serverDiv.textContent = server.name;
+    
+    // Add any additional server info you want to display
+    
     serverDiv.addEventListener("click", () => selectServer(server));
     serverList.appendChild(serverDiv);
   });
@@ -1059,6 +1127,9 @@ async function selectServer(server) {
   }
 }
 
+// Store original channels to use for filtering
+let allChannels = []
+
 // Enhanced channel loading with real-time updates
 async function loadChannels(serverId) {
   const channelList = document.getElementById("channelList");
@@ -1069,11 +1140,10 @@ async function loadChannels(serverId) {
     
     // Use onValue for real-time updates to channel list
     onValue(channelsRef, async (snapshot) => {
-      channelList.innerHTML = "";
+      // Reset the array
+      allChannels = [];
       
       if (snapshot.exists()) {
-        const channels = [];
-        
         snapshot.forEach((childSnapshot) => {
           const channel = {
             id: childSnapshot.key,
@@ -1085,20 +1155,24 @@ async function loadChannels(serverId) {
             channel.type = "public";
           }
           
-          channels.push(channel);
+          allChannels.push(channel);
         });
         
-        if (channels.length === 0) {
+        if (allChannels.length === 0) {
           channelList.innerHTML = "<p>No channels found in this server.</p>";
         } else {
           // Sort channels alphabetically, but put "general" first
-          channels.sort((a, b) => {
+          allChannels.sort((a, b) => {
             if (a.name === "general") return -1;
             if (b.name === "general") return 1;
             return a.name.localeCompare(b.name);
           });
           
-          displayChannels(channels);
+          // Initial display of all channels
+          displayChannels(allChannels);
+          
+          // Set up search functionality
+          setupChannelSearch();
         }
       } else {
         channelList.innerHTML = "<p>No channels found in this server.</p>";
@@ -1112,14 +1186,66 @@ async function loadChannels(serverId) {
     channelList.innerHTML = "<p>Error loading channels. Please try again.</p>";
   }
 }
+
+// Function to set up channel search
+function setupChannelSearch() {
+  const searchInput = document.getElementById("searchChannel");
+  
+  // Clear any existing event listeners using clone and replace technique
+  const newSearchInput = searchInput.cloneNode(true);
+  searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+  
+  // Add event listener to the new input
+  newSearchInput.addEventListener("input", function() {
+    const searchTerm = this.value.trim().toLowerCase();
+    
+    if (searchTerm === "") {
+      // If search is empty, show all channels
+      displayChannels(allChannels);
+    } else {
+      // Filter channels based on search term
+      const filteredChannels = allChannels.filter(channel => 
+        channel.name.toLowerCase().includes(searchTerm)
+      );
+      
+      // Display filtered results
+      displayChannels(filteredChannels);
+    }
+  });
+}
+
  
 // Display channels in the channel list
 async function displayChannels(channels) {
   const channelList = document.getElementById("channelList");
-  channelList.innerHTML = channels.length === 0 
-    ? "<p>No channels available.</p>"
-    : "";
   
+  // Clear the list
+  channelList.innerHTML = "";
+  
+  // Check if any channels to display
+  if (channels.length === 0) {
+    const noResults = document.createElement("div");
+    noResults.className = "no-results";
+    noResults.style.textAlign = "center";
+    noResults.style.padding = "15px";
+    noResults.style.color = "var(--text-muted)";
+    noResults.style.fontStyle = "italic";
+    noResults.style.background = "rgba(255, 255, 255, 0.03)";
+    noResults.style.borderRadius = "var(--border-radius)";
+    noResults.style.margin = "10px 0";
+    
+    const searchTerm = document.getElementById("searchChannel").value.trim();
+    if (searchTerm) {
+      noResults.innerHTML = `No channels found matching <strong>"${searchTerm}"</strong>.`;
+    } else {
+      noResults.innerHTML = "No channels available.";
+    }
+    
+    channelList.appendChild(noResults);
+    return;
+  }
+  
+  // Otherwise display the filtered channels
   for (const channel of channels) {
     const channelDiv = document.createElement("div");
     channelDiv.className = "channel";
@@ -1171,17 +1297,14 @@ async function displayChannels(channels) {
         if (requestStatus === "pending") {
           requestAccessBtn.textContent = "Request Pending";
           requestAccessBtn.style.backgroundColor = "#9e9e9e";
+          requestAccessBtn.disabled = true;
         } else if (requestStatus === "denied") {
           requestAccessBtn.textContent = "Request Denied";
           requestAccessBtn.style.backgroundColor = "#f44336";
+          requestAccessBtn.disabled = true;
         } else {
           // Should never happen as approved requests would grant access
           requestAccessBtn.textContent = "Request Again";
-          requestAccessBtn.style.backgroundColor = "#2196F3";
-        }
-        
-        if (requestStatus === "pending" || requestStatus === "denied") {
-          requestAccessBtn.disabled = true;
         }
       } else {
         requestAccessBtn.textContent = "Request Access";
@@ -1206,14 +1329,14 @@ async function displayChannels(channels) {
         // Different message for private vs public channels
         if (channel.type === "private") {
           messagesDiv.innerHTML = `
-            <div style="text-align: center; padding: 20px; color: #ff0000;">
+            <div style="text-align: center; padding: 20px; color: var(--danger-color);">
               <h3>You don't have access to this private channel</h3>
               <p>Please request access or ask a server admin to grant you access.</p>
             </div>
           `;
         } else {
           messagesDiv.innerHTML = `
-            <div style="text-align: center; padding: 20px; color: #ff0000;">
+            <div style="text-align: center; padding: 20px; color: var(--danger-color);">
               <h3>You don't have access to this channel</h3>
               <p>Please request access or ask a server admin to grant you access.</p>
             </div>
