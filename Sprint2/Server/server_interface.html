@@ -749,7 +749,6 @@ function updateUIBasedOnRole(role) {
   const addMemberBtn = document.getElementById("addMember");
   const manageChannelAccessBtn = document.getElementById("manageChannelAccess");
   const leaveServerBtn = document.getElementById("leaveServer");
-  const settingsButton = document.getElementById("settingsButton");
   
   // Settings button should always be visible regardless of role
   settingsButton.style.display = "block";
@@ -2997,22 +2996,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
-
-  // Settings button toggle
-  document.getElementById("settingsButton").addEventListener("click", function() {
-    const dropdown = document.getElementById("settingsDropdown");
-    dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
-  });
-
-  // Close settings dropdown when clicking outside
-  document.addEventListener("click", function(event) {
-    const settingsButton = document.getElementById("settingsButton");
-    const dropdown = document.getElementById("settingsDropdown");
-    
-    if (!settingsButton.contains(event.target) && !dropdown.contains(event.target)) {
-      dropdown.style.display = "none";
-    }
-  });
 });
 
 // Logout
