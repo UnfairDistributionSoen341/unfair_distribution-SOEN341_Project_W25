@@ -660,14 +660,16 @@ const emojiButton = document.getElementById("emojiButton");
  const backToServersBtn = document.getElementById("backToServers");
  const currentServerNameEl = document.getElementById("currentServerName");
  
- // Initialize UI state
  function initializeUIState() {
-   serverSectionView.style.display = "block";
-   channelSectionView.style.display = "none";
-   membersSidebar.style.display = "none";
-   document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
-   document.getElementById("messageInput").disabled = true;
- }
+  serverSectionView.style.display = "block";
+  channelSectionView.style.display = "none";
+  membersSidebar.style.display = "none";
+  document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
+  document.getElementById("messageInput").disabled = true;
+  
+  // Hide the message input bar completely
+  document.querySelector(".message-input").style.display = "none";
+}
  
  onAuthStateChanged(auth, async (user) => {
  if (user) {
@@ -1088,6 +1090,9 @@ async function selectServer(server) {
   serverSectionView.style.display = "none";
   channelSectionView.style.display = "flex";
   membersSidebar.style.display = "flex";
+  
+  // Make sure the message input bar remains hidden when just selecting a server
+  document.querySelector(".message-input").style.display = "none";
   
   // Make selectedServer available globally
   window.selectedServer = server;
@@ -1648,6 +1653,9 @@ async function joinChannel(channel) {
   document.getElementById("chatChannelName").textContent = `#${channel.name} (${selectedServer.name})`;
   document.getElementById("messageInput").disabled = !hasAccess;
   
+  // Show or hide the message input bar based on access
+  document.querySelector(".message-input").style.display = hasAccess ? "flex" : "none";
+  
   if (!hasAccess) {
     const messagesDiv = document.getElementById("messages");
     
@@ -2069,17 +2077,21 @@ document.addEventListener("DOMContentLoaded", () => {
   
   // Back button
   backToServersBtn.addEventListener("click", () => {
-    serverSectionView.style.display = "block";
-    channelSectionView.style.display = "none";
-    membersSidebar.style.display = "none";
-    document.getElementById("messages").innerHTML = "";
-    document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
-    document.getElementById("messageInput").disabled = true;
-    selectedServer = null;
-    selectedChannel = null;
-    window.selectedServer = null;
-    window.selectedChannel = null;
-  });
+  serverSectionView.style.display = "block";
+  channelSectionView.style.display = "none";
+  membersSidebar.style.display = "none";
+  document.getElementById("messages").innerHTML = "";
+  document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
+  document.getElementById("messageInput").disabled = true;
+  
+  // Hide the message input bar
+  document.querySelector(".message-input").style.display = "none";
+  
+  selectedServer = null;
+  selectedChannel = null;
+  window.selectedServer = null;
+  window.selectedChannel = null;
+});
   
   // Send message with enhanced feedback
   sendMessageBtn.addEventListener("click", async () => {
