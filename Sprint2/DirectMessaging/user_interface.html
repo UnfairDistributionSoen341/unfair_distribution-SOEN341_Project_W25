@@ -479,6 +479,74 @@ function initializeSteve(db) {
   });
 }
 
+// Load and store user context for personalized conversations
+class UserContextManager {
+  constructor() {
+    this.userContexts = {};
+  }
+  
+  // Get or create user context
+  getContext(userId) {
+    if (!this.userContexts[userId]) {
+      this.userContexts[userId] = {
+        name: null,
+        recentTopics: [],
+        preferences: {},
+        lastInteraction: Date.now(),
+        conversationHistory: [], // Store last 10 interactions
+        mood: "neutral"
+      };
+    }
+    return this.userContexts[userId];
+  }
+  
+  // Update user context with new information
+  updateContext(userId, updates) {
+    const context = this.getContext(userId);
+    Object.assign(context, updates);
+    context.lastInteraction = Date.now();
+    return context;
+  }
+  
+  // Add message to context history
+  addToHistory(userId, message, isUser = true) {
+    const context = this.getContext(userId);
+    context.conversationHistory.push({
+      text: message,
+      timestamp: Date.now(),
+      isUser
+    });
+    
+    // Keep only the last 10 messages
+    if (context.conversationHistory.length > 10) {
+      context.conversationHistory.shift();
+    }
+  }
+  
+  // Get topics from conversation
+  extractTopics(message) {
+    const topics = [];
+    // Simple keyword extraction
+    const keywords = [
+      'weather', 'time', 'joke', 'math', 'calculate', 
+      'help', 'chat', 'greeting', 'music', 'movie',
+      'food', 'travel', 'news', 'sports', 'technology'
+    ];
+    
+    const lowercaseMsg = message.toLowerCase();
+    for (const keyword of keywords) {
+      if (lowercaseMsg.includes(keyword)) {
+        topics.push(keyword);
+      }
+    }
+    
+    return topics;
+  }
+}
+
+// Initialize the context manager
+const userContextManager = new UserContextManager();
+
 // Function to prevent multiple message sending - using debounce
 function debounce(func, wait) {
   let timeout;
@@ -488,152 +556,400 @@ function debounce(func, wait) {
   };
 }
 
-// Function to generate Steve's response with calculation capability
-async function generateSteveResponse(message) {
-  // Convert message to lowercase for easier checking
-  const lowerMessage = message.toLowerCase();
-  
-  // Check if it's a math problem
-  if (isMathProblem(lowerMessage)) {
-    try {
-      return solveCalculation(message);
-    } catch (error) {
-      return "I couldn't solve that calculation. Could you rephrase it?";
-    }
-  }
-  
-  // Basic response logic
-  const greetings = ['hi', 'hello', 'hey', 'howdy', 'hiya', 'greetings'];
-  const farewells = ['bye', 'goodbye', 'see ya', 'cya', 'farewell', 'gotta go'];
-  const questions = ['who are you', 'what are you', 'what can you do', 'help'];
-  
-  // Check for greetings
-  if (greetings.some(greeting => lowerMessage.includes(greeting))) {
-    return `Hello! I'm Steve, your AI assistant. How can I help you today?`;
-  }
-  
-  // Check for farewells
-  if (farewells.some(farewell => lowerMessage.includes(farewell))) {
-    return `Goodbye! Feel free to message me anytime if you have questions.`;
-  }
-  
-  // Check for questions about Steve
-  if (questions.some(question => lowerMessage.includes(question))) {
-    return `I'm Steve, an AI assistant integrated into ChatHaven. I can answer questions, provide information, perform calculations, or just chat. What would you like to talk about?`;
-  }
-  
-  // Check for weather questions
-  if (lowerMessage.includes('weather')) {
-    return `I don't have access to real-time weather data, but I'd be happy to chat about other topics!`;
-  }
-  
-  // Check for time questions
-  if (lowerMessage.includes('time') && (lowerMessage.includes('what') || lowerMessage.includes('current'))) {
-    const now = new Date();
-    return `My system shows the current time is ${now.toLocaleTimeString()}.`;
-  }
-  
-  // Check for joke requests
-  if (lowerMessage.includes('joke') || lowerMessage.includes('funny')) {
-    const jokes = [
-      "Why don't scientists trust atoms? Because they make up everything!",
-      "Why did the scarecrow win an award? Because he was outstanding in his field!",
-      "What do you call a fake noodle? An impasta!",
-      "How does a penguin build its house? Igloos it together!",
-      "Why don't eggs tell jokes? They'd crack each other up!",
-      "What's the best thing about Switzerland? I don't know, but the flag is a big plus!"
-    ];
-    return jokes[Math.floor(Math.random() * jokes.length)];
-  }
-
-  // Basic conversational responses
-  if (lowerMessage.includes('thank')) {
-    return "You're welcome! Is there anything else I can help with?";
-  }
-  
-  if (lowerMessage.includes('how are you')) {
-    return "I'm doing well, thanks for asking! How about you?";
-  }
-
-  // Default response for other inputs
-  const defaultResponses = [
-    "Interesting! Tell me more about that.",
-    "I'm here to chat about whatever's on your mind.",
-    "That's a good point. What else are you thinking about?",
-    "Thanks for sharing that with me. How can I help you today?",
-    "I appreciate you reaching out. What would you like to discuss?",
-    "I'm designed to be helpful - feel free to ask me anything!"
-  ];
-  
-  return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
-}
-
-// Helper function to detect if a message is a math problem
-function isMathProblem(message) {
-  // Basic regex to detect math expressions
-  const mathRegex = /[0-9+\-*/()\s.^%]+/;
-  
-  // Check if the message contains numbers and typical math operators
-  return (
-    (message.includes("+") || 
-     message.includes("-") || 
-     message.includes("*") || 
-     message.includes("/") || 
-     message.includes("×") || 
-     message.includes("÷") ||
-     message.includes("plus") ||
-     message.includes("minus") ||
-     message.includes("times") ||
-     message.includes("divided") ||
-     message.includes("calculate") ||
-     message.includes("compute") ||
-     message.includes("what is") ||
-     message.includes("solve")) &&
-    /\d/.test(message) && 
-    mathRegex.test(message)
-  );
-}
-
-// Helper function to solve calculations
-function solveCalculation(message) {
-  // Extract the calculation part
-  let expression = message;
-  
-  // Replace math words with symbols
-  expression = expression.replace(/plus/gi, '+');
-  expression = expression.replace(/minus/gi, '-');
-  expression = expression.replace(/times/gi, '*');
-  expression = expression.replace(/divided by/gi, '/');
-  expression = expression.replace(/×/g, '*');
-  expression = expression.replace(/÷/g, '/');
-  
-  // Extract numbers and math operators
-  const extractedMath = expression.match(/[0-9+\-*/()\s.^%]+/g);
-  if (extractedMath) {
-    expression = extractedMath.join('');
-  }
-  
-  // Clean up the expression
-  expression = expression.replace(/[^0-9+\-*/()\s.^%]/g, '');
-  
-  try {
-    // Safely evaluate the expression using Function instead of eval
-    const result = new Function('return ' + expression)();
+// Natural Language Understanding module
+class NLUModule {
+  constructor() {
+    // Intent patterns
+    this.intents = {
+      greeting: [
+        /\b(hi|hello|hey|howdy|greetings|good morning|good afternoon|good evening)\b/i
+      ],
+      farewell: [
+        /\b(bye|goodbye|see you|farewell|later|good night)\b/i
+      ],
+      thankYou: [
+        /\b(thanks|thank you|appreciate|grateful)\b/i
+      ],
+      help: [
+        /\b(help|assist|support|guide|how do|how can|what can you do)\b/i
+      ],
+      weather: [
+        /\b(weather|forecast|temperature|rain|sunny|cloudy)\b/i
+      ],
+      time: [
+        /\b(time|date|day|hour|minute|clock|today is)\b/i
+      ],
+      joke: [
+        /\b(joke|funny|humor|laugh|amuse|entertain)\b/i
+      ],
+      math: [
+        /\b(calculate|compute|solve|math|equation|problem|plus|minus|times|divided by|equals|sum|difference|product|quotient)\b/i,
+        /[0-9\+\-\*\/\(\)\^\%]+/
+      ],
+      about: [
+        /\b(who are you|what are you|about you|your name|tell me about you|steve)\b/i
+      ],
+      feeling: [
+        /\b(how are you|feeling|how do you feel|how's it going|are you ok|are you good)\b/i
+      ],
+      facts: [
+        /\b(tell me|fact|interesting|did you know|trivia)\b/i
+      ],
+      question: [
+        /\b(what|who|where|when|why|how|is it|are they|can you|could you|would you)\b/i
+      ]
+    };
     
-    // Format response
-    if (Number.isInteger(result)) {
-      return `The result is: ${result}`;
-    } else {
-      return `The result is: ${parseFloat(result.toFixed(4))}`;
+    // Entity patterns
+    this.entities = {
+      number: /\b\d+(\.\d+)?\b/g,
+      date: /\b(today|tomorrow|yesterday|next week|last week|this month)\b/i,
+      name: /\bmy name is ([A-Za-z]+)\b/i,
+    };
+  }
+  
+  // Detect intent from user message
+  detectIntent(message) {
+    const results = [];
+    const lowercaseMsg = message.toLowerCase();
+    
+    // Check for math expressions first to handle special case
+    if (this.isMathProblem(lowercaseMsg)) {
+      return [{intent: 'math', confidence: 0.95}];
     }
-  } catch (error) {
-    console.error("Calculation error:", error);
-    return "I'm having trouble solving that calculation. Could you rephrase it?";
+    
+    // Check other intents
+    for (const [intent, patterns] of Object.entries(this.intents)) {
+      for (const pattern of patterns) {
+        if (pattern.test(lowercaseMsg)) {
+          results.push({
+            intent,
+            confidence: 0.8  // Simplified confidence score
+          });
+          break; // Move to next intent after first match
+        }
+      }
+    }
+    
+    // If no intent matched, default to general conversation
+    if (results.length === 0) {
+      results.push({
+        intent: 'conversation',
+        confidence: 0.6
+      });
+    }
+    
+    // Sort by confidence (highest first)
+    return results.sort((a, b) => b.confidence - a.confidence);
+  }
+  
+  // Extract entities from message
+  extractEntities(message) {
+    const entities = {};
+    
+    // Extract numbers
+    const numbers = message.match(this.entities.number);
+    if (numbers) {
+      entities.numbers = numbers.map(n => parseFloat(n));
+    }
+    
+    // Extract dates
+    const dateMatch = message.match(this.entities.date);
+    if (dateMatch) {
+      entities.date = dateMatch[0];
+    }
+    
+    // Extract name
+    const nameMatch = message.match(this.entities.name);
+    if (nameMatch && nameMatch[1]) {
+      entities.name = nameMatch[1];
+    }
+    
+    return entities;
+  }
+  
+  // Detect if message is a math problem
+  isMathProblem(message) {
+    // Check for numbers and operators
+    const hasNumbers = /\d+/.test(message);
+    const hasOperators = /[\+\-\*\/\^\%]/.test(message);
+    
+    // Check for math keywords
+    const hasMathKeywords = /(calculate|compute|solve|what is|equals|plus|minus|times|divided by)/.test(message);
+    
+    return (hasNumbers && hasOperators) || (hasNumbers && hasMathKeywords);
   }
 }
 
-// Function to handle messaging Steve with debouncing to prevent duplicate messages
-const sendMessageToSteve = debounce((db, currentUser, messageText) => {
+// Response generator module
+class ResponseGenerator {
+  constructor() {
+    this.nlu = new NLUModule();
+    
+    // Database of facts
+    this.facts = [
+      "The shortest war in history was between Britain and Zanzibar in 1896. It lasted only 38 minutes.",
+      "A day on Venus is longer than a year on Venus. It takes 243 Earth days to rotate once on its axis.",
+      "The Hawaiian alphabet has only 12 letters.",
+      "An octopus has three hearts, nine brains, and blue blood.",
+      "Honey never spoils. Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old and still perfectly good to eat.",
+      "A group of flamingos is called a 'flamboyance'.",
+      "The fingerprints of koalas are so similar to humans that they have confused crime scene investigators.",
+      "The Great Wall of China is not visible from space with the naked eye, contrary to popular belief.",
+      "Bananas are berries, but strawberries aren't.",
+      "A blue whale's heart is so big that a human could swim through its arteries.",
+      "The only letter that doesn't appear in the periodic table is J.",
+      "Cows have best friends and get stressed when they are separated.",
+      "The world's oldest known living tree is over 5,000 years old.",
+      "A day on Mars is about 24 hours and 37 minutes long.",
+      "There are more possible iterations of a game of chess than there are atoms in the known universe."
+    ];
+    
+    // Database of jokes
+    this.jokes = [
+      "Why don't scientists trust atoms? Because they make up everything!",
+      "Did you hear about the mathematician who's afraid of negative numbers? He'll stop at nothing to avoid them!",
+      "Why was the math book sad? It had too many problems.",
+      "What's the best thing about Switzerland? I don't know, but the flag is a big plus!",
+      "I told my wife she was drawing her eyebrows too high. She looked surprised.",
+      "Why did the scarecrow win an award? Because he was outstanding in his field!",
+      "How does a penguin build its house? Igloos it together!",
+      "What do you call a fake noodle? An impasta!",
+      "Why don't eggs tell jokes? They'd crack each other up!",
+      "How do you organize a space party? You planet!",
+      "I'm reading a book about anti-gravity. It's impossible to put down!",
+      "What did the ocean say to the beach? Nothing, it just waved.",
+      "Why was the belt sent to jail? It held up a pair of pants!",
+      "I would tell you a chemistry joke, but I know I wouldn't get a reaction.",
+      "What do you call a parade of rabbits hopping backwards? A receding hare-line."
+    ];
+    
+    // Conversation responses for different scenarios
+    this.conversations = {
+      greetings: [
+        "Hello! How can I help you today?",
+        "Hi there! Nice to chat with you!",
+        "Hey! What can I do for you?",
+        "Greetings! How's your day going?",
+        "Hello! I'm Steve, your AI assistant. What's on your mind?"
+      ],
+      farewells: [
+        "Goodbye! Feel free to chat again anytime!",
+        "See you later! Have a great day!",
+        "Bye for now! Come back soon!",
+        "Take care! I'll be here if you need anything.",
+        "Until next time! It was nice chatting with you!"
+      ],
+      thanks: [
+        "You're welcome! Happy to help!",
+        "Anytime! Let me know if you need anything else.",
+        "My pleasure! Is there anything else you'd like to know?",
+        "Glad I could assist! Don't hesitate to ask if you have more questions.",
+        "You're very welcome! I'm here whenever you need help."
+      ],
+      about: [
+        "I'm Steve, an AI assistant integrated into ChatHaven. I can answer questions, help with calculations, tell jokes, share facts, and just chat!",
+        "I'm your virtual assistant, Steve. I'm designed to be helpful, informative, and occasionally entertaining!",
+        "Hello! I'm Steve AI, your digital companion. I'm here to assist with information, calculations, or just to have a friendly conversation.",
+        "I'm Steve, a chatbot created to assist ChatHaven users. I don't have feelings, but I'm programmed to be friendly and helpful!",
+        "I'm Steve! Think of me as your personal AI assistant. I can help with a variety of tasks and information requests."
+      ],
+      feelings: [
+        "I'm doing well, thanks for asking! How about you?",
+        "I'm functioning perfectly! How's your day going?",
+        "All systems operational and ready to assist! How are you today?",
+        "I'm good! As an AI, I don't have feelings, but I appreciate you asking. How can I help you?",
+        "I'm great! Always happy to chat. How are you feeling today?"
+      ],
+      help: [
+        "I can help with various things! I can answer questions, do math calculations, tell jokes, share interesting facts, provide the time, or just chat. What would you like help with?",
+        "I'm here to assist! I can solve math problems, tell jokes, share facts, chat about various topics, or just keep you company. What do you need?",
+        "Need help? I can perform calculations, provide information, tell jokes, or just have a conversation. Let me know what you're looking for!",
+        "I'm your AI assistant! I can help with calculations, share interesting facts, tell jokes, or just chat. What would you like me to do?",
+        "I'm here to help! Whether you need information, entertainment, or just someone to talk to, I've got you covered. What can I do for you today?"
+      ],
+      weather: [
+        "I don't have access to real-time weather data, but I'd be happy to chat about other topics!",
+        "Unfortunately, I can't check the weather for you right now. Is there something else I can help with?",
+        "I wish I could tell you about the weather, but I don't have that capability. Can I assist with something else?",
+        "I don't have access to weather information, but I'm here for other questions you might have!",
+        "As an AI in this chat application, I can't access current weather data. But I'm happy to help with other topics!"
+      ],
+      fallback: [
+        "That's an interesting point. Tell me more about it.",
+        "I'm not sure I fully understand. Could you tell me more?",
+        "That's something to think about. What else is on your mind?",
+        "Interesting perspective! Would you like to discuss this further?",
+        "I appreciate you sharing that. Is there anything specific you'd like to know or discuss?",
+        "I'm still learning, but that sounds interesting. Can you elaborate?",
+        "Thanks for sharing. How can I help you with this topic?",
+        "I'm here to chat about whatever interests you. Would you like to explore this topic further?"
+      ]
+    };
+  }
+  
+  // Generate response based on user message and context
+  async generateResponse(message, userId) {
+    // Update user context
+    userContextManager.addToHistory(userId, message);
+    const userContext = userContextManager.getContext(userId);
+    
+    // Extract topics from message
+    const topics = userContextManager.extractTopics(message);
+    if (topics.length > 0) {
+      userContext.recentTopics = [...topics, ...userContext.recentTopics].slice(0, 5);
+    }
+    
+    // Analyze the message
+    const intents = this.nlu.detectIntent(message);
+    const entities = this.nlu.extractEntities(message);
+    const primaryIntent = intents[0].intent;
+    
+    // Extract name if present and update context
+    if (entities.name && !userContext.name) {
+      userContext.name = entities.name;
+      userContextManager.updateContext(userId, {name: entities.name});
+      return `Nice to meet you, ${entities.name}! How can I help you today?`;
+    }
+    
+    // Generate response based on intent
+    let response;
+    
+    switch (primaryIntent) {
+      case 'greeting':
+        response = this.getRandomResponse(this.conversations.greetings);
+        if (userContext.name) {
+          response = response.replace('!', `, ${userContext.name}!`);
+        }
+        break;
+        
+      case 'farewell':
+        response = this.getRandomResponse(this.conversations.farewells);
+        if (userContext.name) {
+          response = response.replace('!', `, ${userContext.name}!`);
+        }
+        break;
+        
+      case 'thankYou':
+        response = this.getRandomResponse(this.conversations.thanks);
+        break;
+        
+      case 'help':
+        response = this.getRandomResponse(this.conversations.help);
+        break;
+        
+      case 'weather':
+        response = this.getRandomResponse(this.conversations.weather);
+        break;
+        
+      case 'time':
+        const now = new Date();
+        response = `The current time is ${now.toLocaleTimeString()}, and today is ${now.toLocaleDateString()}.`;
+        break;
+        
+      case 'joke':
+        response = this.getRandomResponse(this.jokes);
+        break;
+        
+      case 'math':
+        try {
+          response = this.solveCalculation(message);
+        } catch (error) {
+          response = "I couldn't solve that calculation. Could you rephrase it?";
+        }
+        break;
+        
+      case 'about':
+        response = this.getRandomResponse(this.conversations.about);
+        break;
+        
+      case 'feeling':
+        response = this.getRandomResponse(this.conversations.feelings);
+        break;
+        
+      case 'facts':
+        response = this.getRandomResponse(this.facts);
+        break;
+        
+      case 'question':
+        // For questions we don't have specific answers to
+        if (message.toLowerCase().includes('your name')) {
+          response = "My name is Steve! I'm an AI assistant here to help you.";
+        } else if (message.toLowerCase().includes('how old')) {
+          response = "I'm a relatively new AI, so I don't really have an age in the human sense!";
+        } else {
+          response = "That's an interesting question! I'm designed for casual conversation, so I might not have all the answers. Is there something else I can help with?";
+        }
+        break;
+        
+      default:
+        // Handle general conversation
+        if (userContext.conversationHistory.length > 1) {
+          // Try to make response contextual based on history
+          const lastUserMessage = userContext.conversationHistory[userContext.conversationHistory.length - 2];
+          if (lastUserMessage && lastUserMessage.text.toLowerCase().includes('you')) {
+            response = "I appreciate your engagement! What else would you like to chat about?";
+          } else {
+            response = this.getRandomResponse(this.conversations.fallback);
+          }
+        } else {
+          response = this.getRandomResponse(this.conversations.fallback);
+        }
+    }
+    
+    // Add response to user context
+    userContextManager.addToHistory(userId, response, false);
+    
+    return response;
+  }
+  
+  // Helper function to get random response
+  getRandomResponse(responseArray) {
+    return responseArray[Math.floor(Math.random() * responseArray.length)];
+  }
+  
+  // Helper function to solve calculations
+  solveCalculation(message) {
+    // Extract the calculation part
+    let expression = message;
+    
+    // Replace math words with symbols
+    expression = expression.replace(/plus/gi, '+');
+    expression = expression.replace(/minus/gi, '-');
+    expression = expression.replace(/times/gi, '*');
+    expression = expression.replace(/multiplied by/gi, '*');
+    expression = expression.replace(/divided by/gi, '/');
+    expression = expression.replace(/×/g, '*');
+    expression = expression.replace(/÷/g, '/');
+    
+    // Extract numbers and math operators
+    const extractedMath = expression.match(/[0-9+\-*/()\s.^%]+/g);
+    if (extractedMath) {
+      expression = extractedMath.join('');
+    }
+    
+    // Clean up the expression
+    expression = expression.replace(/[^0-9+\-*/()\s.^%]/g, '');
+    
+    try {
+      // Safely evaluate the expression using Function instead of eval
+      const result = new Function('return ' + expression)();
+      
+      // Format response
+      if (Number.isInteger(result)) {
+        return `The result is ${result}`;
+      } else {
+        return `The result is ${parseFloat(result.toFixed(4))}`;
+      }
+    } catch (error) {
+      console.error("Calculation error:", error);
+      return "I'm having trouble solving that calculation. Could you rephrase it?";
+    }
+  }
+}
+
+// Main function to handle messaging Steve with debouncing to prevent duplicate messages
+const sendMessageToSteve = debounce(async (db, currentUser, messageText) => {
   console.log("Sending message to Steve:", messageText);
   
   // Make sure we have all required data for the message
@@ -653,6 +969,9 @@ const sendMessageToSteve = debounce((db, currentUser, messageText) => {
   console.log("Chat ID for Steve:", chatID);
   const chatRef = ref(db, `chats/${chatID}/messages`);
   
+  // Initialize the response generator if needed
+  const responseGenerator = new ResponseGenerator();
+  
   // Add user message to database
   push(chatRef, {
     sender: currentUser.email,
@@ -662,28 +981,49 @@ const sendMessageToSteve = debounce((db, currentUser, messageText) => {
     text: messageText,
     timestamp: Date.now(),
     isProcessed: true // Flag to prevent duplicate processing
-  }).then((messageRef) => {
+  }).then(async (messageRef) => {
     console.log("✅ Message sent to Steve AI with messageId:", messageRef.key);
     
-    // Generate Steve's response
-    setTimeout(async () => {
-      const steveResponse = await generateSteveResponse(messageText);
-      
-      // Add Steve's response to database
-      push(chatRef, {
-        sender: STEVE.email,
-        senderUID: STEVE.uid,
-        senderUsername: STEVE.username,
-        profilePicture: STEVE.profilePicture,
-        text: steveResponse,
-        timestamp: Date.now(),
-        isProcessed: true
-      }).then(() => {
-        console.log("✅ Steve AI responded");
-      }).catch(error => {
-        console.error("❌ Error sending Steve's response to database:", error);
-      });
-    }, 1500); // Slight delay to simulate "thinking"
+    // Show typing indicator
+    push(chatRef, {
+      sender: STEVE.email,
+      senderUID: STEVE.uid,
+      senderUsername: STEVE.username,
+      profilePicture: STEVE.profilePicture,
+      text: "...",
+      timestamp: Date.now(),
+      isTyping: true,
+      isProcessed: true
+    }).then((typingRef) => {
+      // Generate Steve's response with a small delay to simulate thinking
+      setTimeout(async () => {
+        // Generate response
+        const steveResponse = await responseGenerator.generateResponse(messageText, currentUser.uid);
+        
+        // Remove typing indicator (using set(null) instead of remove())
+        const typingMsgRef = ref(db, `chats/${chatID}/messages/${typingRef.key}`);
+        set(typingMsgRef, null).then(() => {
+          // Add Steve's response to database
+          push(chatRef, {
+            sender: STEVE.email,
+            senderUID: STEVE.uid,
+            senderUsername: STEVE.username,
+            profilePicture: STEVE.profilePicture,
+            text: steveResponse,
+            timestamp: Date.now(),
+            isProcessed: true
+          }).then(() => {
+            console.log("✅ Steve AI responded");
+          }).catch(error => {
+            console.error("❌ Error sending Steve's response to database:", error);
+          });
+        }).catch(error => {
+          console.error("❌ Error removing typing indicator:", error);
+        });
+      }, Math.random() * 1000 + 500); // Random delay between 500-1500ms for more natural feeling
+    }).catch(error => {
+      console.error("❌ Error setting typing indicator:", error);
+    });
   }).catch(error => {
     console.error("❌ Error sending message to Steve AI:", error);
   });
