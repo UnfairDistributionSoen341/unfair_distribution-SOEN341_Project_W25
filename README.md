@@ -6,6 +6,11 @@ ChatHaven is a real-time web-based chat application that allows users to interac
 ---
 
 ## Features
+- Password encryption
+- reset email for forgotten password
+- profile picture in DMs and Servers
+- option to block/unblock and report users
+- chatbot in DMs
 
 ### Authentication
 - Secure login and sign-up system with email and password.
