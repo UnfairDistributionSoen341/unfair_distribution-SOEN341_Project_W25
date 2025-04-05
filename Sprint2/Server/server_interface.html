@@ -944,9 +944,14 @@ function listenUserStatus(userId) {
     const status = snapshot.val();
     const indicator = userDiv.querySelector('.status-indicator');
     
-    if (indicator) {
-      const oldStatus = indicator.textContent.includes("🟢") ? "online" : "offline";
-      const newStatus = status === "online" ? "online" : "offline";
+   if (indicator) {
+      let newText = "⚪️";
+      if (status === "online") {
+        newText = "🟢";
+      } else if (status === "away") {
+        newText = "🟡";
+      }
+      
       
       // Add animation only if status changed
       if (oldStatus !== newStatus) {
@@ -954,11 +959,11 @@ function listenUserStatus(userId) {
         indicator.style.opacity = 0.5;
         
         setTimeout(() => {
-          indicator.textContent = status === "online" ? "🟢" : "⚪️";
+         indicator.textContent = icon;
           indicator.style.opacity = 1;
         }, 100);
       } else {
-        indicator.textContent = status === "online" ? "🟢" : "⚪️";
+     indicator.textContent = icon;
       }
     }
   });
