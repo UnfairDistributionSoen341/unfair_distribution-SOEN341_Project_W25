@@ -1127,7 +1127,8 @@ function isSteveChat(selectedUserID) {
      emojiPicker.style.display = "none";
    }
  });
- 
+ let inactivityTimer; // add a timer to check away status
+ let userStatusRef;
  onAuthStateChanged(auth, (user) => {
   if (user) {
     currentUser = user;
@@ -1141,6 +1142,7 @@ function isSteveChat(selectedUserID) {
         userCache[currentUser.uid] = snapshot.val();
         // Cache email to username mapping
         usernameResolvers[currentUser.email] = currentUsername;
+        
         const userStatusRef = ref(db, `users/${currentUser.uid}/status`);
         set(userStatusRef, "online");
         onDisconnect(userStatusRef).set("offline");
@@ -1151,6 +1153,7 @@ function isSteveChat(selectedUserID) {
           setupSearch();
           setupSteve(); // Add this line to initialize Steve
         });
+        startInactivityTimer();
       } else {
         console.error("❌ Current user data not found.");
       }
@@ -1160,6 +1163,19 @@ function isSteveChat(selectedUserID) {
   }
 });
 
+function startInactivityTimer() {
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(() => {
+    set(userStatusRef, "away"); 
+  }, 60000);
+}
+["mousemove", "keydown", "click", "scroll"].forEach(event => {
+  window.addEventListener(event, () => {
+    set(userStatusRef, "online"); 
+    startInactivityTimer(); 
+  });
+});
+startInactivityTimer();
 // Function to set up Steve AI in the user list
 function setupSteve() {
   console.log("Setting up Steve...");
@@ -1601,7 +1617,16 @@ function refreshCurrentUserData() {
      const indicator = userDiv.querySelector('.status-indicator');
 
      if (indicator) {
-       indicator.textContent = status === "online" ? "🟢 Online" : "⚪️ Offline";
+      if (status === "online") {
+      indicator.textContent = "🟢 Online";
+      indicator.style.color = "green";
+    } else if (status === "away") {
+      indicator.textContent = "🟡 Away";
+      indicator.style.color = "#f1c40f"; 
+    } else {
+      indicator.textContent = "⚪️ Offline";
+      indicator.style.color = "gray";
+    }
        // Add animation for status change
        indicator.style.transition = "opacity 0.3s";
        indicator.style.opacity = 0.5;
