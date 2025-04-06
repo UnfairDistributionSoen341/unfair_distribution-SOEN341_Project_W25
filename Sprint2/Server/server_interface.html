@@ -561,7 +561,7 @@
 
  <script type="module">
  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
- import { getDatabase, ref, push, set, get, onChildAdded, off, remove, onValue, update, onChildRemoved } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+ import { getDatabase, ref, push, set, get, onChildAdded, off, remove, onValue, update, onChildRemoved, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
  
  const firebaseConfig = {
@@ -671,6 +671,30 @@ const emojiButton = document.getElementById("emojiButton");
   document.querySelector(".message-input").style.display = "none";
 }
  
+
+ function trackUserStatus(userId) {
+  const userStatusRef = ref(db, `users/${userId}/status`);
+  onDisconnect(userStatusRef).set("offline");
+  set(userStatusRef, "online");
+
+  let inactivityTimer; // add a timer to check away status
+
+  function startInactivityTimer() {
+    clearTimeout(inactivityTimer);
+    inactivityTimer = setTimeout(() => {
+      set(userStatusRef, "away");
+    }, 60000);
+  }
+
+  ["mousemove", "keydown", "click", "scroll"].forEach(event => {
+    window.addEventListener(event, () => {
+      set(userStatusRef, "online");
+      startInactivityTimer();
+    });
+  });
+
+  startInactivityTimer();
+}
  onAuthStateChanged(auth, async (user) => {
  if (user) {
  currentUser = user;
@@ -680,6 +704,7 @@ const emojiButton = document.getElementById("emojiButton");
  currentUser.username = snapshot.val().username;
  }
  console.log("✅ Logged in as:", currentUser.username);
+ trackUserStatus(user.uid); 
  loadServers();
  initializeUIState();
  // Start listening for access requests
@@ -941,25 +966,26 @@ function listenUserStatus(userId) {
   const statusRef = ref(db, `users/${userId}/status`);
   
   onValue(statusRef, (snapshot) => {
-    const status = snapshot.val();
-    const indicator = userDiv.querySelector('.status-indicator');
-    
+  const status = snapshot.val();
+  console.log(` Status for ${userId}:`, status); // check output status on console
+  const indicator = userDiv.querySelector('.status-indicator');
+
     if (indicator) {
-      const oldStatus = indicator.textContent.includes("🟢") ? "online" : "offline";
-      const newStatus = status === "online" ? "online" : "offline";
-      
-      // Add animation only if status changed
-      if (oldStatus !== newStatus) {
-        indicator.style.transition = "opacity 0.3s";
-        indicator.style.opacity = 0.5;
-        
-        setTimeout(() => {
-          indicator.textContent = status === "online" ? "🟢" : "⚪️";
-          indicator.style.opacity = 1;
-        }, 100);
-      } else {
-        indicator.textContent = status === "online" ? "🟢" : "⚪️";
+      let icon = "⚪️";
+      if (status === "online") {
+        icon = "🟢";
+      } else if (status === "away") {
+        icon = "🟡";
       }
+
+      indicator.style.transition = "opacity 0.3s";
+    indicator.style.opacity = 0.5;
+
+    setTimeout(() => {
+      indicator.textContent = icon;
+      indicator.style.opacity = 1;
+    }, 100);
+      
     }
   });
 }
