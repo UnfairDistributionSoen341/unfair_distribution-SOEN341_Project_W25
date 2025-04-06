@@ -1619,13 +1619,13 @@ function refreshCurrentUserData() {
      if (indicator) {
       if (status === "online") {
       indicator.textContent = "🟢 Online";
-      indicator.style.color = "green";
+      indicator.style.color = "white";
     } else if (status === "away") {
       indicator.textContent = "🟡 Away";
-      indicator.style.color = "#f1c40f"; 
+      indicator.style.color = "white"; 
     } else {
       indicator.textContent = "⚪️ Offline";
-      indicator.style.color = "gray";
+      indicator.style.color = "white";
     }
        // Add animation for status change
        indicator.style.transition = "opacity 0.3s";
