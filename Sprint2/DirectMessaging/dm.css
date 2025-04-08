@@ -655,3 +655,74 @@ body {
         max-width: 75%;
     }
 }
+
+.blocked-user {
+    opacity: 0.7;
+    background: rgba(255, 55, 55, 0.1) !important;
+    position: relative;
+    cursor: default;
+  }
+  
+  .blocked-user::before {
+    content: "";
+    position: absolute;
+    right: 8px;
+    top: 8px;
+    width: 12px;
+    height: 12px;
+    background-color: var(--danger-color);
+    border-radius: 50%;
+    opacity: 0.7;
+  }
+  
+  /* User content wrapper for better layout */
+  .user-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+  
+  /* Unblock button styling */
+  .unblock-button {
+    background-color: var(--danger-color);
+    color: var(--text-light);
+    border: none;
+    border-radius: var(--border-radius-sm);
+    padding: 4px 8px;
+    margin-top: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all var(--animation-speed);
+    align-self: flex-start;
+  }
+  
+  .unblock-button:hover {
+    background-color: #ff4444;
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .unblock-button:active {
+    transform: translateY(0);
+  }
+  
+  /* Adjust user component to accommodate the button */
+  .user {
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.05);
+    margin-bottom: 8px;
+    cursor: pointer;
+    color: var(--text-light);
+    border-radius: var(--border-radius-sm);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all var(--animation-speed);
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .user:not(.blocked-user):hover {
+    background: var(--primary-color);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }

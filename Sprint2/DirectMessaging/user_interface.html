@@ -412,8 +412,8 @@
 
  <div id="contextMenu">
    <ul>
-     <li id="reportOption">Report</li>
-     <li id="blockOption">Block</li>
+     <li id="reportOption" style = color:black>Report</li>
+     <li id="blockOption" style = color:black>Block</li>
    </ul>
  </div>
  
@@ -429,8 +429,8 @@
  <script type="module">
  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
  
- import { 
-   getDatabase, ref, push, onChildAdded, onChildChanged, 
+ import {
+   getDatabase, ref, push, onChildAdded, onChildChanged,
    get, update, query, orderByChild, set, onDisconnect, onValue} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
  
@@ -449,7 +449,7 @@ const STEVE = {
 function initializeSteve(db) {
   console.log("Initializing Steve AI...");
   const steveRef = ref(db, `users/${STEVE.uid}`);
-  
+ 
   // Check if Steve already exists in the database
   get(steveRef).then((snapshot) => {
     if (!snapshot.exists()) {
@@ -484,7 +484,7 @@ class UserContextManager {
   constructor() {
     this.userContexts = {};
   }
-  
+ 
   // Get or create user context
   getContext(userId) {
     if (!this.userContexts[userId]) {
@@ -499,7 +499,7 @@ class UserContextManager {
     }
     return this.userContexts[userId];
   }
-  
+ 
   // Update user context with new information
   updateContext(userId, updates) {
     const context = this.getContext(userId);
@@ -507,7 +507,7 @@ class UserContextManager {
     context.lastInteraction = Date.now();
     return context;
   }
-  
+ 
   // Add message to context history
   addToHistory(userId, message, isUser = true) {
     const context = this.getContext(userId);
@@ -516,30 +516,30 @@ class UserContextManager {
       timestamp: Date.now(),
       isUser
     });
-    
+   
     // Keep only the last 10 messages
     if (context.conversationHistory.length > 10) {
       context.conversationHistory.shift();
     }
   }
-  
+ 
   // Get topics from conversation
   extractTopics(message) {
     const topics = [];
     // Simple keyword extraction
     const keywords = [
-      'weather', 'time', 'joke', 'math', 'calculate', 
+      'weather', 'time', 'joke', 'math', 'calculate',
       'help', 'chat', 'greeting', 'music', 'movie',
       'food', 'travel', 'news', 'sports', 'technology'
     ];
-    
+   
     const lowercaseMsg = message.toLowerCase();
     for (const keyword of keywords) {
       if (lowercaseMsg.includes(keyword)) {
         topics.push(keyword);
       }
     }
-    
+   
     return topics;
   }
 }
@@ -599,7 +599,7 @@ class NLUModule {
         /\b(what|who|where|when|why|how|is it|are they|can you|could you|would you)\b/i
       ]
     };
-    
+   
     // Entity patterns
     this.entities = {
       number: /\b\d+(\.\d+)?\b/g,
@@ -607,17 +607,17 @@ class NLUModule {
       name: /\bmy name is ([A-Za-z]+)\b/i,
     };
   }
-  
+ 
   // Detect intent from user message
   detectIntent(message) {
     const results = [];
     const lowercaseMsg = message.toLowerCase();
-    
+   
     // Check for math expressions first to handle special case
     if (this.isMathProblem(lowercaseMsg)) {
       return [{intent: 'math', confidence: 0.95}];
     }
-    
+   
     // Check other intents
     for (const [intent, patterns] of Object.entries(this.intents)) {
       for (const pattern of patterns) {
@@ -630,7 +630,7 @@ class NLUModule {
         }
       }
     }
-    
+   
     // If no intent matched, default to general conversation
     if (results.length === 0) {
       results.push({
@@ -638,45 +638,45 @@ class NLUModule {
         confidence: 0.6
       });
     }
-    
+   
     // Sort by confidence (highest first)
     return results.sort((a, b) => b.confidence - a.confidence);
   }
-  
+ 
   // Extract entities from message
   extractEntities(message) {
     const entities = {};
-    
+   
     // Extract numbers
     const numbers = message.match(this.entities.number);
     if (numbers) {
       entities.numbers = numbers.map(n => parseFloat(n));
     }
-    
+   
     // Extract dates
     const dateMatch = message.match(this.entities.date);
     if (dateMatch) {
       entities.date = dateMatch[0];
     }
-    
+   
     // Extract name
     const nameMatch = message.match(this.entities.name);
     if (nameMatch && nameMatch[1]) {
       entities.name = nameMatch[1];
     }
-    
+   
     return entities;
   }
-  
+ 
   // Detect if message is a math problem
   isMathProblem(message) {
     // Check for numbers and operators
     const hasNumbers = /\d+/.test(message);
     const hasOperators = /[\+\-\*\/\^\%]/.test(message);
-    
+   
     // Check for math keywords
     const hasMathKeywords = /(calculate|compute|solve|what is|equals|plus|minus|times|divided by)/.test(message);
-    
+   
     return (hasNumbers && hasOperators) || (hasNumbers && hasMathKeywords);
   }
 }
@@ -685,7 +685,7 @@ class NLUModule {
 class ResponseGenerator {
   constructor() {
     this.nlu = new NLUModule();
-    
+   
     // Database of facts
     this.facts = [
       "The shortest war in history was between Britain and Zanzibar in 1896. It lasted only 38 minutes.",
@@ -704,7 +704,7 @@ class ResponseGenerator {
       "A day on Mars is about 24 hours and 37 minutes long.",
       "There are more possible iterations of a game of chess than there are atoms in the known universe."
     ];
-    
+   
     // Database of jokes
     this.jokes = [
       "Why don't scientists trust atoms? Because they make up everything!",
@@ -723,7 +723,7 @@ class ResponseGenerator {
       "I would tell you a chemistry joke, but I know I wouldn't get a reaction.",
       "What do you call a parade of rabbits hopping backwards? A receding hare-line."
     ];
-    
+   
     // Conversation responses for different scenarios
     this.conversations = {
       greetings: [
@@ -787,34 +787,34 @@ class ResponseGenerator {
       ]
     };
   }
-  
+ 
   // Generate response based on user message and context
   async generateResponse(message, userId) {
     // Update user context
     userContextManager.addToHistory(userId, message);
     const userContext = userContextManager.getContext(userId);
-    
+   
     // Extract topics from message
     const topics = userContextManager.extractTopics(message);
     if (topics.length > 0) {
       userContext.recentTopics = [...topics, ...userContext.recentTopics].slice(0, 5);
     }
-    
+   
     // Analyze the message
     const intents = this.nlu.detectIntent(message);
     const entities = this.nlu.extractEntities(message);
     const primaryIntent = intents[0].intent;
-    
+   
     // Extract name if present and update context
     if (entities.name && !userContext.name) {
       userContext.name = entities.name;
       userContextManager.updateContext(userId, {name: entities.name});
       return `Nice to meet you, ${entities.name}! How can I help you today?`;
     }
-    
+   
     // Generate response based on intent
     let response;
-    
+   
     switch (primaryIntent) {
       case 'greeting':
         response = this.getRandomResponse(this.conversations.greetings);
@@ -822,35 +822,35 @@ class ResponseGenerator {
           response = response.replace('!', `, ${userContext.name}!`);
         }
         break;
-        
+       
       case 'farewell':
         response = this.getRandomResponse(this.conversations.farewells);
         if (userContext.name) {
           response = response.replace('!', `, ${userContext.name}!`);
         }
         break;
-        
+       
       case 'thankYou':
         response = this.getRandomResponse(this.conversations.thanks);
         break;
-        
+       
       case 'help':
         response = this.getRandomResponse(this.conversations.help);
         break;
-        
+       
       case 'weather':
         response = this.getRandomResponse(this.conversations.weather);
         break;
-        
+       
       case 'time':
         const now = new Date();
         response = `The current time is ${now.toLocaleTimeString()}, and today is ${now.toLocaleDateString()}.`;
         break;
-        
+       
       case 'joke':
         response = this.getRandomResponse(this.jokes);
         break;
-        
+       
       case 'math':
         try {
           response = this.solveCalculation(message);
@@ -858,19 +858,19 @@ class ResponseGenerator {
           response = "I couldn't solve that calculation. Could you rephrase it?";
         }
         break;
-        
+       
       case 'about':
         response = this.getRandomResponse(this.conversations.about);
         break;
-        
+       
       case 'feeling':
         response = this.getRandomResponse(this.conversations.feelings);
         break;
-        
+       
       case 'facts':
         response = this.getRandomResponse(this.facts);
         break;
-        
+       
       case 'question':
         // For questions we don't have specific answers to
         if (message.toLowerCase().includes('your name')) {
@@ -881,7 +881,7 @@ class ResponseGenerator {
           response = "That's an interesting question! I'm designed for casual conversation, so I might not have all the answers. Is there something else I can help with?";
         }
         break;
-        
+       
       default:
         // Handle general conversation
         if (userContext.conversationHistory.length > 1) {
@@ -896,23 +896,23 @@ class ResponseGenerator {
           response = this.getRandomResponse(this.conversations.fallback);
         }
     }
-    
+   
     // Add response to user context
     userContextManager.addToHistory(userId, response, false);
-    
+   
     return response;
   }
-  
+ 
   // Helper function to get random response
   getRandomResponse(responseArray) {
     return responseArray[Math.floor(Math.random() * responseArray.length)];
   }
-  
+ 
   // Helper function to solve calculations
   solveCalculation(message) {
     // Extract the calculation part
     let expression = message;
-    
+   
     // Replace math words with symbols
     expression = expression.replace(/plus/gi, '+');
     expression = expression.replace(/minus/gi, '-');
@@ -921,20 +921,20 @@ class ResponseGenerator {
     expression = expression.replace(/divided by/gi, '/');
     expression = expression.replace(/×/g, '*');
     expression = expression.replace(/÷/g, '/');
-    
+   
     // Extract numbers and math operators
     const extractedMath = expression.match(/[0-9+\-*/()\s.^%]+/g);
     if (extractedMath) {
       expression = extractedMath.join('');
     }
-    
+   
     // Clean up the expression
     expression = expression.replace(/[^0-9+\-*/()\s.^%]/g, '');
-    
+   
     try {
       // Safely evaluate the expression using Function instead of eval
       const result = new Function('return ' + expression)();
-      
+     
       // Format response
       if (Number.isInteger(result)) {
         return `The result is ${result}`;
@@ -951,27 +951,27 @@ class ResponseGenerator {
 // Main function to handle messaging Steve with debouncing to prevent duplicate messages
 const sendMessageToSteve = debounce(async (db, currentUser, messageText) => {
   console.log("Sending message to Steve:", messageText);
-  
+ 
   // Make sure we have all required data for the message
   if (!currentUser || !currentUser.uid) {
     console.error("❌ Current user data is missing!");
     return;
   }
-  
+ 
   // Make sure we have a username - use email as fallback
   const senderUsername = currentUser.username || currentUser.email.split('@')[0] || "User";
-  
+ 
   // Generate chat ID exactly the same way as your app does
-  const chatID = currentUser.uid < STEVE.uid 
-    ? `${currentUser.uid}_${STEVE.uid}` 
+  const chatID = currentUser.uid < STEVE.uid
+    ? `${currentUser.uid}_${STEVE.uid}`
     : `${STEVE.uid}_${currentUser.uid}`;
-    
+   
   console.log("Chat ID for Steve:", chatID);
   const chatRef = ref(db, `chats/${chatID}/messages`);
-  
+ 
   // Initialize the response generator if needed
   const responseGenerator = new ResponseGenerator();
-  
+ 
   // Add user message to database
   push(chatRef, {
     sender: currentUser.email,
@@ -983,7 +983,7 @@ const sendMessageToSteve = debounce(async (db, currentUser, messageText) => {
     isProcessed: true // Flag to prevent duplicate processing
   }).then(async (messageRef) => {
     console.log("✅ Message sent to Steve AI with messageId:", messageRef.key);
-    
+   
     // Show typing indicator
     push(chatRef, {
       sender: STEVE.email,
@@ -999,7 +999,7 @@ const sendMessageToSteve = debounce(async (db, currentUser, messageText) => {
       setTimeout(async () => {
         // Generate response
         const steveResponse = await responseGenerator.generateResponse(messageText, currentUser.uid);
-        
+       
         // Remove typing indicator (using set(null) instead of remove())
         const typingMsgRef = ref(db, `chats/${chatID}/messages/${typingRef.key}`);
         set(typingMsgRef, null).then(() => {
@@ -1133,7 +1133,7 @@ function isSteveChat(selectedUserID) {
   if (user) {
     currentUser = user;
     console.log("✅ Logged in as:", currentUser.email);
-    
+   
     const usersRef = ref(db, `users/${currentUser.uid}`);
     get(usersRef).then((snapshot) => {
       if (snapshot.exists()) {
@@ -1142,7 +1142,7 @@ function isSteveChat(selectedUserID) {
         userCache[currentUser.uid] = snapshot.val();
         // Cache email to username mapping
         usernameResolvers[currentUser.email] = currentUsername;
-        
+       
         const userStatusRef = ref(db, `users/${currentUser.uid}/status`);
         set(userStatusRef, "online");
         onDisconnect(userStatusRef).set("offline");
@@ -1166,25 +1166,25 @@ function isSteveChat(selectedUserID) {
 function startInactivityTimer() {
   clearTimeout(inactivityTimer);
   inactivityTimer = setTimeout(() => {
-    set(userStatusRef, "away"); 
+    set(userStatusRef, "away");
   }, 60000);
 }
 ["mousemove", "keydown", "click", "scroll"].forEach(event => {
   window.addEventListener(event, () => {
-    set(userStatusRef, "online"); 
-    startInactivityTimer(); 
+    set(userStatusRef, "online");
+    startInactivityTimer();
   });
 });
 startInactivityTimer();
 // Function to set up Steve AI in the user list
 function setupSteve() {
   console.log("Setting up Steve...");
-  
+ 
   // Refresh current user data first
   refreshCurrentUserData().then(() => {
     // Then initialize Steve
     initializeSteve(db);
-    
+   
     // Add Steve to user list
     setTimeout(() => {
       const userList = document.getElementById("userList");
@@ -1192,37 +1192,37 @@ function setupSteve() {
         console.error("userList element not found!");
         return;
       }
-      
+     
       console.log("Adding Steve to user list");
-      
+     
       // Check if Steve is already in the list
       if (!document.getElementById(`user-${STEVE.uid}`)) {
         const steveDiv = document.createElement("div");
         steveDiv.classList.add("user");
         steveDiv.id = `user-${STEVE.uid}`;
-        
+       
         const nameSpan = document.createElement("span");
         nameSpan.textContent = STEVE.username;
         steveDiv.appendChild(nameSpan);
-        
+       
         const statusSpan = document.createElement("span");
         statusSpan.classList.add("status-indicator");
         statusSpan.textContent = "🟢 Online";  // Steve is always online
         steveDiv.appendChild(statusSpan);
-        
+       
         // Add Steve at the beginning of the user list
         if (userList.firstChild) {
           userList.insertBefore(steveDiv, userList.firstChild);
         } else {
           userList.appendChild(steveDiv);
         }
-        
+       
         // Add click event listener to start chat with Steve
         steveDiv.addEventListener("click", function() {
           console.log("Steve clicked! Starting chat...");
           startChat(STEVE);
         });
-        
+       
         console.log("Steve added to user list");
       } else {
         console.log("Steve already exists in user list");
@@ -1293,55 +1293,73 @@ function setupSteve() {
  }
  
  function loadUsers() {
-   const userList = document.getElementById("userList");
-   userList.innerHTML = "";
+  const userList = document.getElementById("userList");
+  userList.innerHTML = "";
 
-   const chatsRef = ref(db, "chats");
-   const blockedRef = ref(db, `blocked/${currentUser.uid}`);
+  const chatsRef = ref(db, "chats");
+  const blockedRef = ref(db, `blocked/${currentUser.uid}`);
 
-   get(blockedRef).then((blockedSnapshot) => {
-     let blockedUsers = new Set();
-     if (blockedSnapshot.exists()) {
-       blockedSnapshot.forEach(childSnapshot => {
-         blockedUsers.add(childSnapshot.key);
-       });
-     }
+  // First get the blocked users
+  get(blockedRef).then((blockedSnapshot) => {
+    let blockedUsers = {};
+    if (blockedSnapshot.exists()) {
+      blockedSnapshot.forEach(childSnapshot => {
+        blockedUsers[childSnapshot.key] = childSnapshot.val();
+      });
+    }
 
-     get(chatsRef).then((snapshot) => {
-       if (snapshot.exists()) {
-         let chatUserIDs = new Set();
+    // Then get all chats
+    get(chatsRef).then((snapshot) => {
+      if (snapshot.exists()) {
+        let chatUserIDs = new Set();
+        let blockedUserIDs = new Set();
 
-         snapshot.forEach((chatSnapshot) => {
-           const [userA, userB] = chatSnapshot.key.split("_");
-           if (userA === currentUser.uid && !blockedUsers.has(userB)) {
-             chatUserIDs.add(userB);
-           } else if (userB === currentUser.uid && !blockedUsers.has(userA)) {
-             chatUserIDs.add(userA);
-           }
-         });
+        // Identify users from chats
+        snapshot.forEach((chatSnapshot) => {
+          const [userA, userB] = chatSnapshot.key.split("_");
+          if (userA === currentUser.uid) {
+            chatUserIDs.add(userB);
+            if (blockedUsers[userB]) {
+              blockedUserIDs.add(userB);
+            }
+          } else if (userB === currentUser.uid) {
+            chatUserIDs.add(userA);
+            if (blockedUsers[userA]) {
+              blockedUserIDs.add(userA);
+            }
+          }
+        });
 
-         if (chatUserIDs.size === 0) {
-           userList.innerHTML = "<p>No conversations yet.</p>";
-           return;
-         }
+        if (chatUserIDs.size === 0) {
+          userList.innerHTML = "<p>No conversations yet.</p>";
+          return;
+        }
 
-         chatUsers = [];
-         chatUserIDs.forEach(uid => {
-           if (userCache[uid]) {
-             chatUsers.push(userCache[uid]);
-           }
-         });
+        chatUsers = [];
+       
+        // Add active users
+        chatUserIDs.forEach(uid => {
+          if (userCache[uid]) {
+            // Check if user is blocked
+            if (blockedUsers[uid]) {
+              userCache[uid].isBlocked = true;
+            } else {
+              userCache[uid].isBlocked = false;
+            }
+            chatUsers.push(userCache[uid]);
+          }
+        });
 
-         displayUsers(chatUsers);
-       } else {
-         userList.innerHTML = "<p>No conversations found.</p>";
-       }
-     }).catch(error => {
-       console.error("❌ Error loading conversations:", error);
-       userList.innerHTML = "<p>Error loading conversations.</p>";
-     });
-   });
- }
+        displayUsers(chatUsers);
+      } else {
+        userList.innerHTML = "<p>No conversations found.</p>";
+      }
+    }).catch(error => {
+      console.error("❌ Error loading conversations:", error);
+      userList.innerHTML = "<p>Error loading conversations.</p>";
+    });
+  });
+}
  
  function setupSearch() {
    const searchInput = document.getElementById("searchUser");
@@ -1367,9 +1385,9 @@ function setupSteve() {
    const userList = document.getElementById("userList");
    
    // Search in userCache
-   let filteredUsers = Object.values(userCache).filter(user => 
-     user.uid !== currentUser.uid && 
-     user.username && 
+   let filteredUsers = Object.values(userCache).filter(user =>
+     user.uid !== currentUser.uid &&
+     user.username &&
      user.username.toLowerCase().includes(searchValue)
    );
    
@@ -1377,61 +1395,131 @@ function setupSteve() {
  }
  
  function displayUsers(users) {
-   const userList = document.getElementById("userList");
-   userList.innerHTML = "";
-   
-   if (users.length === 0) {
-     userList.innerHTML = "<p>No users found.</p>";
-   } else {
-     users.forEach(user => {
-       let userDiv = document.createElement("div");
-       userDiv.classList.add("user");
-       userDiv.id = `user-${user.uid}`;
-       const nameSpan = document.createElement("span");
-       nameSpan.textContent = user.username;
-       userDiv.appendChild(nameSpan);
-       const statusSpan = document.createElement("span");
-       statusSpan.classList.add("status-indicator");
-       statusSpan.textContent = "⚪️ Offline";  // initial as offline
-       userDiv.appendChild(statusSpan);
+  const userList = document.getElementById("userList");
+  userList.innerHTML = "";
+ 
+  if (users.length === 0) {
+    userList.innerHTML = "<p>No users found.</p>";
+  } else {
+    users.forEach(user => {
+      let userDiv = document.createElement("div");
+      userDiv.classList.add("user");
+      userDiv.id = `user-${user.uid}`;
+     
+      // Create a wrapper for username and buttons
+      const contentWrapper = document.createElement("div");
+      contentWrapper.className = "user-content-wrapper";
+     
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = user.username;
+      contentWrapper.appendChild(nameSpan);
+     
+      // Apply blocked styling if the user is blocked
+      if (user.isBlocked) {
+        userDiv.classList.add("blocked-user");
+       
+        // Add unblock button
+        const unblockButton = document.createElement("button");
+        unblockButton.className = "unblock-button";
+        unblockButton.textContent = "Unblock";
+        unblockButton.addEventListener("click", (event) => {
+          event.stopPropagation(); // Prevent triggering the chat
+          unblockUser(user);
+        });
+        contentWrapper.appendChild(unblockButton);
+      }
+     
+      userDiv.appendChild(contentWrapper);
+     
+      const statusSpan = document.createElement("span");
+      statusSpan.classList.add("status-indicator");
+      statusSpan.textContent = "⚪️ Offline";  // initial as offline
+      userDiv.appendChild(statusSpan);
 
-       userList.appendChild(userDiv);
-       listenUserStatus(user.uid);
+      userList.appendChild(userDiv);
+      listenUserStatus(user.uid);
 
-       userDiv.addEventListener("click", () => startChat(user));
-       userDiv.addEventListener("contextmenu", (event) => {
-         event.preventDefault();
-         showContextMenu(event, user);
-       });
-     });
-   }
- }
+      // Only add chat functionality if user isn't blocked
+      if (!user.isBlocked) {
+        userDiv.addEventListener("click", () => startChat(user));
+      }
+     
+      userDiv.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        showContextMenu(event, user);
+      });
+    });
+  }
+}
+
+function unblockUser(user) {
+  if (!user || !user.uid) {
+    console.error("Invalid user for unblocking");
+    return;
+  }
+
+  // Reference to the blocked user entry
+  const blockedRef = ref(db, `blocked/${currentUser.uid}/${user.uid}`);
+ 
+  // Remove the blocked entry
+  set(blockedRef, null)
+    .then(() => {
+      console.log(`✅ User ${user.username} has been unblocked`);
+     
+      // Update UI - remove blocked class and add click event
+      const userDiv = document.getElementById(`user-${user.uid}`);
+      if (userDiv) {
+        userDiv.classList.remove("blocked-user");
+       
+        // Remove the unblock button
+        const unblockButton = userDiv.querySelector(".unblock-button");
+        if (unblockButton) {
+          unblockButton.remove();
+        }
+       
+        // Re-add the click event to start chat
+        userDiv.addEventListener("click", () => startChat(user));
+      }
+     
+      // Update the user in cache
+      if (userCache[user.uid]) {
+        userCache[user.uid].isBlocked = false;
+      }
+     
+      // Show confirmation message
+      alert(`You have unblocked ${user.username}`);
+    })
+    .catch(error => {
+      console.error("❌ Error unblocking user:", error);
+      alert("Failed to unblock user. Please try again.");
+    });
+}
  
  function startChat(user) {
   selectedUser = user;
   selectedUsername = user.username;
-  
+ 
   // Debug information
   console.log("Starting chat with:", user);
   console.log("Username:", selectedUsername);
   console.log("UID:", user.uid);
-  
+ 
   document.getElementById("chatUserName").innerText = `Chat with ${selectedUsername}`;
-  
+ 
   // Generate proper chat ID
-  chatID = user.uid === STEVE.uid 
+  chatID = user.uid === STEVE.uid
     ? (currentUser.uid < STEVE.uid ? `${currentUser.uid}_${STEVE.uid}` : `${STEVE.uid}_${currentUser.uid}`)
     : generateChatID(currentUser.uid, user.uid);
-    
+   
   console.log(`📩 Chat started with ${selectedUsername} (Chat ID: ${chatID})`);
-  
+ 
   // Clear messages div
   document.getElementById("messages").innerHTML = "";
-  
+ 
   // If it's Steve, we need to ensure the current user data is fully loaded
   if (user.uid === STEVE.uid) {
     console.log("Starting chat with Steve AI");
-    
+   
     // Make sure we have current user data
     const usersRef = ref(db, `users/${currentUser.uid}`);
     get(usersRef).then((snapshot) => {
@@ -1459,21 +1547,21 @@ function refreshCurrentUserData() {
     console.error("Cannot refresh user data: currentUser is not defined");
     return Promise.reject("No current user");
   }
-  
+ 
   return new Promise((resolve, reject) => {
     const userRef = ref(db, `users/${currentUser.uid}`);
     get(userRef).then((snapshot) => {
       if (snapshot.exists()) {
         const userData = snapshot.val();
-        
+       
         // Update global variables with user data
         currentUsername = userData.username;
         currentUser.username = userData.username;
         currentUser.profilePicture = userData.profilePicture;
-        
+       
         // Update cache
         userCache[currentUser.uid] = userData;
-        
+       
         console.log("✅ Current user data refreshed:", currentUsername);
         resolve(userData);
       } else {
@@ -1588,7 +1676,7 @@ function refreshCurrentUserData() {
        const userData = snapshot.val();
        // Update cache
        userCache[uid] = userData;
-       listenUserStatus(uid); 
+       listenUserStatus(uid);
        return userData.username;
      }
    } catch (error) {
@@ -1622,7 +1710,7 @@ function refreshCurrentUserData() {
       indicator.style.color = "white";
     } else if (status === "away") {
       indicator.textContent = "🟡 Away";
-      indicator.style.color = "white"; 
+      indicator.style.color = "white";
     } else {
       indicator.textContent = "⚪️ Offline";
       indicator.style.color = "white";
@@ -1665,7 +1753,7 @@ function refreshCurrentUserData() {
   const messageElement = document.createElement("div");
   messageElement.classList.add("message");
   messageElement.id = messageId;
-  
+ 
   // Determine message type (sent or received)
   const isSentByCurrentUser = messageData.sender === currentUser.email;
   messageElement.classList.add(isSentByCurrentUser ? "sent" : "received");
@@ -1692,46 +1780,46 @@ function refreshCurrentUserData() {
   // Create message content container
   const contentDiv = document.createElement("div");
   contentDiv.className = "message-content";
-  
+ 
   // Create username header
   const headerDiv = document.createElement("div");
   headerDiv.className = "message-header";
   headerDiv.textContent = messageData.senderUsername || "Unknown User";
-  
+ 
   // Create message text
   const textDiv = document.createElement("div");
   textDiv.className = "message-text";
   textDiv.textContent = messageData.text;
-  
+ 
   // Create timestamp
   const timeDiv = document.createElement("div");
   timeDiv.className = "message-time";
   timeDiv.textContent = messageData.timestamp ? new Date(messageData.timestamp).toLocaleTimeString() : "";
-  
+ 
   // Assemble message content
   contentDiv.appendChild(headerDiv);
   contentDiv.appendChild(textDiv);
   contentDiv.appendChild(timeDiv);
-  
+ 
   // Add reply button
   const replyButton = document.createElement("button");
   replyButton.className = "reply-button";
   replyButton.textContent = "Reply";
   replyButton.addEventListener("click", () => replyToMessage(messageData));
-  
+ 
   // Add delete button for sender's messages
   if (messageData.sender === currentUser.email) {
     const deleteButton = document.createElement("button");
     deleteButton.className = "delete-btn";
     deleteButton.innerHTML = "&times;";
     deleteButton.setAttribute("data-message-id", messageId);
-    
+   
     // Add click event to delete message
     deleteButton.addEventListener("click", (event) => {
       event.stopPropagation();
       deleteMessage(messageId);
     });
-    
+   
     messageElement.appendChild(deleteButton);
   }
 
@@ -1908,7 +1996,7 @@ function refreshCurrentUserData() {
 
    if (blockedSnapshot.exists()) {
      alert(`🚫 You have been blocked by ${selectedUser.username}.`);
-     return; 
+     return;
    }
 
    const blockedByCurrentUserRef = ref(db, `blocked/${currentUser.uid}/${selectedUser.uid}`);
@@ -1916,7 +2004,7 @@ function refreshCurrentUserData() {
 
    if (blockedByCurrentSnapshot.exists()) {
      alert("🚫 You have blocked this user. Unblock them to send messages.");
-     return; 
+     return;
    }
 
    // Get message text
@@ -1924,11 +2012,11 @@ function refreshCurrentUserData() {
   const messageInput = document.getElementById("messageInput");
   const messageText = messageInput.value.trim();
   if (messageText === "") return;
-  
+ 
   console.log("Sending message to:", selectedUser.username);
   console.log("Selected user ID:", selectedUser.uid);
   console.log("Is Steve?", isSteveChat(selectedUser.uid));
-  
+ 
   // Check if this is a chat with Steve
   if (selectedUser.uid === STEVE.uid) {
     console.log("This is a chat with Steve!");
