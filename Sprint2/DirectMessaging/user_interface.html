@@ -414,6 +414,7 @@
    <ul>
      <li id="reportOption">Report</li>
      <li id="blockOption">Block</li>
+     <li id="unblockOption">Unblock</li>
    </ul>
  </div>
  
@@ -1818,15 +1819,28 @@ function refreshCurrentUserData() {
 
  // Context menu functions
  function showContextMenu(event, user) {
+   event.preventDefault();
    const contextMenu = document.getElementById("contextMenu");
    contextMenu.style.display = "block";
    contextMenu.style.left = `${event.pageX}px`;
    contextMenu.style.top = `${event.pageY}px`;
 
+   // Get references to menu options
+   const blockOption = document.getElementById("blockOption");
+   const unblockOption = document.getElementById("unblockOption");
+   
+   // Check if user is blocked and show/hide appropriate options
+   const blockedRef = ref(db, `blocked/${currentUser.uid}/${user.id}`);
+   get(blockedRef).then((snapshot) => {
+     const isBlocked = snapshot.exists();
+     blockOption.style.display = isBlocked ? "none" : "block";
+     unblockOption.style.display = isBlocked ? "block" : "none";
+   });
+
    document.getElementById("reportOption").onclick = () => reportUser(user);
    document.getElementById("blockOption").onclick = () => blockUser(user);
- }
-
+   document.getElementById("unblockOption").onclick = () => unblockUser(user);
+}
  function reportUser(user) {
    currentAction = "report";
    actionUser = user;
@@ -1837,6 +1851,11 @@ function refreshCurrentUserData() {
    currentAction = "block";
    actionUser = user;
    showReasonModal();
+ }
+
+ function unblockUser(user){
+  currentAction = "unblock";
+  actionUser = user;
  }
 
  function showReasonModal() {
@@ -1852,6 +1871,7 @@ function refreshCurrentUserData() {
      alert("Please provide a reason.");
      return;
    }
+  });
 
    if (currentAction === "block" && actionUser) {
      const blockedRef = ref(db, `blocked/${currentUser.uid}/${actionUser.uid}`);
@@ -1874,9 +1894,16 @@ function refreshCurrentUserData() {
      }).catch(error => {
        console.error("❌ Error reporting user:", error);
      });
-   }
- });
-
+   } else if (currentAction === "unblock" && actionUser){
+    const unblockedRef = ref(db, `unblocked/${currentUser.uid}/${actionUser.uid}`);
+    update(unblockedRef, { unblocked: true, reason: reason }).then(() => {
+       alert(`You have unblocked ${actionUser.username}.`);
+       document.getElementById("reasonModal").style.display = "none";
+       loadUsers(); // Refresh the user list
+     }).catch(error => {
+       console.error("❌ Error blocking user:", error);
+   });
+  }
  document.getElementById("cancelReason").addEventListener("click", function() {
    document.getElementById("reasonModal").style.display = "none";
  });
