@@ -927,15 +927,31 @@ async function loadServerMembers(serverId) {
         return roleOrder[a.role] - roleOrder[b.role];
       });
       
+      // Check which users are blocked
+      const blockedUsers = {};
+      for (const member of members) {
+        if (member.id !== currentUser.uid) {  // Don't check if you're blocking yourself
+          blockedUsers[member.id] = await isUserBlocked(member.id);
+        }
+      }
+      
       // Display members
-      members.forEach(member => {
+      for (const member of members) {
         const memberItem = document.createElement("div");
         memberItem.className = "member-item";
         memberItem.id = `user-${member.id}`;
         
+        // Add blocked class if user is blocked
+        if (blockedUsers[member.id]) {
+          memberItem.classList.add("blocked-user");
+        }
+        
         const statusIndicator = document.createElement("span");
         statusIndicator.className = "status-indicator";
         statusIndicator.textContent = "⚪️";
+        
+        const memberInfo = document.createElement("div");
+        memberInfo.className = "user-content-wrapper";
         
         const memberName = document.createElement("span");
         memberName.className = "member-name";
@@ -945,13 +961,56 @@ async function loadServerMembers(serverId) {
         memberRole.className = `member-role role-${member.role}`;
         memberRole.textContent = member.role;
         
+        memberInfo.appendChild(memberName);
+        memberInfo.appendChild(memberRole);
+        
+        // Skip adding block/unblock buttons for yourself
+        if (member.id !== currentUser.uid) {
+          // Add block/unblock button based on current status
+          if (blockedUsers[member.id]) {
+            // User is blocked - add unblock button
+            const unblockBtn = document.createElement("button");
+            unblockBtn.className = "unblock-button";
+            unblockBtn.textContent = "Unblock";
+            unblockBtn.addEventListener("click", (e) => {
+              e.stopPropagation(); // Prevent click propagation
+              unblockUser(member.id, member.username);
+            });
+            memberInfo.appendChild(unblockBtn);
+          } else {
+            // User is not blocked - add context menu for blocking
+            memberItem.addEventListener("contextmenu", (e) => {
+              e.preventDefault(); // Prevent default context menu
+              blockUser(member.id, member.username);
+            });
+            
+            // Add small hint about right-click to block
+            const blockHint = document.createElement("span");
+            blockHint.className = "block-hint";
+            blockHint.textContent = "Right-click to block";
+            blockHint.style.display = "none";
+            blockHint.style.fontSize = "10px";
+            blockHint.style.color = "var(--text-muted)";
+            blockHint.style.marginTop = "3px";
+            memberInfo.appendChild(blockHint);
+            
+            // Show hint on hover
+            memberItem.addEventListener("mouseenter", () => {
+              blockHint.style.display = "block";
+            });
+            
+            memberItem.addEventListener("mouseleave", () => {
+              blockHint.style.display = "none";
+            });
+          }
+        }
+        
         memberItem.appendChild(statusIndicator);
-        memberItem.appendChild(memberName);
-        memberItem.appendChild(memberRole);
+        memberItem.appendChild(memberInfo);
         membersList.appendChild(memberItem);
         
         listenUserStatus(member.id);
-      });
+      }
     });
   } catch (error) {
     console.error("Error loading members:", error);
@@ -1245,7 +1304,152 @@ function setupChannelSearch() {
   });
 }
 
- 
+async function blockUser(userId, username) {
+  if (!currentUser || !userId) {
+    console.error("Missing current user or user ID for blocking");
+    return;
+  }
+  
+  // Show modal to get block reason
+  const reasonModal = document.createElement("div");
+  reasonModal.className = "popUp";
+  reasonModal.id = "blockReasonModal";
+  reasonModal.style.display = "flex";
+  
+  const modalContent = document.createElement("div");
+  modalContent.className = "popUp-content";
+  
+  const closeButton = document.createElement("span");
+  closeButton.className = "close-button";
+  closeButton.innerHTML = "&times;";
+  closeButton.onclick = () => document.body.removeChild(reasonModal);
+  
+  const title = document.createElement("h2");
+  title.textContent = `Block ${username}`;
+  
+  const description = document.createElement("p");
+  description.textContent = "Please provide a reason for blocking this user:";
+  description.style.marginBottom = "15px";
+  
+  const reasonInput = document.createElement("textarea");
+  reasonInput.placeholder = "Enter reason here...";
+  reasonInput.style.width = "100%";
+  reasonInput.style.padding = "10px";
+  reasonInput.style.marginBottom = "15px";
+  reasonInput.style.borderRadius = "var(--border-radius-sm)";
+  reasonInput.style.background = "var(--input-bg)";
+  reasonInput.style.color = "var(--text-light)";
+  reasonInput.style.border = "none";
+  reasonInput.style.resize = "vertical";
+  reasonInput.style.minHeight = "80px";
+  
+  const buttonContainer = document.createElement("div");
+  buttonContainer.style.display = "flex";
+  buttonContainer.style.justifyContent = "flex-end";
+  buttonContainer.style.gap = "10px";
+  
+  const cancelButton = document.createElement("button");
+  cancelButton.textContent = "Cancel";
+  cancelButton.style.background = "var(--secondary-color)";
+  cancelButton.onclick = () => document.body.removeChild(reasonModal);
+  
+  const submitButton = document.createElement("button");
+  submitButton.textContent = "Block User";
+  submitButton.style.background = "var(--danger-color)";
+  submitButton.onclick = async () => {
+    const reason = reasonInput.value.trim();
+    if (!reason) {
+      alert("Please provide a reason for blocking this user.");
+      return;
+    }
+    
+    try {
+      // Reference to the blocked user entry
+      const blockedRef = ref(db, `blocked/${currentUser.uid}/${userId}`);
+      
+      // Add the blocked entry
+      await set(blockedRef, {
+        blocked: true,
+        reason: reason,
+        timestamp: Date.now()
+      });
+      
+      alert(`✅ User ${username} has been blocked.`);
+      document.body.removeChild(reasonModal);
+      
+      // Refresh member list if it's visible
+      if (selectedServer) {
+        loadServerMembers(selectedServer.id);
+      }
+      
+      // Refresh messages to apply blocked message styling
+      if (selectedChannel) {
+        loadMessages();
+      }
+    } catch (error) {
+      console.error("❌ Error blocking user:", error);
+      alert("Failed to block user. Please try again.");
+    }
+  };
+  
+  buttonContainer.appendChild(cancelButton);
+  buttonContainer.appendChild(submitButton);
+  
+  modalContent.appendChild(closeButton);
+  modalContent.appendChild(title);
+  modalContent.appendChild(description);
+  modalContent.appendChild(reasonInput);
+  modalContent.appendChild(buttonContainer);
+  
+  reasonModal.appendChild(modalContent);
+  document.body.appendChild(reasonModal);
+}
+
+// Function to unblock a user
+async function unblockUser(userId, username) {
+  if (!currentUser || !userId) {
+    console.error("Missing current user or user ID for unblocking");
+    return;
+  }
+  
+  try {
+    // Reference to the blocked user entry
+    const blockedRef = ref(db, `blocked/${currentUser.uid}/${userId}`);
+    
+    // Remove the blocked entry
+    await remove(blockedRef);
+    
+    alert(`✅ User ${username} has been unblocked.`);
+    
+    // Refresh member list if it's visible
+    if (selectedServer) {
+      loadServerMembers(selectedServer.id);
+    }
+    
+    // Refresh messages to apply blocked message styling
+    if (selectedChannel) {
+      loadMessages();
+    }
+  } catch (error) {
+    console.error("❌ Error unblocking user:", error);
+    alert("Failed to unblock user. Please try again.");
+  }
+}
+
+// Function to check if a user is blocked
+async function isUserBlocked(userId) {
+  if (!currentUser || !userId) return false;
+  
+  try {
+    const blockedRef = ref(db, `blocked/${currentUser.uid}/${userId}`);
+    const snapshot = await get(blockedRef);
+    return snapshot.exists();
+  } catch (error) {
+    console.error("Error checking if user is blocked:", error);
+    return false;
+  }
+}
+
 // Display channels in the channel list
 async function displayChannels(channels) {
   const channelList = document.getElementById("channelList");
@@ -1726,6 +1930,17 @@ async function loadMessages() {
   // Create a Set to track rendered messages
   const renderedMessages = new Set();
 
+  // Load all blocked users first for efficiency
+  const blockedUsersRef = ref(db, `blocked/${currentUser.uid}`);
+  const blockedSnapshot = await get(blockedUsersRef);
+  const blockedUsers = {};
+  
+  if (blockedSnapshot.exists()) {
+    blockedSnapshot.forEach(child => {
+      blockedUsers[child.key] = child.val();
+    });
+  }
+
   // First load all existing messages
   get(messagesRef).then(snapshot => {
     messagesDiv.innerHTML = "";
@@ -1753,7 +1968,7 @@ async function loadMessages() {
     
     // Render all messages
     messages.forEach(message => {
-      renderMessage(message, canDeleteAnyMessage);
+      renderMessage(message, canDeleteAnyMessage, blockedUsers);
     });
     
     // Scroll to bottom
@@ -1769,7 +1984,7 @@ async function loadMessages() {
         ...snapshot.val()
       };
       
-      renderMessage(messageData, canDeleteAnyMessage);
+      renderMessage(messageData, canDeleteAnyMessage, blockedUsers);
       
       // Smooth scroll to bottom
       messagesDiv.scrollTo({
@@ -1792,6 +2007,298 @@ async function loadMessages() {
       }
     });
   });
+
+  function renderMessage(message, canDeleteAnyMessage, blockedUsers) {
+    if (!message) return;
+    
+    const isBlocked = blockedUsers[message.senderId] !== undefined;
+    
+    const messageElement = document.createElement("div");
+    messageElement.className = `message ${message.senderId === currentUser.uid ? "sent" : "received"}`;
+    messageElement.id = `message-${message.id}`;
+    
+    // Create wrapper for the entire message
+    const messageWrapper = document.createElement("div");
+    messageWrapper.className = "messageWrapper";
+    
+    // Profile Picture
+    const profilePic = document.createElement("img");
+    profilePic.className = "profile-pic";
+    profilePic.src = "data:image/jpeg;base64,/9j/4AAQSkZJRg..."; // Placeholder
+    profilePic.alt = `${message.senderName}'s profile picture`;
+    
+    // Fetch profile picture from Firebase
+    const userRef = ref(db, `users/${message.senderId}/profilePicture`);
+    get(userRef).then((snapshot) => {
+      if (snapshot.exists() && snapshot.val()) {
+        profilePic.src = snapshot.val(); // Set profile picture if found
+      }
+    });
+    
+    // Create container for message content
+    const contentDiv = document.createElement("div");
+    contentDiv.className = "message-content";
+    
+    // Username header
+    const headerDiv = document.createElement("div");
+    headerDiv.className = "message-header";
+    headerDiv.textContent = message.senderName;
+    
+    // Message Text
+    const textDiv = document.createElement("div");
+    textDiv.className = "message-text";
+    
+    // Timestamp
+    const timeDiv = document.createElement("div");
+    timeDiv.className = "message-time";
+    timeDiv.textContent = new Date(message.timestamp).toLocaleTimeString();
+    
+    // Handle blocked messages differently
+    if (isBlocked && message.senderId !== currentUser.uid) {
+      // Show blocked message content
+      messageElement.classList.add("blocked-message");
+      
+      // Create blocked message container
+      const blockedContainer = document.createElement("div");
+      blockedContainer.className = "blocked-message-container";
+      
+      // Create blocked message notice
+      const blockedNotice = document.createElement("div");
+      blockedNotice.className = "blocked-message-notice";
+      blockedNotice.textContent = "Message from blocked user";
+      
+      // Add reveal button
+      const revealButton = document.createElement("button");
+      revealButton.className = "reveal-message-button";
+      revealButton.textContent = "Show Message";
+      
+      // Create content container that will be hidden initially
+      const hiddenContent = document.createElement("div");
+      hiddenContent.className = "blocked-message-content";
+      hiddenContent.style.display = "none";
+      
+      // Set the actual message text
+      textDiv.textContent = message.text;
+      
+      // Add blocked reason if available
+      if (blockedUsers[message.senderId]?.reason) {
+        const reasonDiv = document.createElement("div");
+        reasonDiv.className = "blocked-reason";
+        reasonDiv.textContent = `Reason: ${blockedUsers[message.senderId].reason}`;
+        blockedContainer.appendChild(reasonDiv);
+      }
+      
+      // Add event listener to reveal/hide message
+      revealButton.addEventListener("click", () => {
+        if (hiddenContent.style.display === "none") {
+          hiddenContent.style.display = "block";
+          revealButton.textContent = "Hide Message";
+        } else {
+          hiddenContent.style.display = "none";
+          revealButton.textContent = "Show Message";
+        }
+      });
+      
+      // Add unblock button
+      const unblockButton = document.createElement("button");
+      unblockButton.className = "unblock-from-message-button";
+      unblockButton.textContent = "Unblock User";
+      unblockButton.addEventListener("click", () => {
+        unblockUser(message.senderId, message.senderName);
+      });
+      
+      // Append elements to containers
+      blockedContainer.appendChild(blockedNotice);
+      blockedContainer.appendChild(revealButton);
+      blockedContainer.appendChild(unblockButton);
+      
+      // Add content to hidden section
+      hiddenContent.appendChild(headerDiv);
+      hiddenContent.appendChild(textDiv);
+      hiddenContent.appendChild(timeDiv);
+      
+      // Add the hidden content container
+      blockedContainer.appendChild(hiddenContent);
+      
+      // Replace normal content with blocked container
+      contentDiv.appendChild(blockedContainer);
+    } else {
+      // Normal message display
+      textDiv.textContent = message.text;
+      
+      // Append content elements
+      contentDiv.appendChild(headerDiv);
+      contentDiv.appendChild(textDiv);
+      contentDiv.appendChild(timeDiv);
+    }
+    
+    // Append profile pic and content to wrapper
+    messageWrapper.appendChild(profilePic);
+    messageWrapper.appendChild(contentDiv);
+    messageElement.appendChild(messageWrapper);
+    
+    // Add reply button
+    let replyButton = document.createElement("button");
+    replyButton.classList.add("reply-button");
+    replyButton.innerText = "Reply";
+    replyButton.addEventListener("click", function() {
+      replyToMessage(message);
+    });
+    messageElement.appendChild(replyButton);
+    
+    // Add context menu for blocking - but not for your own messages or already blocked users
+    if (message.senderId !== currentUser.uid && !isBlocked) {
+      messageElement.addEventListener("contextmenu", (e) => {
+        e.preventDefault(); // Prevent default context menu
+        blockUser(message.senderId, message.senderName);
+      });
+    }
+    
+    // Add delete button if user can delete
+    if (canDeleteAnyMessage || message.senderId === currentUser.uid) {
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "delete-btn";
+      deleteBtn.innerHTML = "&times;";
+      deleteBtn.setAttribute("data-message-id", message.id);
+      
+      deleteBtn.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        if (confirm(`Are you sure you want to delete this message?`)) {
+          try {
+            await remove(ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/messages/${message.id}`));
+          } catch (error) {
+            console.error("Error deleting message:", error);
+            alert("Failed to delete message.");
+          }
+        }
+      });
+      
+      messageElement.appendChild(deleteBtn);
+    }
+    
+    messagesDiv.appendChild(messageElement);
+  }
+}
+
+// Add CSS for blocked messages and users
+function addBlockedMessageStyles() {
+  const style = document.createElement('style');
+  style.textContent = `
+    .blocked-message {
+      opacity: 0.8;
+    }
+    
+    .blocked-message-container {
+      background-color: var(--dark-bg);
+      padding: 10px;
+      border-radius: var(--border-radius-sm);
+      border-left: 3px solid var(--danger-color);
+    }
+    
+    .blocked-message-notice {
+      color: var(--danger-color);
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    
+    .blocked-reason {
+      font-style: italic;
+      color: var(--text-muted);
+      font-size: 12px;
+      margin: 5px 0;
+    }
+    
+    .reveal-message-button, .unblock-from-message-button {
+      background-color: var(--secondary-color);
+      color: var(--text-light);
+      border: none;
+      padding: 5px 10px;
+      margin: 5px 5px 5px 0;
+      border-radius: var(--border-radius-sm);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all var(--animation-speed);
+    }
+    
+    .reveal-message-button:hover, .unblock-from-message-button:hover {
+      background-color: var(--channel-hover);
+    }
+    
+    .unblock-from-message-button {
+      background-color: var(--danger-color);
+    }
+    
+    .unblock-from-message-button:hover {
+      background-color: #e03e3e;
+    }
+    
+    .blocked-message-content {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-color);
+    }
+    
+    .blocked-user {
+      opacity: 0.7;
+      background: rgba(255, 55, 55, 0.1) !important;
+      position: relative;
+      cursor: default;
+    }
+    
+    .blocked-user::before {
+      content: "";
+      position: absolute;
+      right: 8px;
+      top: 8px;
+      width: 12px;
+      height: 12px;
+      background-color: var(--danger-color);
+      border-radius: 50%;
+      opacity: 0.7;
+    }
+    
+    .user-content-wrapper {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+    
+    .unblock-button {
+      background-color: var(--danger-color);
+      color: var(--text-light);
+      border: none;
+      border-radius: var(--border-radius-sm);
+      padding: 4px 8px;
+      margin-top: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all var(--animation-speed);
+      align-self: flex-start;
+    }
+    
+    .unblock-button:hover {
+      background-color: #ff4444;
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-sm);
+    }
+    
+    .unblock-button:active {
+      transform: translateY(0);
+    }
+    
+    .block-hint {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// Call this when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+  addBlockedMessageStyles();
+});
 
   function renderMessage(message, canDeleteAnyMessage) {
     if (!message) return;
@@ -1880,7 +2387,6 @@ async function loadMessages() {
     
     messagesDiv.appendChild(messageElement);
   }
-}
 
 // Reply to message functionality
 function replyToMessage(messageData) {
