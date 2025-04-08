@@ -486,7 +486,7 @@ body {
 }
 
 .modal-content {
-    background-color: var(--dark-bg);
+    background-color: #2e3136;
     padding: 28px;
     border-radius: var(--border-radius);
     width: 380px;
@@ -511,6 +511,7 @@ body {
     font-size: 18px;
     font-weight: 600;
     color: var(--text-light);
+    background-color: #2e3136;
 }
 
 .modal-content textarea {
