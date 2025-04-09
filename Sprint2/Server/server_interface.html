@@ -878,10 +878,16 @@ async function loadServerMembers(serverId) {
   membersList.innerHTML = "<p>Loading members...</p>";
   
   try {
+    // First remove any existing listeners
     const membersRef = ref(db, `servers/${serverId}/members`);
+    off(membersRef);
+    
+    // Clear existing members from DOM before setting up new listener
+    membersList.innerHTML = "";
     
     // Use onValue to listen for changes in the members list
     onValue(membersRef, async (snapshot) => {
+      // Clear the list each time the data changes
       membersList.innerHTML = "";
       
       if (!snapshot.exists()) {
@@ -1168,6 +1174,14 @@ function displayServers(servers) {
 
 // Select a server
 async function selectServer(server) {
+  if (selectedServer) {
+    const oldChannelsRef = ref(db, `servers/${selectedServer.id}/channels`);
+    off(oldChannelsRef);
+    
+    const oldMembersRef = ref(db, `servers/${selectedServer.id}/members`);
+    off(oldMembersRef);
+  }
+  
   selectedServer = server;
   currentServerNameEl.textContent = server.name;
   
@@ -1227,6 +1241,8 @@ async function loadChannels(serverId) {
   
   try {
     const channelsRef = ref(db, `servers/${serverId}/channels`);
+
+    off(channelsRef);
     
     // Use onValue for real-time updates to channel list
     onValue(channelsRef, async (snapshot) => {
@@ -2609,6 +2625,22 @@ document.addEventListener("DOMContentLoaded", () => {
   
   // Back button
   backToServersBtn.addEventListener("click", () => {
+    if (selectedServer) {
+    // Clear all listeners for the current server
+    const channelsRef = ref(db, `servers/${selectedServer.id}/channels`);
+    off(channelsRef);
+    
+    const membersRef = ref(db, `servers/${selectedServer.id}/members`);
+    off(membersRef);
+    
+    // Clear member listeners for each user status if you have them
+    if (selectedServer && selectedServer.members) {
+      Object.keys(selectedServer.members).forEach(userId => {
+        const statusRef = ref(db, `users/${userId}/status`);
+        off(statusRef);
+      });
+    }
+  }
   serverSectionView.style.display = "block";
   channelSectionView.style.display = "none";
   membersSidebar.style.display = "none";
@@ -3337,7 +3369,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const memberItem = document.createElement("div");
         memberItem.style.padding = "10px";
         memberItem.style.margin = "10px 0";
-        memberItem.style.backgroundColor = "#f1f1f1";
+        memberItem.style.backgroundColor = "#36393F";;
         memberItem.style.borderRadius = "5px";
         memberItem.style.display = "flex";
         memberItem.style.justifyContent = "space-between";
