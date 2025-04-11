@@ -3565,47 +3565,44 @@ document.addEventListener("DOMContentLoaded", () => {
           transferOwnershipBtn.style.cursor = "pointer";
           transferOwnershipBtn.style.fontSize = "12px";
           
-          transferOwnershipBtn.onclick = async () => {
-            try {
-              if (confirm(`Are you sure you want to transfer ownership of "${server.name}" to ${username}? You will become an admin.`)) {
-                // Update the selected member to owner
-                await set(ref(db, `servers/${serverId}/members/${memberId}`), {
-                  username: username,
-                  role: "owner"
-                });
-                
-                // Update current owner to admin
-                await set(ref(db, `servers/${serverId}/members/${currentUserId}`), {
-                  username: currentUser.username,
-                  role: "admin"
-                });
-                
-                // Update server creator field
-                await set(ref(db, `servers/${serverId}/createdBy`), memberId);
-                
-                alert(`✅ Ownership of "${server.name}" has been transferred to ${username}.`);
-                document.body.removeChild(modal);
-                
-                // Reset the view and go back to server list
-                serverSectionView.style.display = "block";
-                channelSectionView.style.display = "none";
-                membersSidebar.style.display = "none";
-                document.getElementById("messages").innerHTML = "";
-                document.getElementById("chatChannelName").textContent = "Select a server and channel to chat";
-                document.getElementById("messageInput").disabled = true;
-                selectedServer = null;
-                selectedChannel = null;
-                window.selectedServer = null;
-                window.selectedChannel = null;
-                
-                // Reload servers
-                loadServers();
-              }
-            } catch (error) {
-              console.error("Error transferring ownership:", error);
-              alert("Failed to transfer ownership. See console for details.");
-            }
-          };
+          
+transferOwnershipBtn.onclick = async () => {
+  try {
+    if (confirm(`Are you sure you want to transfer ownership of "${server.name}" to ${username}? You will become an admin.`)) {
+      // Update the selected member to owner
+      await set(ref(db, `servers/${serverId}/members/${memberId}`), {
+        username: username,
+        role: "owner"
+      });
+      
+      // Update current owner to admin
+      await set(ref(db, `servers/${serverId}/members/${currentUserId}`), {
+        username: currentUser.username,
+        role: "admin"
+      });
+      
+      // Update server creator field
+      await set(ref(db, `servers/${serverId}/createdBy`), memberId);
+      
+      // Clear user role cache for both users
+      clearUserRoleCache(serverId, currentUserId);
+      clearUserRoleCache(serverId, memberId);
+      
+      alert(`✅ Ownership of "${server.name}" has been transferred to ${username}.`);
+      document.body.removeChild(modal);
+      
+      // Instead of resetting the view and going back to server list,
+      // just update the UI based on the new role (admin)
+      updateUIBasedOnRole("admin");
+      
+      // Refresh the members sidebar to show updated roles
+      loadServerMembers(serverId);
+    }
+  } catch (error) {
+    console.error("Error transferring ownership:", error);
+    alert("Failed to transfer ownership. See console for details.");
+  }
+};
           
           actionButtons.appendChild(transferOwnershipBtn);
           
