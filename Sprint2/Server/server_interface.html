@@ -890,24 +890,28 @@ async function grantGeneralChannelAccess(serverId) {
   }
 }
 
-// Function to load and display members for the current server
-// Updated loadServerMembers function to prevent duplicate members
 async function loadServerMembers(serverId) {
   const membersList = document.getElementById("membersList");
+  if (!membersList) return; // Safety check
+  
   membersList.innerHTML = "<p>Loading members...</p>";
   
   try {
-    // First remove any existing listeners
+    // First remove any existing listeners to prevent duplicates
     const membersRef = ref(db, `servers/${serverId}/members`);
     off(membersRef);
     
     // Clear existing members from DOM before setting up new listener
     membersList.innerHTML = "";
     
+    // Create a set to track displayed member IDs
+    const displayedMemberIds = new Set();
+    
     // Use onValue to listen for changes in the members list
     onValue(membersRef, async (snapshot) => {
       // Clear the list each time the data changes
       membersList.innerHTML = "";
+      displayedMemberIds.clear(); // Clear our tracking set
       
       if (!snapshot.exists()) {
         membersList.innerHTML = "<p style='color: #aaa; text-align: center;'>No members found.</p>";
@@ -917,11 +921,16 @@ async function loadServerMembers(serverId) {
       // Get server data to identify owner
       const serverRef = ref(db, `servers/${serverId}`);
       const serverSnapshot = await get(serverRef);
+      
+      if (!serverSnapshot.exists()) {
+        console.error("Server data not found");
+        return;
+      }
+      
       const server = serverSnapshot.val();
       const serverOwner = server.createdBy;
       
       const members = [];
-      const displayedMemberIds = new Set(); // Track displayed member IDs
       
       snapshot.forEach((memberSnap) => {
         const memberId = memberSnap.key;
@@ -959,6 +968,11 @@ async function loadServerMembers(serverId) {
           role
         });
       });
+      
+      if (members.length === 0) {
+        membersList.innerHTML = "<p style='color: #aaa; text-align: center;'>No members found.</p>";
+        return;
+      }
       
       // Sort members by role: owner first, then admins, then regular members
       members.sort((a, b) => {
@@ -1004,7 +1018,6 @@ async function loadServerMembers(serverId) {
         memberInfo.appendChild(memberName);
         memberInfo.appendChild(memberRole);
         
-        // Rest of the function remains the same...
         // Skip adding block/unblock buttons for yourself
         if (member.id !== currentUser.uid) {
           // Add block/unblock button based on current status
@@ -1052,6 +1065,9 @@ async function loadServerMembers(serverId) {
         
         listenUserStatus(member.id);
       }
+    }, (error) => {
+      console.error("Error loading members:", error);
+      membersList.innerHTML = "<p style='color: red; text-align: center;'>Error loading members.</p>";
     });
   } catch (error) {
     console.error("Error loading members:", error);
@@ -2037,22 +2053,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Join a channel
 async function joinChannel(channel) {
+  // If we're already in a channel, aggressively clean up all listeners
+  if (selectedChannel) {
+    const oldMessagesRef = ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/messages`);
+    // Remove ALL listeners from the old channel
+    off(oldMessagesRef);
+  }
+  
+  // Update selected channel
   selectedChannel = channel;
   window.selectedChannel = channel;
   
-  // Check if user has access before loading messages
+  // Check if user has access
   const hasAccess = await canAccessChannel(selectedServer.id, channel.id, currentUser.uid);
   
+  // Update UI
   document.getElementById("chatChannelName").textContent = `#${channel.name} (${selectedServer.name})`;
   document.getElementById("messageInput").disabled = !hasAccess;
-  
-  // Show or hide the message input bar based on access
   document.querySelector(".message-input").style.display = hasAccess ? "flex" : "none";
   
   if (!hasAccess) {
     const messagesDiv = document.getElementById("messages");
     
-    // Different message for private vs public channels
     if (channel.type === "private") {
       messagesDiv.innerHTML = `
         <div style="text-align: center; padding: 20px; color: #ff0000;">
@@ -2071,7 +2093,8 @@ async function joinChannel(channel) {
     return;
   }
   
-  loadMessages();
+  // Load messages with full separation of initial load and real-time updates
+  await loadMessages();
 }
  
 // Enhanced message loading with real-time updates
@@ -2083,17 +2106,18 @@ async function loadMessages() {
     return;
   }
 
+  // Reference to the messages
   const messagesRef = ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/messages`);
   const userRole = await getCurrentUserRole(selectedServer.id, currentUser.uid);
   const canDeleteAnyMessage = userRole === "admin" || userRole === "owner";
 
-  // Remove any existing listeners
+  // Clean up any existing listeners
   off(messagesRef);
 
-  // Create a Set to track rendered messages
-  const renderedMessages = new Set();
+  // Track message IDs to prevent duplication
+  const renderedMessageIds = new Set();
 
-  // Load all blocked users first for efficiency
+  // Load blocked users
   const blockedUsersRef = ref(db, `blocked/${currentUser.uid}`);
   const blockedSnapshot = await get(blockedUsersRef);
   const blockedUsers = {};
@@ -2104,9 +2128,10 @@ async function loadMessages() {
     });
   }
 
-  // First load all existing messages
-  get(messagesRef).then(snapshot => {
-    messagesDiv.innerHTML = "";
+  // Get all existing messages
+  try {
+    const snapshot = await get(messagesRef);
+    messagesDiv.innerHTML = ""; // Clear loading indicator
     
     if (!snapshot.exists()) {
       messagesDiv.innerHTML = `
@@ -2114,65 +2139,89 @@ async function loadMessages() {
           <p>No messages yet. Be the first to say something!</p>
         </div>
       `;
-      return;
-    }
-    
-    let messages = [];
-    snapshot.forEach(child => {
-      messages.push({
-        id: child.key,
-        ...child.val()
+    } else {
+      // Process all existing messages
+      const messages = [];
+      snapshot.forEach(child => {
+        messages.push({
+          id: child.key,
+          ...child.val()
+        });
+        renderedMessageIds.add(child.key);
       });
-      renderedMessages.add(child.key);
-    });
-    
-    // Sort by timestamp
-    messages.sort((a, b) => a.timestamp - b.timestamp);
-    
-    // Render all messages
-    messages.forEach(message => {
-      renderMessage(message, canDeleteAnyMessage, blockedUsers);
-    });
-    
-    // Scroll to bottom
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-  }).then(() => {
-    // Listen for new messages
-    onChildAdded(messagesRef, snapshot => {
-      if (renderedMessages.has(snapshot.key)) return;
       
-      renderedMessages.add(snapshot.key);
+      // Sort by timestamp
+      messages.sort((a, b) => a.timestamp - b.timestamp);
+      
+      // Render all messages
+      messages.forEach(message => {
+        createMessageElement(message, canDeleteAnyMessage, blockedUsers, messagesDiv);
+      });
+      
+      // Scroll to bottom
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // Set up listeners for real-time updates
+    onChildAdded(messagesRef, snapshot => {
+      // Skip if already rendered
+      if (renderedMessageIds.has(snapshot.key)) {
+        return;
+      }
+      
+      // Add to tracking set
+      renderedMessageIds.add(snapshot.key);
+      
       const messageData = {
         id: snapshot.key,
         ...snapshot.val()
       };
       
-      renderMessage(messageData, canDeleteAnyMessage, blockedUsers);
+      // Create the new message element
+      createMessageElement(messageData, canDeleteAnyMessage, blockedUsers, messagesDiv);
       
-      // Smooth scroll to bottom
+      // Scroll to bottom
       messagesDiv.scrollTo({
         top: messagesDiv.scrollHeight,
         behavior: 'smooth'
       });
     });
     
-    // Listen for deleted messages
+    // Handle message deletions
     onChildRemoved(messagesRef, snapshot => {
-      const messageElement = document.getElementById(`message-${snapshot.key}`);
+      const messageId = snapshot.key;
+      const messageElement = document.getElementById(`message-${messageId}`);
+      
       if (messageElement) {
-        messageElement.style.transition = "opacity 0.3s, height 0.3s, margin 0.3s";
-        messageElement.style.opacity = "0";
-        messageElement.style.height = "0";
-        messageElement.style.margin = "0";
-        messageElement.style.overflow = "hidden";
+        // Animate removal
+        messageElement.classList.add("removing");
+        setTimeout(() => {
+          if (messageElement.parentNode) {
+            messageElement.remove();
+          }
+        }, 300);
         
-        setTimeout(() => messageElement.remove(), 300);
+        // Remove from tracking set
+        renderedMessageIds.delete(messageId);
       }
     });
-  });
+  } catch (error) {
+    console.error("Error loading messages:", error);
+    messagesDiv.innerHTML = `
+      <div style="text-align: center; padding: 20px; color: red;">
+        <p>Error loading messages. Please try again.</p>
+      </div>
+    `;
+  }
 
-  function renderMessage(message, canDeleteAnyMessage, blockedUsers) {
+  // Function to create message elements
+  function createMessageElement(message, canDeleteAnyMessage, blockedUsers, container) {
     if (!message) return;
+    
+    // Skip if already in DOM
+    if (document.getElementById(`message-${message.id}`)) {
+      return;
+    }
     
     const isBlocked = blockedUsers[message.senderId] !== undefined;
     
@@ -2339,7 +2388,8 @@ async function loadMessages() {
       messageElement.appendChild(deleteBtn);
     }
     
-    messagesDiv.appendChild(messageElement);
+    // Append the message to the container
+    container.appendChild(messageElement);
   }
 }
 
@@ -2462,94 +2512,6 @@ function addBlockedMessageStyles() {
 document.addEventListener('DOMContentLoaded', () => {
   addBlockedMessageStyles();
 });
-
-  function renderMessage(message, canDeleteAnyMessage) {
-    if (!message) return;
-    
-    const messageElement = document.createElement("div");
-    messageElement.className = `message ${message.senderId === currentUser.uid ? "sent" : "received"}`;
-    messageElement.id = `message-${message.id}`;
-    
-    // Message Wrapper 
-    const messageWrapper = document.createElement("div");
-    messageWrapper.className = "messageWrapper";
-    
-    // Profile Picture
-    const profilePic = document.createElement("img");
-    profilePic.className = "profile-pic";
-    profilePic.src = "data:image/jpeg;base64,/9j/4AAQSkZJRg..."; // Placeholder
-    profilePic.alt = `${message.senderName}'s profile picture`;
-    
-    // Fetch profile picture from Firebase
-    const userRef = ref(db, `users/${message.senderId}/profilePicture`);
-    get(userRef).then((snapshot) => {
-      if (snapshot.exists() && snapshot.val()) {
-        profilePic.src = snapshot.val(); // Set profile picture if found
-      }
-    });
-    
-    // Message Content Container
-    const contentDiv = document.createElement("div");
-    contentDiv.className = "message-content";
-    
-    // Username
-    const headerDiv = document.createElement("div");
-    headerDiv.className = "message-header";
-    headerDiv.textContent = message.senderName;
-    
-    // Message Text
-    const textDiv = document.createElement("div");
-    textDiv.className = "message-text";
-    textDiv.textContent = message.text;
-    
-    // Timestamp
-    const timeDiv = document.createElement("div");
-    timeDiv.className = "message-time";
-    timeDiv.textContent = new Date(message.timestamp).toLocaleTimeString();
-    
-    // Append Content Elements
-    contentDiv.appendChild(headerDiv);
-    contentDiv.appendChild(textDiv);
-    contentDiv.appendChild(timeDiv);
-    
-    // Append Profile Picture and Content
-    messageWrapper.appendChild(profilePic);
-    messageWrapper.appendChild(contentDiv);
-    messageElement.appendChild(messageWrapper);
-    
-    // Add reply button
-    let replyButton = document.createElement("button");
-    replyButton.classList.add("reply-button");
-    replyButton.innerText = "Reply";
-    replyButton.addEventListener("click", function() {
-      replyToMessage(message);
-    });
-    messageElement.appendChild(replyButton);
-    
-    // Add delete button if user can delete
-    if (canDeleteAnyMessage || message.senderId === currentUser.uid) {
-      const deleteBtn = document.createElement("button");
-      deleteBtn.className = "delete-btn";
-      deleteBtn.innerHTML = "&times;";
-      deleteBtn.setAttribute("data-message-id", message.id);
-      
-      deleteBtn.addEventListener("click", async (event) => {
-        event.stopPropagation();
-        if (confirm(`Are you sure you want to delete this message?`)) {
-          try {
-            await remove(ref(db, `servers/${selectedServer.id}/channels/${selectedChannel.id}/messages/${message.id}`));
-          } catch (error) {
-            console.error("Error deleting message:", error);
-            alert("Failed to delete message.");
-          }
-        }
-      });
-      
-      messageElement.appendChild(deleteBtn);
-    }
-    
-    messagesDiv.appendChild(messageElement);
-  }
 
 // Reply to message functionality
 function replyToMessage(messageData) {
@@ -2886,79 +2848,44 @@ document.addEventListener("DOMContentLoaded", () => {
   
   // Send message with enhanced feedback
   sendMessageBtn.addEventListener("click", async () => {
-    const messageText = messageInput.value.trim();
-    if (!messageText || !selectedServer || !selectedChannel) return;
-    
-    try {
-      // Check if user still has channel access
-      const allowed = await canAccessChannel(
-        selectedServer.id,
-        selectedChannel.id,
-        currentUser.uid
-      );
-      
-      if (!allowed) {
-        alert("❌ You don't have access to this channel");
-        return;
-      }
-      
-      // Clear input immediately for better UX
-      document.getElementById("messageInput").value = "";
-      
-      // Create a temporary message element to show sending status
-      const tempId = `temp-${Date.now()}`;
-      const messagesDiv = document.getElementById("messages");
-      const tempMessage = document.createElement("div");
-      tempMessage.id = tempId;
-      tempMessage.className = "message sent";
-      tempMessage.style.opacity = "0.7";
-      
-      const tempWrapper = document.createElement("div");
-      tempWrapper.className = "messageWrapper";
-      
-      const tempContent = document.createElement("div");
-      tempContent.className = "message-content";
-      tempContent.innerHTML = `
-        <div class="message-header">${currentUser.username} (Sending...)</div>
-        <div class="message-text">${messageText}</div>
-        <div class="message-time">${new Date().toLocaleTimeString()}</div>
-      `;
-      
-      tempWrapper.appendChild(tempContent);
-      tempMessage.appendChild(tempWrapper);
-      messagesDiv.appendChild(tempMessage);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-      
-      // Send message to the database
-      const messagesRef = ref(db, 
-        `servers/${selectedServer.id}/channels/${selectedChannel.id}/messages`
-      );
-      await push(messagesRef, {
-        text: messageText,
-        senderId: currentUser.uid,
-        senderName: currentUser.username,
-        timestamp: Date.now()
-      });
-      
-      // Remove the temporary message (it will be replaced by the real one from the listener)
-      setTimeout(() => {
-        const tempElement = document.getElementById(tempId);
-        if (tempElement) tempElement.remove();
-      }, 100);
-    } catch (error) {
-      console.error("❌ Error sending message:", error);
-      alert("Failed to send message");
-    }
-  });
-
-  // Create server
-  createServerBtn.addEventListener("click", () => {
-    createServerPopUp.style.display = "flex";
-  });
+  const messageText = messageInput.value.trim();
+  if (!messageText || !selectedServer || !selectedChannel) return;
   
-  closeCreateServerBtn.addEventListener("click", () => {
-    createServerPopUp.style.display = "none";
-  });
+  try {
+    // Check if user still has channel access
+    const allowed = await canAccessChannel(
+      selectedServer.id,
+      selectedChannel.id,
+      currentUser.uid
+    );
+    
+    if (!allowed) {
+      alert("❌ You don't have access to this channel");
+      return;
+    }
+    
+    // Clear input immediately for better UX
+    document.getElementById("messageInput").value = "";
+    
+    // Send message to the database
+    const messagesRef = ref(db, 
+      `servers/${selectedServer.id}/channels/${selectedChannel.id}/messages`
+    );
+    
+    await push(messagesRef, {
+      text: messageText,
+      senderId: currentUser.uid,
+      senderName: currentUser.username,
+      timestamp: Date.now()
+    });
+
+    // We'll let the loadMessages function handle displaying the message
+    // No need for temporary message elements anymore
+  } catch (error) {
+    console.error("❌ Error sending message:", error);
+    alert("Failed to send message");
+  }
+});
 
   // Create channel
   createChannelBtn.addEventListener("click", async () => {
@@ -3590,43 +3517,57 @@ document.getElementById("manageMembers").addEventListener("click", async functio
         transferOwnershipBtn.style.fontSize = "12px";
         
         transferOwnershipBtn.onclick = async () => {
-          try {
-            if (confirm(`Are you sure you want to transfer ownership of "${server.name}" to ${username}? You will become an admin.`)) {
-              // First update the server's createdBy field
-              await update(ref(db, `servers/${serverId}`), {
-                createdBy: memberId
-              });
-              
-              // Next update the previous owner to admin
-              await update(ref(db, `servers/${serverId}/members/${currentUserId}`), {
-                username: currentUser.username,
-                role: "admin"
-              });
-              
-              // Finally update the new owner
-              await update(ref(db, `servers/${serverId}/members/${memberId}`), {
-                username: username,
-                role: "owner"
-              });
-              
-              // Clear user role cache for both users
-              clearUserRoleCache(serverId, currentUserId);
-              clearUserRoleCache(serverId, memberId);
-              
-              alert(`✅ Ownership of "${server.name}" has been transferred to ${username}.`);
-              document.body.removeChild(modal);
-              
-              // Update UI based on the new role (admin)
-              updateUIBasedOnRole("admin");
-              
-              // Refresh the members sidebar to show updated roles
-              loadServerMembers(serverId);
-            }
-          } catch (error) {
-            console.error("Error transferring ownership:", error);
-            alert("Failed to transfer ownership. See console for details.");
-          }
-        };
+  try {
+    if (confirm(`Are you sure you want to transfer ownership of "${server.name}" to ${username}? You will become an admin.`)) {
+      // First update the server's createdBy field
+      await update(ref(db, `servers/${serverId}`), {
+        createdBy: memberId
+      });
+      
+      // Next update the previous owner to admin
+      await update(ref(db, `servers/${serverId}/members/${currentUserId}`), {
+        username: currentUser.username,
+        role: "admin"
+      });
+      
+      // Finally update the new owner
+      await update(ref(db, `servers/${serverId}/members/${memberId}`), {
+        username: username,
+        role: "owner"
+      });
+      
+      // Clear user role cache for both users
+      clearUserRoleCache(serverId, currentUserId);
+      clearUserRoleCache(serverId, memberId);
+      
+      alert(`✅ Ownership of "${server.name}" has been transferred to ${username}.`);
+      document.body.removeChild(modal);
+      
+      // Update UI based on the new role (admin)
+      updateUIBasedOnRole("admin");
+      
+      // IMPORTANT: Before refreshing the member list, clean up existing listeners
+      // to prevent duplicate members
+      const membersRef = ref(db, `servers/${serverId}/members`);
+      off(membersRef); // Remove all listeners from the members reference
+      
+      // Clear the members list DOM completely
+      const membersList = document.getElementById("membersList");
+      if (membersList) {
+        membersList.innerHTML = "";
+      }
+      
+      // Wait a moment for the database to properly update
+      setTimeout(() => {
+        // Reload the members list with fresh data
+        loadServerMembers(serverId);
+      }, 500);
+    }
+  } catch (error) {
+    console.error("Error transferring ownership:", error);
+    alert("Failed to transfer ownership. See console for details.");
+  }
+};
         
         actionButtons.appendChild(transferOwnershipBtn);
         
