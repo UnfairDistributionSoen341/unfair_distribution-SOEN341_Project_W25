@@ -726,11 +726,11 @@ function trackUserStatus(userId) {
  });
  
  // Get the current user's role in a server
-async function getCurrentUserRole(serverId, userId) {
+ async function getCurrentUserRole(serverId, userId) {
   const cacheKey = `${serverId}-${userId}`;
   
-  // Return from cache if available
-  if (userRoleCache[cacheKey]) {
+  // Always fetch fresh role data after ownership transfer
+  if (userRoleCache[cacheKey] && !userRoleCache[cacheKey].forceRefresh) {
     return userRoleCache[cacheKey];
   }
   
@@ -762,6 +762,14 @@ async function getCurrentUserRole(serverId, userId) {
     const memberData = snapshot.val();
     
     if (typeof memberData === "object" && memberData.role) {
+      // If user has owner role in memberData but isn't server.createdBy,
+      // they should be considered an admin to avoid conflicts
+      if (memberData.role === "owner" && serverSnapshot.exists() && 
+          serverSnapshot.val().createdBy !== userId) {
+        userRoleCache[cacheKey] = "admin";
+        return "admin";
+      }
+      
       userRoleCache[cacheKey] = memberData.role;
       return memberData.role;
     }
@@ -910,6 +918,7 @@ async function loadServerMembers(serverId) {
       const serverRef = ref(db, `servers/${serverId}`);
       const serverSnapshot = await get(serverRef);
       const server = serverSnapshot.val();
+      const serverOwner = server.createdBy;
       
       const members = [];
       const displayedMemberIds = new Set(); // Track displayed member IDs
@@ -934,9 +943,14 @@ async function loadServerMembers(serverId) {
           role = memberData.role || "member";
         }
         
-        // For owner role, check if this member is the creator
-        if (memberId === server.createdBy) {
+        // IMPORTANT: Only the current server owner (createdBy) should show as owner
+        // Override the role for accurate display
+        if (memberId === serverOwner) {
           role = "owner";
+        } else if (role === "owner" && memberId !== serverOwner) {
+          // If someone has owner role but isn't the server.createdBy, 
+          // they should be shown as admin
+          role = "admin";
         }
         
         members.push({
@@ -990,6 +1004,7 @@ async function loadServerMembers(serverId) {
         memberInfo.appendChild(memberName);
         memberInfo.appendChild(memberRole);
         
+        // Rest of the function remains the same...
         // Skip adding block/unblock buttons for yourself
         if (member.id !== currentUser.uid) {
           // Add block/unblock button based on current status
@@ -3448,262 +3463,241 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   
   // Manage Members
-  document.getElementById("manageMembers").addEventListener("click", async function() {
-    if (!window.selectedServer) {
-      alert("❌ Please select a server first.");
+  // Update the Manage Members event handler to correctly display action buttons
+document.getElementById("manageMembers").addEventListener("click", async function() {
+  if (!window.selectedServer) {
+    alert("❌ Please select a server first.");
+    document.getElementById("settingsDropdown").style.display = "none";
+    return;
+  }
+  
+  try {
+    const serverId = window.selectedServer.id;
+    
+    // Get current user role (to check permissions)
+    const currentUserId = auth.currentUser.uid;
+    const userRole = await getCurrentUserRole(serverId, currentUserId);
+    
+    // Get members
+    const membersRef = ref(db, `servers/${serverId}/members`);
+    const membersSnapshot = await get(membersRef);
+    
+    if (!membersSnapshot.exists()) {
+      alert("❌ No members found in this server.");
       document.getElementById("settingsDropdown").style.display = "none";
       return;
     }
     
-    try {
-      const serverId = window.selectedServer.id;
+    // Create modal
+    const modal = document.createElement("div");
+    modal.className = "popUp";
+    modal.id = "memberManagementModal";
+    modal.style.display = "flex";
+    
+    // Create modal content
+    const modalContent = document.createElement("div");
+    modalContent.className = "popUp-content";
+    modalContent.style.width = "400px";
+    modalContent.style.maxHeight = "80vh";
+    modalContent.style.overflowY = "auto";
+    
+    // Add close button
+    const closeButton = document.createElement("span");
+    closeButton.className = "close-button";
+    closeButton.innerHTML = "&times;";
+    closeButton.onclick = () => document.body.removeChild(modal);
+    
+    // Add title
+    const title = document.createElement("h2");
+    title.textContent = "Manage Server Members";
+    title.style.marginBottom = "20px";
+    
+    // Add members list
+    const membersList = document.createElement("div");
+    membersList.style.textAlign = "left";
+    
+    // Get server data to identify owner
+    const serverRef = ref(db, `servers/${serverId}`);
+    const serverSnapshot = await get(serverRef);
+    const server = serverSnapshot.val();
+    const serverOwner = server.createdBy;
+    
+    // Check if current user is the server owner
+    const isCurrentUserOwner = serverOwner === currentUserId;
+    
+    // Populate members list
+    membersSnapshot.forEach((memberSnap) => {
+      const memberId = memberSnap.key;
+      const memberData = memberSnap.val();
       
-      // Get current user role (to check permissions)
-      const currentUserId = auth.currentUser.uid;
-      const userRole = await getCurrentUserRole(serverId, currentUserId);
+      // Extract username and role
+      let username = memberData;
+      let role = "member";
       
-      // Get members
-      const membersRef = ref(db, `servers/${serverId}/members`);
-      const membersSnapshot = await get(membersRef);
-      
-      if (!membersSnapshot.exists()) {
-        alert("❌ No members found in this server.");
-        document.getElementById("settingsDropdown").style.display = "none";
-        return;
+      if (typeof memberData === "object") {
+        username = memberData.username || "Unknown";
+        role = memberData.role || "member";
       }
       
-      // Create modal
-      const modal = document.createElement("div");
-      modal.className = "popUp";
-      modal.id = "memberManagementModal";
-      modal.style.display = "flex";
+      // For owner role, check if this member is the server creator
+      if (memberId === serverOwner) {
+        role = "owner";
+      } else if (role === "owner" && memberId !== serverOwner) {
+        // If someone has owner role but isn't the server creator,
+        // they should be shown as admin
+        role = "admin";
+      }
       
-      // Create modal content
-      const modalContent = document.createElement("div");
-      modalContent.className = "popUp-content";
-      modalContent.style.width = "400px";
-      modalContent.style.maxHeight = "80vh";
-      modalContent.style.overflowY = "auto";
+      // Create member item
+      const memberItem = document.createElement("div");
+      memberItem.style.padding = "10px";
+      memberItem.style.margin = "10px 0";
+      memberItem.style.backgroundColor = "#36393F";
+      memberItem.style.borderRadius = "5px";
+      memberItem.style.display = "flex";
+      memberItem.style.justifyContent = "space-between";
+      memberItem.style.alignItems = "center";
       
-      // Add close button
-      const closeButton = document.createElement("span");
-      closeButton.className = "close-button";
-      closeButton.innerHTML = "&times;";
-      closeButton.onclick = () => document.body.removeChild(modal);
+      // Member info
+      const memberInfo = document.createElement("div");
+      memberInfo.innerHTML = `
+        <strong>${username}</strong>
+        <span style="margin-left: 10px; padding: 2px 6px; background: ${
+          role === "owner" ? "#ff9800" : 
+          role === "admin" ? "#4CAF50" : "#2196F3"
+        }; color: white; border-radius: 3px; font-size: 12px;">
+          ${role}
+        </span>
+      `;
       
-      // Add title
-      const title = document.createElement("h2");
-      title.textContent = "Manage Server Members";
-      title.style.marginBottom = "20px";
+      // Action buttons
+      const actionButtons = document.createElement("div");
+      actionButtons.style.display = "flex";
+      actionButtons.style.gap = "5px";
       
-      // Add members list
-      const membersList = document.createElement("div");
-      membersList.style.textAlign = "left";
-      
-      // Get server data to identify owner
-      const serverRef = ref(db, `servers/${serverId}`);
-      const serverSnapshot = await get(serverRef);
-      const server = serverSnapshot.val();
-      
-      // Populate members list
-      membersSnapshot.forEach((memberSnap) => {
-        const memberId = memberSnap.key;
-        const memberData = memberSnap.val();
+      // Only show actions if current user has proper permissions
+      // Owner can do everything
+      if (isCurrentUserOwner && memberId !== currentUserId) {
+        // Transfer ownership button (for any member)
+        const transferOwnershipBtn = document.createElement("button");
+        transferOwnershipBtn.textContent = "Make Owner";
+        transferOwnershipBtn.style.backgroundColor = "#FF9800";
+        transferOwnershipBtn.style.color = "white";
+        transferOwnershipBtn.style.border = "none";
+        transferOwnershipBtn.style.padding = "5px 10px";
+        transferOwnershipBtn.style.borderRadius = "3px";
+        transferOwnershipBtn.style.cursor = "pointer";
+        transferOwnershipBtn.style.fontSize = "12px";
         
-        // Extract username and role
-        let username = memberData;
-        let role = "member";
+        transferOwnershipBtn.onclick = async () => {
+          try {
+            if (confirm(`Are you sure you want to transfer ownership of "${server.name}" to ${username}? You will become an admin.`)) {
+              // First update the server's createdBy field
+              await update(ref(db, `servers/${serverId}`), {
+                createdBy: memberId
+              });
+              
+              // Next update the previous owner to admin
+              await update(ref(db, `servers/${serverId}/members/${currentUserId}`), {
+                username: currentUser.username,
+                role: "admin"
+              });
+              
+              // Finally update the new owner
+              await update(ref(db, `servers/${serverId}/members/${memberId}`), {
+                username: username,
+                role: "owner"
+              });
+              
+              // Clear user role cache for both users
+              clearUserRoleCache(serverId, currentUserId);
+              clearUserRoleCache(serverId, memberId);
+              
+              alert(`✅ Ownership of "${server.name}" has been transferred to ${username}.`);
+              document.body.removeChild(modal);
+              
+              // Update UI based on the new role (admin)
+              updateUIBasedOnRole("admin");
+              
+              // Refresh the members sidebar to show updated roles
+              loadServerMembers(serverId);
+            }
+          } catch (error) {
+            console.error("Error transferring ownership:", error);
+            alert("Failed to transfer ownership. See console for details.");
+          }
+        };
         
-        if (typeof memberData === "object") {
-          username = memberData.username || "Unknown";
-          role = memberData.role || "member";
+        actionButtons.appendChild(transferOwnershipBtn);
+        
+        // Promote button (for members)
+        if (role === "member") {
+          const promoteBtn = document.createElement("button");
+          promoteBtn.textContent = "Promote";
+          promoteBtn.style.backgroundColor = "#4CAF50";
+          promoteBtn.style.color = "white";
+          promoteBtn.style.border = "none";
+          promoteBtn.style.padding = "5px 10px";
+          promoteBtn.style.borderRadius = "3px";
+          promoteBtn.style.cursor = "pointer";
+          promoteBtn.style.fontSize = "12px";
+          
+          promoteBtn.onclick = async () => {
+            try {
+              // Store both username and role
+              await set(ref(db, `servers/${serverId}/members/${memberId}`), {
+                username: username,
+                role: "admin"
+              });
+              
+              alert(`✅ ${username} has been promoted to admin!`);
+              document.body.removeChild(modal);
+              // Re-open the modal to refresh
+              document.getElementById("manageMembers").click();
+            } catch (error) {
+              console.error("Error promoting member:", error);
+              alert("Failed to promote member. See console for details.");
+            }
+          };
+          
+          actionButtons.appendChild(promoteBtn);
         }
         
-        // For owner role, check if this member is the creator
-        if (memberId === server.createdBy) {
-          role = "owner";
+        // Demote button (for admins)
+        if (role === "admin") {
+          const demoteBtn = document.createElement("button");
+          demoteBtn.textContent = "Demote";
+          demoteBtn.style.backgroundColor = "#f44336";
+          demoteBtn.style.color = "white";
+          demoteBtn.style.border = "none";
+          demoteBtn.style.padding = "5px 10px";
+          demoteBtn.style.borderRadius = "3px";
+          demoteBtn.style.cursor = "pointer";
+          demoteBtn.style.fontSize = "12px";
+          
+          demoteBtn.onclick = async () => {
+            try {
+              // Store both username and role
+              await set(ref(db, `servers/${serverId}/members/${memberId}`), {
+                username: username,
+                role: "member"
+              });
+              
+              alert(`✅ ${username} has been demoted to member!`);
+              document.body.removeChild(modal);
+              // Re-open the modal to refresh
+              document.getElementById("manageMembers").click();
+            } catch (error) {
+              console.error("Error demoting member:", error);
+              alert("Failed to demote member. See console for details.");
+            }
+          };
+          
+          actionButtons.appendChild(demoteBtn);
         }
         
-        // Create member item
-        const memberItem = document.createElement("div");
-        memberItem.style.padding = "10px";
-        memberItem.style.margin = "10px 0";
-        memberItem.style.backgroundColor = "#36393F";;
-        memberItem.style.borderRadius = "5px";
-        memberItem.style.display = "flex";
-        memberItem.style.justifyContent = "space-between";
-        memberItem.style.alignItems = "center";
-        
-        // Member info
-        const memberInfo = document.createElement("div");
-        memberInfo.innerHTML = `
-          <strong>${username}</strong>
-          <span style="margin-left: 10px; padding: 2px 6px; background: ${
-            role === "owner" ? "#ff9800" : 
-            role === "admin" ? "#4CAF50" : "#2196F3"
-          }; color: white; border-radius: 3px; font-size: 12px;">
-            ${role}
-          </span>
-        `;
-        
-        // Action buttons
-        const actionButtons = document.createElement("div");
-        actionButtons.style.display = "flex";
-        actionButtons.style.gap = "5px";
-        
-        // Only show actions if current user has proper permissions
-        // Owner can do everything
-        if (userRole === "owner" && memberId !== currentUserId) {
-          // Transfer ownership button (for any member)
-          const transferOwnershipBtn = document.createElement("button");
-          transferOwnershipBtn.textContent = "Make Owner";
-          transferOwnershipBtn.style.backgroundColor = "#FF9800";
-          transferOwnershipBtn.style.color = "white";
-          transferOwnershipBtn.style.border = "none";
-          transferOwnershipBtn.style.padding = "5px 10px";
-          transferOwnershipBtn.style.borderRadius = "3px";
-          transferOwnershipBtn.style.cursor = "pointer";
-          transferOwnershipBtn.style.fontSize = "12px";
-          
-          
-transferOwnershipBtn.onclick = async () => {
-  try {
-    if (confirm(`Are you sure you want to transfer ownership of "${server.name}" to ${username}? You will become an admin.`)) {
-      // Update the selected member to owner
-      await set(ref(db, `servers/${serverId}/members/${memberId}`), {
-        username: username,
-        role: "owner"
-      });
-      
-      // Update current owner to admin
-      await set(ref(db, `servers/${serverId}/members/${currentUserId}`), {
-        username: currentUser.username,
-        role: "admin"
-      });
-      
-      // Update server creator field
-      await set(ref(db, `servers/${serverId}/createdBy`), memberId);
-      
-      // Clear user role cache for both users
-      clearUserRoleCache(serverId, currentUserId);
-      clearUserRoleCache(serverId, memberId);
-      
-      alert(`✅ Ownership of "${server.name}" has been transferred to ${username}.`);
-      document.body.removeChild(modal);
-      
-      // Instead of resetting the view and going back to server list,
-      // just update the UI based on the new role (admin)
-      updateUIBasedOnRole("admin");
-      
-      // Refresh the members sidebar to show updated roles
-      loadServerMembers(serverId);
-    }
-  } catch (error) {
-    console.error("Error transferring ownership:", error);
-    alert("Failed to transfer ownership. See console for details.");
-  }
-};
-          
-          actionButtons.appendChild(transferOwnershipBtn);
-          
-          // Promote button (for members)
-          if (role === "member") {
-            const promoteBtn = document.createElement("button");
-            promoteBtn.textContent = "Promote";
-            promoteBtn.style.backgroundColor = "#4CAF50";
-            promoteBtn.style.color = "white";
-            promoteBtn.style.border = "none";
-            promoteBtn.style.padding = "5px 10px";
-            promoteBtn.style.borderRadius = "3px";
-            promoteBtn.style.cursor = "pointer";
-            promoteBtn.style.fontSize = "12px";
-            
-            promoteBtn.onclick = async () => {
-              try {
-                // Store both username and role
-                await set(ref(db, `servers/${serverId}/members/${memberId}`), {
-                  username: username,
-                  role: "admin"
-                });
-                
-                alert(`✅ ${username} has been promoted to admin!`);
-                document.body.removeChild(modal);
-                // Re-open the modal to refresh
-                document.getElementById("manageMembers").click();
-              } catch (error) {
-                console.error("Error promoting member:", error);
-                alert("Failed to promote member. See console for details.");
-              }
-            };
-            
-            actionButtons.appendChild(promoteBtn);
-          }
-          
-          // Demote button (for admins)
-          if (role === "admin") {
-            const demoteBtn = document.createElement("button");
-            demoteBtn.textContent = "Demote";
-            demoteBtn.style.backgroundColor = "#f44336";
-            demoteBtn.style.color = "white";
-            demoteBtn.style.border = "none";
-            demoteBtn.style.padding = "5px 10px";
-            demoteBtn.style.borderRadius = "3px";
-            demoteBtn.style.cursor = "pointer";
-            demoteBtn.style.fontSize = "12px";
-            
-            demoteBtn.onclick = async () => {
-              try {
-                // Store both username and role
-                await set(ref(db, `servers/${serverId}/members/${memberId}`), {
-                  username: username,
-                  role: "member"
-                });
-                
-                alert(`✅ ${username} has been demoted to member!`);
-                document.body.removeChild(modal);
-                // Re-open the modal to refresh
-                document.getElementById("manageMembers").click();
-              } catch (error) {
-                console.error("Error demoting member:", error);
-                alert("Failed to demote member. See console for details.");
-              }
-            };
-            
-            actionButtons.appendChild(demoteBtn);
-          }
-          
-          // Remove button (for all except owner)
-          if (role !== "owner") {
-            const removeBtn = document.createElement("button");
-            removeBtn.textContent = "Remove";
-            removeBtn.style.backgroundColor = "#9e9e9e";
-            removeBtn.style.color = "white";
-            removeBtn.style.border = "none";
-            removeBtn.style.padding = "5px 10px";
-            removeBtn.style.borderRadius = "3px";
-            removeBtn.style.cursor = "pointer";
-            removeBtn.style.fontSize = "12px";
-            
-            removeBtn.onclick = async () => {
-              try {
-                if (confirm(`Are you sure you want to remove ${username} from the server?`)) {
-                  await remove(ref(db, `servers/${serverId}/members/${memberId}`));
-                  alert(`✅ ${username} has been removed from the server!`);
-                  document.body.removeChild(modal);
-                  // Re-open the modal to refresh
-                  document.getElementById("manageMembers").click();
-                }
-              } catch (error) {
-                console.error("Error removing member:", error);
-                alert("Failed to remove member. See console for details.");
-              }
-            };
-            
-            actionButtons.appendChild(removeBtn);
-          }
-        } 
-        // Admin can remove regular members, but not other admins or owner
-        else if (userRole === "admin" && role === "member" && memberId !== currentUserId) {
+        // Remove button (for all except owner)
+        if (role !== "owner") {
           const removeBtn = document.createElement("button");
           removeBtn.textContent = "Remove";
           removeBtn.style.backgroundColor = "#9e9e9e";
@@ -3731,28 +3725,58 @@ transferOwnershipBtn.onclick = async () => {
           
           actionButtons.appendChild(removeBtn);
         }
+      } 
+      // Admin can remove regular members, but not other admins or owner
+      else if (userRole === "admin" && role === "member" && memberId !== currentUserId) {
+        const removeBtn = document.createElement("button");
+        removeBtn.textContent = "Remove";
+        removeBtn.style.backgroundColor = "#9e9e9e";
+        removeBtn.style.color = "white";
+        removeBtn.style.border = "none";
+        removeBtn.style.padding = "5px 10px";
+        removeBtn.style.borderRadius = "3px";
+        removeBtn.style.cursor = "pointer";
+        removeBtn.style.fontSize = "12px";
         
-        memberItem.appendChild(memberInfo);
-        memberItem.appendChild(actionButtons);
-        membersList.appendChild(memberItem);
-      });
+        removeBtn.onclick = async () => {
+          try {
+            if (confirm(`Are you sure you want to remove ${username} from the server?`)) {
+              await remove(ref(db, `servers/${serverId}/members/${memberId}`));
+              alert(`✅ ${username} has been removed from the server!`);
+              document.body.removeChild(modal);
+              // Re-open the modal to refresh
+              document.getElementById("manageMembers").click();
+            }
+          } catch (error) {
+            console.error("Error removing member:", error);
+            alert("Failed to remove member. See console for details.");
+          }
+        };
+        
+        actionButtons.appendChild(removeBtn);
+      }
       
-      // Assemble modal
-      modalContent.appendChild(closeButton);
-      modalContent.appendChild(title);
-      modalContent.appendChild(membersList);
-      modal.appendChild(modalContent);
-      
-      // Add to page
-      document.body.appendChild(modal);
-      
-    } catch (error) {
-      console.error("Error showing member management:", error);
-      alert("❌ Failed to load member management. See console for details.");
-    }
+      memberItem.appendChild(memberInfo);
+      memberItem.appendChild(actionButtons);
+      membersList.appendChild(memberItem);
+    });
     
-    document.getElementById("settingsDropdown").style.display = "none";
-  });
+    // Assemble modal
+    modalContent.appendChild(closeButton);
+    modalContent.appendChild(title);
+    modalContent.appendChild(membersList);
+    modal.appendChild(modalContent);
+    
+    // Add to page
+    document.body.appendChild(modal);
+    
+  } catch (error) {
+    console.error("Error showing member management:", error);
+    alert("❌ Failed to load member management. See console for details.");
+  }
+  
+  document.getElementById("settingsDropdown").style.display = "none";
+});
 
   // Leave server functionality
   leaveServerBtn.addEventListener("click", async function() {
