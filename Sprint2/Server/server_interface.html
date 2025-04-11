@@ -672,29 +672,39 @@ const emojiButton = document.getElementById("emojiButton");
 }
  
 
- function trackUserStatus(userId) {
+function trackUserStatus(userId) {
   const userStatusRef = ref(db, `users/${userId}/status`);
   onDisconnect(userStatusRef).set("offline");
   set(userStatusRef, "online");
 
-  let inactivityTimer; // add a timer to check away status
+  let inactivityTimer; // timer to check away status
 
   function startInactivityTimer() {
     clearTimeout(inactivityTimer);
     inactivityTimer = setTimeout(() => {
-      set(userStatusRef, "away");
-    }, 60000);
+      // Make sure we're not using a cached status value
+      get(userStatusRef).then(snapshot => {
+        // Only update to away if currently online to avoid overriding offline status
+        if (snapshot.val() === "online") {
+          set(userStatusRef, "away");
+        }
+      });
+    }, 60000); // 60 seconds of inactivity
   }
 
+  // Add activity listeners
   ["mousemove", "keydown", "click", "scroll"].forEach(event => {
     window.addEventListener(event, () => {
+      // Update to online and reset the timer
       set(userStatusRef, "online");
       startInactivityTimer();
     });
   });
 
+  // Start the initial timer
   startInactivityTimer();
 }
+
  onAuthStateChanged(auth, async (user) => {
  if (user) {
  currentUser = user;
@@ -873,6 +883,7 @@ async function grantGeneralChannelAccess(serverId) {
 }
 
 // Function to load and display members for the current server
+// Updated loadServerMembers function to prevent duplicate members
 async function loadServerMembers(serverId) {
   const membersList = document.getElementById("membersList");
   membersList.innerHTML = "<p>Loading members...</p>";
@@ -901,9 +912,17 @@ async function loadServerMembers(serverId) {
       const server = serverSnapshot.val();
       
       const members = [];
+      const displayedMemberIds = new Set(); // Track displayed member IDs
       
       snapshot.forEach((memberSnap) => {
         const memberId = memberSnap.key;
+        
+        // Skip if we've already added this member
+        if (displayedMemberIds.has(memberId)) return;
+        
+        // Add to displayed set
+        displayedMemberIds.add(memberId);
+        
         const memberData = memberSnap.val();
         
         // Extract username and role
@@ -946,6 +965,7 @@ async function loadServerMembers(serverId) {
         const memberItem = document.createElement("div");
         memberItem.className = "member-item";
         memberItem.id = `user-${member.id}`;
+        memberItem.dataset.memberId = member.id; // Store the member ID for easy reference
         
         // Add blocked class if user is blocked
         if (blockedUsers[member.id]) {
@@ -1030,29 +1050,37 @@ function listenUserStatus(userId) {
   
   const statusRef = ref(db, `users/${userId}/status`);
   
-  onValue(statusRef, (snapshot) => {
-  const status = snapshot.val();
-  console.log(` Status for ${userId}:`, status); // check output status on console
-  const indicator = userDiv.querySelector('.status-indicator');
+  try {
+    // Remove any existing listeners first
+    off(statusRef);
+    
+    // Add the new listener
+    onValue(statusRef, (snapshot) => {
+      const status = snapshot.val() || "offline";
+      const indicator = userDiv.querySelector('.status-indicator');
 
-    if (indicator) {
-      let icon = "⚪️";
-      if (status === "online") {
-        icon = "🟢";
-      } else if (status === "away") {
-        icon = "🟡";
+      if (indicator) {
+        let icon = "⚪️";
+        if (status === "online") {
+          icon = "🟢";
+        } else if (status === "away") {
+          icon = "🟡";
+        }
+
+        indicator.style.transition = "opacity 0.3s";
+        indicator.style.opacity = 0.5;
+
+        setTimeout(() => {
+          indicator.textContent = icon;
+          indicator.style.opacity = 1;
+        }, 100);
       }
-
-      indicator.style.transition = "opacity 0.3s";
-    indicator.style.opacity = 0.5;
-
-    setTimeout(() => {
-      indicator.textContent = icon;
-      indicator.style.opacity = 1;
-    }, 100);
-      
-    }
-  });
+    }, (error) => {
+      console.error(`Error listening to status for user ${userId}:`, error);
+    });
+  } catch (error) {
+    console.error(`Error setting up status listener for user ${userId}:`, error);
+  }
 }
 
 // Store original servers to use for filtering
@@ -2668,6 +2696,92 @@ async function grantPublicChannelAccess(serverId) {
   }
 }
 
+async function handleAddMember(username) {
+  if (!username) {
+    alert("Please enter a username.");
+    return false;
+  }
+  
+  if (!selectedServer) {
+    alert("❌ No server selected.");
+    return false;
+  }
+  
+  try {
+    // First check if the user exists in the database
+    const usersRef = ref(db, "users");
+    const usersSnapshot = await get(usersRef);
+    let userFound = false;
+    let addedUserId = null;
+    
+    usersSnapshot.forEach((userSnap) => {
+      const user = userSnap.val();
+      if (user.username === username) {
+        userFound = true;
+        addedUserId = userSnap.key;
+      }
+    });
+    
+    if (userFound && addedUserId) {
+      // Check if the user is already a member of this server
+      const memberRef = ref(db, `servers/${selectedServer.id}/members/${addedUserId}`);
+      const memberSnapshot = await get(memberRef);
+      
+      if (memberSnapshot.exists()) {
+        alert(`❌ ${username} is already a member of this server.`);
+        return false;
+      }
+      
+      // Add the member to the server
+      await set(ref(db, `servers/${selectedServer.id}/members/${addedUserId}`), {
+        username: username,
+        role: "member"
+      });
+      
+      // Grant access to all public channels and general channel
+      const channelsRef = ref(db, `servers/${selectedServer.id}/channels`);
+      const channelsSnapshot = await get(channelsRef);
+      
+      if (channelsSnapshot.exists()) {
+        channelsSnapshot.forEach(async (channelSnap) => {
+          const channelId = channelSnap.key;
+          const channel = channelSnap.val();
+          
+          // Grant access to public channels and the general channel
+          if (channel.type === "public" || channel.name === "general") {
+            await set(ref(db, `servers/${selectedServer.id}/channels/${channelId}/allowedMembers/${addedUserId}`), true);
+          }
+        });
+      }
+      
+      alert(`✅ ${username} was added to ${selectedServer.name} successfully!`);
+      return true;
+    } else {
+      alert("❌ User not found.");
+      return false;
+    }
+  } catch (error) {
+    console.error("❌ Error adding member:", error);
+    alert("Failed to add member.");
+    return false;
+  }
+}
+
+// Function to clean up user status listeners
+function cleanupStatusListeners() {
+  // Get all user elements
+  const userElements = document.querySelectorAll('[id^="user-"]');
+  
+  // For each user element, remove the status listener
+  userElements.forEach(element => {
+    const userId = element.id.replace('user-', '');
+    if (userId) {
+      const statusRef = ref(db, `users/${userId}/status`);
+      off(statusRef);
+    }
+  });
+}
+
 // Event listeners
 document.addEventListener("DOMContentLoaded", () => {
   // Clone the manageChannelAccess button to remove any existing event listeners
@@ -2727,22 +2841,18 @@ document.addEventListener("DOMContentLoaded", () => {
   
   // Back button
   backToServersBtn.addEventListener("click", () => {
-    if (selectedServer) {
-    // Clear all listeners for the current server
+  if (selectedServer) {
+    // Clean up all listeners
     const channelsRef = ref(db, `servers/${selectedServer.id}/channels`);
     off(channelsRef);
     
     const membersRef = ref(db, `servers/${selectedServer.id}/members`);
     off(membersRef);
     
-    // Clear member listeners for each user status if you have them
-    if (selectedServer && selectedServer.members) {
-      Object.keys(selectedServer.members).forEach(userId => {
-        const statusRef = ref(db, `users/${userId}/status`);
-        off(statusRef);
-      });
-    }
+    // Clean up status listeners
+    cleanupStatusListeners();
   }
+  
   serverSectionView.style.display = "block";
   channelSectionView.style.display = "none";
   membersSidebar.style.display = "none";
@@ -3016,78 +3126,25 @@ document.addEventListener("DOMContentLoaded", () => {
   
   // Update the Add Member functionality to grant access to public channels
   confirmAddMemberBtn.addEventListener("click", async () => {
-    const username = document.getElementById("memberUsernameInput").value.trim();
-    if (!username) {
-      alert("Please enter a username.");
-      return;
+  const username = document.getElementById("memberUsernameInput").value.trim();
+  const success = await handleAddMember(username);
+  
+  if (success) {
+    document.getElementById("addMemberPopUp").style.display = "none";
+    document.getElementById("memberUsernameInput").value = "";
+    
+    // Force clear the member list DOM and reload
+    const membersList = document.getElementById("membersList");
+    if (membersList) {
+      membersList.innerHTML = "<p>Refreshing members...</p>";
     }
     
-    if (!selectedServer) {
-      alert("❌ No server selected.");
-      return;
-    }
-    
-    try {
-      // First check if the user exists in the database
-      const usersRef = ref(db, "users");
-      const usersSnapshot = await get(usersRef);
-      let userFound = false;
-      let addedUserId = null;
-      
-      usersSnapshot.forEach((userSnap) => {
-        const user = userSnap.val();
-        if (user.username === username) {
-          userFound = true;
-          addedUserId = userSnap.key;
-        }
-      });
-      
-      if (userFound && addedUserId) {
-        // Check if the user is already a member of this server
-        const memberRef = ref(db, `servers/${selectedServer.id}/members/${addedUserId}`);
-        const memberSnapshot = await get(memberRef);
-        
-        if (memberSnapshot.exists()) {
-          alert(`❌ ${username} is already a member of this server.`);
-          return;
-        }
-        
-        // Add the member to the server
-        await set(ref(db, `servers/${selectedServer.id}/members/${addedUserId}`), {
-          username: username,
-          role: "member"
-        });
-        
-        // Grant access to all public channels and general channel
-        const channelsRef = ref(db, `servers/${selectedServer.id}/channels`);
-        const channelsSnapshot = await get(channelsRef);
-        
-        if (channelsSnapshot.exists()) {
-          channelsSnapshot.forEach(async (channelSnap) => {
-            const channelId = channelSnap.key;
-            const channel = channelSnap.val();
-            
-            // Grant access to public channels and the general channel
-            if (channel.type === "public" || channel.name === "general") {
-              await set(ref(db, `servers/${selectedServer.id}/channels/${channelId}/allowedMembers/${addedUserId}`), true);
-            }
-          });
-        }
-        
-        alert(`✅ ${username} was added to ${selectedServer.name} successfully!`);
-        addMemberPopUp.style.display = "none";
-        document.getElementById("memberUsernameInput").value = "";
-        
-        // Refresh member list if it's visible
-        loadServerMembers(selectedServer.id);
-      } else {
-        alert("❌ User not found.");
-      }
-    } catch (error) {
-      console.error("❌ Error adding member:", error);
-      alert("Failed to add member.");
-    }
-  });
+    // Use a timeout to allow the database to update first
+    setTimeout(() => {
+      loadServerMembers(selectedServer.id);
+    }, 300);
+  }
+});
 
   // Manage channel access - this is the fixed event listener to prevent double popups
   document.getElementById("manageChannelAccess").addEventListener("click", async () => {
@@ -3831,6 +3888,9 @@ window.selectedChannel = selectedChannel;
 window.getCurrentUserRole = getCurrentUserRole;
 window.canAccessChannel = canAccessChannel;
 window.grantGeneralChannelAccess = grantGeneralChannelAccess;
+window.loadServerMembers = loadServerMembers;
+window.handleAddMember = handleAddMember;
+window.cleanupStatusListeners = cleanupStatusListeners;
 </script>
 <script type="module" src="./memberHandler.js"></script>
 </body>
