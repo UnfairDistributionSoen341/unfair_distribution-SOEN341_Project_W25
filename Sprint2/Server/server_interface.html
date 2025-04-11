@@ -1234,6 +1234,24 @@ async function selectServer(server) {
 // Store original channels to use for filtering
 let allChannels = []
 
+function clearChannelAccessCacheForServer(serverId) {
+  Object.keys(channelAccessCache).forEach(key => {
+    if (key.startsWith(`${serverId}-`)) {
+      delete channelAccessCache[key];
+    }
+  });
+  console.log(`Cleared channel access cache for server ${serverId}`);
+}
+
+function clearChannelAccessCacheForChannel(serverId, channelId) {
+  Object.keys(channelAccessCache).forEach(key => {
+    if (key.includes(`${serverId}-${channelId}`)) {
+      delete channelAccessCache[key];
+    }
+  });
+  console.log(`Cleared channel access cache for channel ${channelId} in server ${serverId}`);
+}
+
 // Enhanced channel loading with real-time updates
 async function loadChannels(serverId) {
   const channelList = document.getElementById("channelList");
@@ -1242,7 +1260,11 @@ async function loadChannels(serverId) {
   try {
     const channelsRef = ref(db, `servers/${serverId}/channels`);
 
+    // Remove any existing listeners
     off(channelsRef);
+    
+    // Clear cache for this server's channels
+    clearChannelAccessCacheForServer(serverId);
     
     // Use onValue for real-time updates to channel list
     onValue(channelsRef, async (snapshot) => {
@@ -1496,10 +1518,20 @@ async function displayChannels(channels) {
     return;
   }
   
+  // Track displayed channel IDs to prevent duplicates
+  const displayedChannelIds = new Set();
+  
   // Otherwise display the filtered channels
   for (const channel of channels) {
+    // Skip if we've already displayed this channel
+    if (displayedChannelIds.has(channel.id)) continue;
+    
+    // Add to displayed set
+    displayedChannelIds.add(channel.id);
+    
     const channelDiv = document.createElement("div");
     channelDiv.className = "channel";
+    channelDiv.dataset.channelId = channel.id; // Store the channel ID for easy reference
     
     // Create a container for channel name and type badge
     const channelInfoDiv = document.createElement("div");
@@ -1604,7 +1636,51 @@ async function displayChannels(channels) {
 async function canAccessChannel(serverId, channelId, userId) {
   const cacheKey = `${serverId}-${channelId}-${userId}`;
   
-  // Return from cache if available
+  // We'll ignore the cache when checking access for the current user to ensure it's always up to date
+  // This helps avoid the duplicate channel issue
+  if (userId === currentUser.uid) {
+    // Force checking the database for current user
+    try {
+      const channelRef = ref(db, `servers/${serverId}/channels/${channelId}`);
+      const channelSnapshot = await get(channelRef);
+      
+      if (!channelSnapshot.exists()) {
+        channelAccessCache[cacheKey] = false;
+        return false;
+      }
+      
+      const channel = channelSnapshot.val();
+      console.log(`Channel access check - ${channel.name} type:`, channel.type);
+      
+      // Owners and admins always have access
+      const userRole = await getCurrentUserRole(serverId, userId);
+      if (userRole === "owner" || userRole === "admin") {
+        channelAccessCache[cacheKey] = true;
+        return true;
+      }
+      
+      // If channel is public, all members have access by default
+      if (channel.type === "public") {
+        console.log(`Public channel ${channel.name}: granting access`);
+        channelAccessCache[cacheKey] = true;
+        return true;
+      }
+      
+      // For private channels, check allowedMembers
+      const allowedRef = ref(db, `servers/${serverId}/channels/${channelId}/allowedMembers/${userId}`);
+      const allowedSnapshot = await get(allowedRef);
+      const hasAccess = allowedSnapshot.exists();
+      
+      channelAccessCache[cacheKey] = hasAccess;
+      console.log(`Private channel ${channel.name}: user ${userId} access is ${hasAccess}`);
+      return hasAccess;
+    } catch (error) {
+      console.error("Error checking channel access:", error);
+      return false;
+    }
+  }
+  
+  // For other users, we can use the cache
   if (channelAccessCache[cacheKey] !== undefined) {
     return channelAccessCache[cacheKey];
   }
@@ -1619,7 +1695,6 @@ async function canAccessChannel(serverId, channelId, userId) {
     }
     
     const channel = channelSnapshot.val();
-    console.log(`Channel access check - ${channel.name} type:`, channel.type);
     
     // Owners and admins always have access
     const userRole = await getCurrentUserRole(serverId, userId);
@@ -1630,7 +1705,6 @@ async function canAccessChannel(serverId, channelId, userId) {
     
     // If channel is public, all members have access by default
     if (channel.type === "public") {
-      console.log(`Public channel ${channel.name}: granting access`);
       channelAccessCache[cacheKey] = true;
       return true;
     }
@@ -1809,6 +1883,36 @@ function showAccessRequestNotification(serverId, channelId, userId, serverName, 
     notification.style.opacity = '1';
     notification.style.transform = 'translateX(0)';
   }, 10);
+}
+
+async function updateChannelType(serverId, channelId, newType) {
+  try {
+    // Update the channel type
+    await set(ref(db, `servers/${serverId}/channels/${channelId}/type`), newType);
+    
+    // If changing to public, add all members to allowedMembers
+    if (newType === "public") {
+      const membersRef = ref(db, `servers/${serverId}/members`);
+      const membersSnapshot = await get(membersRef);
+      
+      if (membersSnapshot.exists()) {
+        const allMembers = {};
+        membersSnapshot.forEach(memberSnap => {
+          allMembers[memberSnap.key] = true;
+        });
+        
+        await set(ref(db, `servers/${serverId}/channels/${channelId}/allowedMembers`), allMembers);
+      }
+    }
+    
+    // Clear the channel access cache for this channel
+    clearChannelAccessCacheForChannel(serverId, channelId);
+    
+    return true;
+  } catch (error) {
+    console.error("Error updating channel type:", error);
+    return false;
+  }
 }
 
 function addRequestNotificationStyles() {
@@ -2531,9 +2635,11 @@ async function grantPublicChannelAccess(serverId) {
     // For each channel that is public, add all members to allowedMembers
     let updatedCount = 0;
     
-    channelsSnapshot.forEach(async (channelSnap) => {
+    for (const channelSnap of channelsSnapshot.val()) {
       const channelId = channelSnap.key;
       const channel = channelSnap.val();
+      
+      if (!channel || !channelId) continue;
       
       console.log(`Processing channel: ${channel.name}, type: ${channel.type || "not set"}`);
       
@@ -2552,13 +2658,9 @@ async function grantPublicChannelAccess(serverId) {
         updatedCount++;
         
         // Clear access cache for this channel
-        Object.keys(channelAccessCache).forEach(key => {
-          if (key.includes(`${serverId}-${channelId}`)) {
-            delete channelAccessCache[key];
-          }
-        });
+        clearChannelAccessCacheForChannel(serverId, channelId);
       }
-    });
+    }
     
     console.log(`Updated access for ${updatedCount} public channels`);
   } catch (error) {
